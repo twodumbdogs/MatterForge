@@ -15,7 +15,7 @@ The first build path was intentionally practical:
 5. Reporting, permissions, and integrations
 6. Fancy admin designer UX
 
-We deliberately did not over-engineer hosting first. The app runs locally with Kestrel while the core model and workflows are being built. Azure SQL is the current database target.
+We deliberately did not over-engineer hosting first. The app still runs locally with Kestrel for development, but the project now also has a live Azure dev environment and a public marketing site.
 
 ## Current Stack
 
@@ -24,9 +24,40 @@ We deliberately did not over-engineer hosting first. The app runs locally with K
 - Entity Framework Core
 - Azure SQL for persistent development data
 - Azure Blob Storage for private submission attachment files
+- Azure App Service for the live dev app/demo
+- Azure Static Web Apps for the public marketing site
+- A future Azure Function App/API resource is provisioned for a possible split architecture later
 - In-memory database fallback when the configured connection string is missing or still has the placeholder server
 - Bootstrap-style UI with custom CMIForge styling
 - Local development URL: `http://localhost:5153`
+
+## Current Cloud Architecture
+
+Current public surfaces:
+
+- Public marketing site: `https://cmiforge.com`
+- Static Web App default host: `https://happy-smoke-052d7f610.7.azurestaticapps.net`
+- Live dev app/demo: `https://cmiforge-dev-web-06161223.azurewebsites.net`
+
+Current Azure resources:
+
+- Resource group: `gw-rg`
+- App Service plan: `cmiforge-dev-plan`
+- App Service app: `cmiforge-dev-web-06161223`
+- Azure SQL server: `gwmatterforge.database.windows.net`
+- Azure SQL database: `matterforge-prototype`
+- Attachment storage account: `cmiforgeattachasgmt7`
+- Attachment container: `submission-attachments`
+- Static Web App: `cmiforge-web-06161219`
+- Future Function App/API resource: `cmiforge-api-06161219`
+
+Current hosting stance:
+
+- The Razor Pages app is the real product host today.
+- The public marketing site is separate and deployed through Azure Static Web Apps.
+- The Static Web App + Function App split is scaffolded for later, but the app has not been rewritten into that model.
+- The live dev app uses demo mode so visitors can explore with the seeded `Ima User` context.
+- `app.cmiforge.com` is intentionally not bound yet because App Service custom domains require a paid plan tier.
 
 ## In-App Help
 
@@ -67,7 +98,7 @@ dotnet tool run dotnet-ef database update
 dotnet run --urls http://localhost:5153
 ```
 
-The current Azure SQL database has the full entity, workflow, conflicts, import, and attachment migration chain applied through `AddSubmissionAttachments`.
+The current Azure SQL database has the full entity, workflow, conflicts, import, attachment, time/reporting, and audit-log migration chain applied through `AddAuditLogsAndSecurityHardening`.
 
 ## Plan Limiter
 
@@ -194,8 +225,11 @@ Current Azure storage configuration:
 - Storage account: `cmiforgeattachasgmt7`
 - Container: `submission-attachments`
 - Public blob access: disabled
-- Connection string stored in .NET user secrets under `SubmissionAttachments:ConnectionString`
-- Container name stored under `SubmissionAttachments:ContainerName`
+- Local development can use a connection string stored in .NET user secrets under `SubmissionAttachments:ConnectionString`
+- The live dev App Service uses managed identity with `SubmissionAttachments:UseManagedIdentity=true`
+- Managed identity storage is configured with `SubmissionAttachments:AccountName=cmiforgeattachasgmt7`
+- Container name is stored under `SubmissionAttachments:ContainerName`
+- Blob downloads flow through CMIForge permission checks rather than public blob URLs
 
 Attachments live directly on the submission detail page:
 
@@ -524,6 +558,13 @@ Also verified in the running app:
 - Azure Blob attachment configuration was stored in user secrets.
 - A smoke harness verified PDF upload to Blob Storage, SQL metadata save, Blob download, Blob delete, and SQL cleanup.
 - The submission details page renders the attachment panel with optional display names and constrained file types.
+- Managed-identity Blob upload/download/delete was verified in the live dev App Service.
+- Storage account keys were rotated after managed-identity attachment access was verified.
+- Public blob access is disabled.
+- Blob soft delete is enabled.
+- App Service FTP/SCM basic publishing credentials are disabled.
+- The public marketing site was deployed to Azure Static Web Apps and verified at `https://cmiforge.com`.
+- The public site now presents the current Free/Standard/Professional packaging, live demo link, support contact, and pain-focused platform messaging.
 
 ## Workflow Slice
 

@@ -24,10 +24,14 @@ By the end of this walkthrough, you should have personally exercised:
 
 ## Assumptions
 
-- You are running locally and signed in as the seeded admin-style local user context.
-- The app is using the current local dev URL. Examples below assume `http://localhost:5154`.
+- You are running locally or in the live dev app.
+- Local examples below assume `http://localhost:5154`.
+- The live dev app is available at `https://cmiforge-dev-web-06161223.azurewebsites.net`.
+- The public marketing site is available at `https://cmiforge.com`.
+- The live dev app currently uses demo mode with the seeded `Ima User` context.
 - The current hardcoded plan is `Professional`, so workflow and other gated features should be available.
 - Azure SQL and Azure Blob attachment storage are already configured.
+- In the live dev app, private submission attachments use Azure Blob Storage through managed identity.
 
 ## Suggested Time
 

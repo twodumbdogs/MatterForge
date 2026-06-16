@@ -12,6 +12,8 @@ It captures the current Azure dev resources, the expected app settings shape, an
 - App Service app: `cmiforge-dev-web-06161223`
 - URL: `https://cmiforge-dev-web-06161223.azurewebsites.net`
 - Authentication model to Azure SQL: system-assigned managed identity
+- Attachment storage model: system-assigned managed identity to private Blob Storage
+- Demo mode: enabled for the live public dev demo
 
 ### Future split-app API host
 
@@ -40,9 +42,13 @@ It captures the current Azure dev resources, the expected app settings shape, an
 The live dev App Service currently expects:
 
 - `ConnectionStrings__DefaultConnection`
-- `SubmissionAttachments__ConnectionString`
 - `SubmissionAttachments__ContainerName`
+- `SubmissionAttachments__UseManagedIdentity`
+- `SubmissionAttachments__AccountName`
 - `ASPNETCORE_ENVIRONMENT`
+- `MatterForge__CurrentUserEmail`
+- `MatterForge__CurrentUserDisplayName`
+- `MatterForge__DemoMode`
 
 The intended Azure SQL connection string for the dev App Service is:
 
@@ -54,6 +60,16 @@ The App Service managed identity already has a database user in `matterforge-pro
 
 - `db_datareader`
 - `db_datawriter`
+
+The same App Service managed identity has Blob access to the attachment storage account. The app should not need `SubmissionAttachments__ConnectionString` in the cloud dev environment.
+
+Current attachment settings:
+
+```text
+SubmissionAttachments__ContainerName=submission-attachments
+SubmissionAttachments__UseManagedIdentity=true
+SubmissionAttachments__AccountName=cmiforgeattachasgmt7
+```
 
 ## Repo Deployment Path
 
@@ -87,10 +103,10 @@ Typical setup flow:
 From `c#/MatterForge`:
 
 ```powershell
-.\deploy\dev\deploy-dev.ps1 -BlobConnectionString "<storage-connection-string>"
+.\deploy\dev\deploy-dev.ps1
 ```
 
-That wrapper deploys to the fixed dev App Service resources and keeps the Azure SQL managed identity connection string consistent.
+That wrapper deploys to the fixed dev App Service resources and keeps the Azure SQL and Blob managed-identity settings consistent.
 
 ## Public Site
 
@@ -123,6 +139,13 @@ $token = (az staticwebapp secrets list --name cmiforge-web-06161219 --resource-g
 npx @azure/static-web-apps-cli deploy "D:\00-mega\dad\scripts\codex\sites\cmiforge-web" --deployment-token $token --env production
 ```
 
+The most recent public-site deploy was verified at:
+
+- `https://cmiforge.com`
+- `https://happy-smoke-052d7f610.7.azurestaticapps.net`
+
+The live site currently includes the pain-focused intake messaging, Free/Standard/Professional pricing, `support@cmiforge.com`, and a prominent live demo CTA.
+
 ## Pending App Domain
 
 `cmiforge.com` DNS is not hosted in this Azure subscription, so `app.cmiforge.com` needs to be created at the domain registrar or external DNS host.
@@ -142,6 +165,8 @@ Important note:
 
 - The current production-worthy host for the existing CMIForge app is App Service, not Static Web Apps.
 - The Static Web App and Function App are in place as future split-architecture scaffolding.
+- The live demo remains App Service-hosted and uses `MatterForge__DemoMode=true` so the app resolves to `Ima User` without requiring visitors to sign in.
+- Microsoft Entra login is supported by the app, but public demo mode intentionally bypasses the sign-in requirement for now.
 - `az staticwebapp functions link` still fails in this environment with `API version 2020-12-01 does not have operation group 'static_sites'`.
 - The working Azure CLI path was the newer backend-link flow:
 
