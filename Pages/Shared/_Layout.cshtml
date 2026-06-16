@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+@inject MatterForge.Services.PermissionService Permissions
+@inject MatterForge.Services.CurrentUserService CurrentUserService
+@inject MatterForge.Services.ProductPlanService ProductPlans
+@{
+    var path = ViewContext.HttpContext.Request.Path;
+    var canViewForms = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.FormsView);
+    var canViewSubmissions = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.SubmissionsViewAll)
+        || await Permissions.HasAsync(MatterForge.Services.PermissionKeys.SubmissionsViewOwn);
+    var canViewWorkflowQueue = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.WorkflowsViewQueue)
+        && ProductPlans.AllowsFeature(MatterForge.Services.ProductFeatureKeys.Workflow);
+    var canViewConflicts = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.ConflictsView);
+    var canViewTime = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.TimeViewAll)
+        || await Permissions.HasAsync(MatterForge.Services.PermissionKeys.TimeViewOwn);
+    var canViewReports = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.ReportingView)
+        && ProductPlans.AllowsFeature(MatterForge.Services.ProductFeatureKeys.Reporting);
+    var canViewImports = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.ImportsView);
+    var canViewEntities = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.EntitiesView);
+    var canManageSecurity = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.SecurityManage);
+    var showSystemMenu = true;
+    var isSystemSection = path.StartsWithSegments("/Forms")
+        || path.StartsWithSegments("/Workflow")
+        || path.StartsWithSegments("/Imports")
+        || path.StartsWithSegments("/Security")
+        || path.StartsWithSegments("/Billing")
+        || path.StartsWithSegments("/System");
+}
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - CMIForge</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/MatterForge.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark mf-nav border-bottom box-shadow mb-3">
+            <div class="container">
+                <a class="navbar-brand" asp-area="" asp-page="/Index">CMIForge</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        @if (canViewSubmissions)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link @(path.StartsWithSegments("/Submissions") ? "active" : null)" asp-area="" asp-page="/Submissions/Index">Submissions</a>
+                            </li>
+                        }
+                        @if (canViewEntities)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link @(path.StartsWithSegments("/Entities") ? "active" : null)" asp-area="" asp-page="/Entities/Clients/Index">Entities</a>
+                            </li>
+                        }
+                        @if (canViewConflicts)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link @(path.StartsWithSegments("/Conflicts") ? "active" : null)" asp-area="" asp-page="/Conflicts/Index">Conflicts</a>
+                            </li>
+                        }
+                        @if (canViewTime)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link @(path.StartsWithSegments("/Time") ? "active" : null)" asp-area="" asp-page="/Time/Index">Time</a>
+                            </li>
+                        }
+                        @if (canViewReports)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link @(path.StartsWithSegments("/Reports") ? "active" : null)" asp-area="" asp-page="/Reports/Index">Reports</a>
+                            </li>
+                        }
+                        @if (showSystemMenu)
+                        {
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle @(isSystemSection ? "active" : null)"
+                                   href="#"
+                                   id="systemNavDropdown"
+                                   role="button"
+                                   data-bs-toggle="dropdown"
+                                   aria-expanded="false">
+                                    System
+                                </a>
+                                <ul class="dropdown-menu mf-system-menu" aria-labelledby="systemNavDropdown">
+                                    @if (canViewForms)
+                                    {
+                                        <li>
+                                            <a class="dropdown-item @(path.StartsWithSegments("/Forms") ? "active" : null)" asp-area="" asp-page="/Forms/Index">Forms</a>
+                                        </li>
+                                    }
+                                    @if (canViewWorkflowQueue)
+                                    {
+                                        <li>
+                                            <a class="dropdown-item @(path.StartsWithSegments("/Workflow") ? "active" : null)" asp-area="" asp-page="/Workflow/Queue">Workflows</a>
+                                        </li>
+                                    }
+                                    @if (canViewImports)
+                                    {
+                                        <li>
+                                            <a class="dropdown-item @(path.StartsWithSegments("/Imports") ? "active" : null)" asp-area="" asp-page="/Imports/Index">Imports</a>
+                                        </li>
+                                    }
+                                    @if (canManageSecurity)
+                                    {
+                                        <li>
+                                            <a class="dropdown-item @(path.StartsWithSegments("/Security") ? "active" : null)" asp-area="" asp-page="/Security/Index">Security</a>
+                                        </li>
+                                    }
+                                    <li>
+                                        <a class="dropdown-item @(path.StartsWithSegments("/Billing") ? "active" : null)" asp-area="" asp-page="/Billing/Index">Plan</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item @(path.StartsWithSegments("/System") ? "active" : null)" asp-area="" asp-page="/System/Terms">Terms</a>
+                                    </li>
+                                </ul>
+                            </li>
+                        }
+                        <li class="nav-item">
+                            <a class="nav-link @(path.StartsWithSegments("/Help") ? "active" : null)" asp-area="" asp-page="/Help/Index">Help</a>
+                        </li>
+                    </ul>
+                    <span class="navbar-text text-light me-3">@ProductPlans.CurrentPlan.Name</span>
+                    @if (CurrentUserService.IsEntraLoginEnabled())
+                    {
+                        var authenticatedEmail = CurrentUserService.GetAuthenticatedEmail();
+                        if (string.IsNullOrWhiteSpace(authenticatedEmail))
+                        {
+                            <a class="btn btn-sm btn-outline-light" href="/Account/SignIn">Sign in</a>
+                        }
+                        else
+                        {
+                            <form method="post" action="/Account/SignOut" class="d-flex align-items-center gap-2">
+                                <span class="navbar-text text-light">@authenticatedEmail</span>
+                                <button class="btn btn-sm btn-outline-light" type="submit">Sign out</button>
+                            </form>
+                        }
+                    }
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2026 - CMIForge · @MatterForge.Services.ProductInfo.Version
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

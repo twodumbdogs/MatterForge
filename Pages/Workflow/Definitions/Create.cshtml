@@ -1,0 +1,105 @@
+@page
+@model MatterForge.Pages.Workflow.Definitions.CreateModel
+@{
+    ViewData["Title"] = "Create Workflow";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Workflow builder</p>
+        <h1>Create Workflow</h1>
+    </div>
+</div>
+
+<form method="post" class="mf-panel">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="Input.Name" class="form-label"></label>
+            <input asp-for="Input.Name" class="form-control" placeholder="Standard Intake Review" />
+            <span asp-validation-for="Input.Name" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Input.Key" class="form-label"></label>
+            <input asp-for="Input.Key" class="form-control" placeholder="standard-intake-review" />
+            <span asp-validation-for="Input.Key" class="text-danger"></span>
+        </div>
+        <div class="col-12">
+            <label asp-for="Input.Description" class="form-label"></label>
+            <textarea asp-for="Input.Description" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Input.FormDefinitionId" class="form-label"></label>
+            <select asp-for="Input.FormDefinitionId" asp-items="Model.FormOptions" class="form-select">
+                <option value="">Global fallback</option>
+            </select>
+        </div>
+        <div class="col-md-6 d-flex align-items-end">
+            <div class="form-check">
+                <input asp-for="Input.IsActive" class="form-check-input" />
+                <label asp-for="Input.IsActive" class="form-check-label"></label>
+            </div>
+        </div>
+    </div>
+
+    <hr />
+
+    <h2 class="h5">Steps</h2>
+    <p class="text-muted">New submissions receive the first matching task from the workflow attached to their form version.</p>
+
+    <div class="table-responsive mf-designer-table">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th style="width: 90px;">Order</th>
+                    <th>Name</th>
+                    <th>User</th>
+                    <th>Team</th>
+                    <th>Primary label</th>
+                    <th>Status</th>
+                    <th>Outcomes</th>
+                    <th>Run when</th>
+                    <th>Operator</th>
+                    <th>Value</th>
+                    <th>Instructions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < Model.Input.Steps.Count; i++)
+                {
+                    <tr>
+                        <td><input class="form-control" asp-for="Input.Steps[i].StepNumber" /></td>
+                        <td><input class="form-control" asp-for="Input.Steps[i].Name" /></td>
+                        <td>
+                            <select class="form-select" asp-for="Input.Steps[i].AssignedUserId" asp-items="Model.UserOptions">
+                                <option value="">Unassigned</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select class="form-select" asp-for="Input.Steps[i].AssignedTeamId" asp-items="Model.TeamOptions">
+                                <option value="">No team</option>
+                            </select>
+                        </td>
+                        <td><input class="form-control" asp-for="Input.Steps[i].ApprovalLabel" /></td>
+                        <td><select class="form-select" asp-for="Input.Steps[i].CompletionSubmissionStatus" asp-items="Model.CompletionStatusOptions"></select></td>
+                        <td><input class="form-control" asp-for="Input.Steps[i].Outcomes" placeholder="Approve|Advance|In Review; Return|Return|Returned" title="@MatterForge.Services.WorkflowOutcomeParser.DesignerHelpText" /></td>
+                        <td><input class="form-control" asp-for="Input.Steps[i].ConditionFieldKey" placeholder="cdd" /></td>
+                        <td><select class="form-select" asp-for="Input.Steps[i].ConditionOperator" asp-items="Model.ConditionOperatorOptions"></select></td>
+                        <td><input class="form-control" asp-for="Input.Steps[i].ConditionValue" placeholder="Yes" /></td>
+                        <td><input class="form-control" asp-for="Input.Steps[i].Instructions" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Create workflow</button>
+        <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

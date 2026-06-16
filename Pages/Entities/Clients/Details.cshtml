@@ -1,0 +1,79 @@
+@page "{id:guid}"
+@model MatterForge.Pages.Entities.Clients.DetailsModel
+@{
+    ViewData["Title"] = Model.Client is null ? "Client Details" : $"Client {Model.Client.ClientNumber:D8}";
+    ViewData["ActiveEntityTab"] = "Clients";
+}
+
+@if (Model.Client is null)
+{
+    <div class="alert alert-warning">That client could not be found.</div>
+}
+else
+{
+    <div class="mf-page-heading">
+        <div>
+            <p class="mf-eyebrow">Client <span>@Model.Client.ClientNumber.ToString("D8")</span></p>
+            <h1>@Model.Client.Name</h1>
+            <p class="text-muted">@Model.Client.Status</p>
+        </div>
+        <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+    </div>
+
+    <partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="mf-panel">
+                <h2>Client Details</h2>
+                <dl class="row mt-3 mb-0">
+                    <dt class="col-sm-5">Number</dt>
+                    <dd class="col-sm-7"><code>@Model.Client.ClientNumber.ToString("D8")</code></dd>
+                    <dt class="col-sm-5">Primary contact</dt>
+                    <dd class="col-sm-7">@Model.Client.PrimaryContact</dd>
+                    <dt class="col-sm-5">Email</dt>
+                    <dd class="col-sm-7">@Model.Client.Email</dd>
+                    <dt class="col-sm-5">Phone</dt>
+                    <dd class="col-sm-7">@Model.Client.Phone</dd>
+                    <dt class="col-sm-5">Notes</dt>
+                    <dd class="col-sm-7">@Model.Client.Notes</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="mf-panel">
+                <h2>Matters</h2>
+                @if (Model.Client.Matters.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No matters are linked to this client yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Number</th>
+                                    <th>Matter</th>
+                                    <th>Status</th>
+                                    <th>Responsible user</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var matter in Model.Client.Matters.OrderBy(x => x.MatterNumber))
+                                {
+                                    <tr>
+                                        <td><a asp-page="/Entities/Matters/Details" asp-route-id="@matter.Id"><code>@matter.MatterNumber.ToString("D8")</code></a></td>
+                                        <td>@matter.Name</td>
+                                        <td>@matter.Status</td>
+                                        <td>@(matter.ResponsibleUser?.DisplayName ?? "Unassigned")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}

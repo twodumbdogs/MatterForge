@@ -1,0 +1,113 @@
+@page
+@model MatterForge.Pages.Security.Teams.IndexModel
+@{
+    ViewData["Title"] = "Teams";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Security</p>
+        <h1>Teams</h1>
+        <p class="text-muted">Teams are both workflow assignment groups and role-bearing permission groups.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="/Security/Index">Security</a>
+</div>
+
+<div class="mf-panel mb-3">
+    <h2>Create Team</h2>
+    @if (Model.IsDemoMode)
+    {
+        <div class="alert alert-info">Live demo mode is on. @Model.ProtectedUserMessage</div>
+    }
+    <form method="post" class="row g-3 mt-1" asp-page-handler="CreateTeam">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="col-md-3">
+            <label asp-for="CreateTeam.Name" class="form-label"></label>
+            <input asp-for="CreateTeam.Name" class="form-control" placeholder="Intake Team" />
+            <span asp-validation-for="CreateTeam.Name" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="CreateTeam.Key" class="form-label"></label>
+            <input asp-for="CreateTeam.Key" class="form-control" placeholder="intake-team" />
+            <span asp-validation-for="CreateTeam.Key" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="CreateTeam.Description" class="form-label"></label>
+            <input asp-for="CreateTeam.Description" class="form-control" />
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-primary w-100" type="submit">Create</button>
+        </div>
+    </form>
+</div>
+
+@foreach (var team in Model.Teams)
+{
+    <div class="mf-panel mb-3">
+        <div class="d-flex justify-content-between gap-3 align-items-start">
+            <div>
+                <h2>@team.Name</h2>
+                <code>@team.Key</code>
+                <p class="text-muted mt-2 mb-0">@team.Description</p>
+            </div>
+            <span class="badge @(team.IsActive ? "text-bg-success" : "text-bg-secondary")">@(team.IsActive ? "Active" : "Inactive")</span>
+        </div>
+
+        <div class="row g-3 mt-2">
+            <div class="col-lg-6">
+                <h3 class="h5">Members</h3>
+                @if (team.Members.Count == 0)
+                {
+                    <p class="text-muted">No members yet.</p>
+                }
+                else
+                {
+                    <ul class="list-group mb-3">
+                        @foreach (var member in team.Members.OrderBy(x => x.User?.DisplayName))
+                        {
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>@member.User?.DisplayName</span>
+                                <small class="text-muted">@member.User?.Email</small>
+                            </li>
+                        }
+                    </ul>
+                }
+                <form method="post" class="d-flex gap-2" asp-page-handler="AddMember" asp-route-teamId="@team.Id">
+                    <select class="form-select" asp-for="MemberUserId" asp-items="Model.UserOptions">
+                        <option value="">Choose user...</option>
+                    </select>
+                    <button class="btn btn-outline-primary" type="submit">Add</button>
+                </form>
+            </div>
+            <div class="col-lg-6">
+                <h3 class="h5">Roles</h3>
+                @if (team.Roles.Count == 0)
+                {
+                    <p class="text-muted">No roles yet.</p>
+                }
+                else
+                {
+                    <ul class="list-group mb-3">
+                        @foreach (var role in team.Roles.OrderBy(x => x.SecurityRole?.Name))
+                        {
+                            <li class="list-group-item">
+                                <strong>@role.SecurityRole?.Name</strong>
+                                <small class="d-block text-muted">@role.SecurityRole?.Description</small>
+                            </li>
+                        }
+                    </ul>
+                }
+                <form method="post" class="d-flex gap-2" asp-page-handler="AddRole" asp-route-teamId="@team.Id">
+                    <select class="form-select" asp-for="RoleId" asp-items="Model.RoleOptions">
+                        <option value="">Choose role...</option>
+                    </select>
+                    <button class="btn btn-outline-primary" type="submit">Add</button>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

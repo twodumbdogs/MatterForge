@@ -1,0 +1,18 @@
+@{
+    var activeTab = ViewData["ActiveEntityTab"] as string ?? string.Empty;
+}
+
+<ul class="nav nav-tabs mf-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "Clients" ? "active" : null)" asp-page="/Entities/Clients/Index">Clients</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "Matters" ? "active" : null)" asp-page="/Entities/Matters/Index">Matters</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "Parties" ? "active" : null)" asp-page="/Entities/Parties/Index">Parties</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "Users" ? "active" : null)" asp-page="/Entities/Users/Index">Users</a>
+    </li>
+</ul>

@@ -1,0 +1,91 @@
+@page
+@model MatterForge.Pages.Conflicts.IndexModel
+@{
+    ViewData["Title"] = "Conflicts";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Conflicts</p>
+        <h1>Conflict Searches</h1>
+        <p class="text-muted">Run party, alias, relationship, and matter-context searches before approval and conversion.</p>
+    </div>
+    @if (Model.CanRunSearches)
+    {
+        <a class="btn btn-primary" asp-page="./Create">Run search</a>
+    }
+</div>
+
+<div class="mf-panel">
+    @if (Model.Searches.Count == 0)
+    {
+        <p class="text-muted mb-0">No conflict searches yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Search</th>
+                        <th>Status</th>
+                        <th>Decision</th>
+                        <th>Results</th>
+                        <th>Requested by</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var search in Model.Searches)
+                    {
+                        var topRisk = search.Results
+                            .OrderByDescending(x => Array.IndexOf(MatterForge.Models.ConflictRiskLevels.All, x.RiskLevel))
+                            .ThenByDescending(x => x.Score)
+                            .FirstOrDefault();
+                        <tr>
+                            <td><a asp-page="./Details" asp-route-id="@search.Id"><code>@search.SearchNumber.ToString("D8")</code></a></td>
+                            <td>
+                                <a class="mf-record-link" asp-page="./Details" asp-route-id="@search.Id">
+                                    <strong>@search.SearchName</strong>
+                                    @if (search.FormSubmission is not null)
+                                    {
+                                        <small class="d-block text-muted">Submission @search.FormSubmission.SubmissionNumber.ToString("D8") · @search.FormSubmission.FormDefinition?.Name</small>
+                                    }
+                                    @if (search.Matter is not null)
+                                    {
+                                        <small class="d-block text-muted">Matter @search.Matter.MatterNumber.ToString("D8") · @search.Matter.Name</small>
+                                    }
+                                </a>
+                            </td>
+                            <td><span class="badge text-bg-primary">@search.Status</span></td>
+                            <td>@search.ReviewerDecision</td>
+                            <td>
+                                @search.Results.Count
+                                @if (topRisk is not null)
+                                {
+                                    <span class="badge @RiskClass(topRisk.RiskLevel) ms-1">@topRisk.RiskLevel</span>
+                                }
+                            </td>
+                            <td>@(search.RequestedByUser?.DisplayName ?? "System")</td>
+                            <td>@UserDates.Format(search.CreatedAt)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@functions {
+    private static string RiskClass(string risk)
+    {
+        return risk switch
+        {
+            MatterForge.Models.ConflictRiskLevels.Critical => "text-bg-danger",
+            MatterForge.Models.ConflictRiskLevels.High => "text-bg-warning",
+            MatterForge.Models.ConflictRiskLevels.Medium => "text-bg-info",
+            _ => "text-bg-secondary"
+        };
+    }
+}

@@ -1,0 +1,160 @@
+@page
+@model MatterForge.Pages.Workflow.QueueModel
+@{
+    ViewData["Title"] = "Workflow Queue";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Workflow</p>
+        <h1>Approval Queue</h1>
+        <p class="text-muted">Review open intake tasks and move submissions through their workflow steps.</p>
+        @if (Model.CurrentUser is not null)
+        {
+            <small class="text-muted">Current user: @Model.CurrentUser.DisplayName</small>
+        }
+    </div>
+    @if (Model.CanDesignWorkflows)
+    {
+        <a class="btn btn-outline-primary" asp-page="/Workflow/Definitions/Index">Manage workflows</a>
+    }
+</div>
+
+<div class="mf-panel">
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link @(Model.View == "mine" ? "active" : "")" asp-page="./Queue" asp-route-view="mine">My Queue (@Model.MyTaskCount)</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(Model.View == "team" ? "active" : "")" asp-page="./Queue" asp-route-view="team">Team Queue (@Model.TeamTaskCount)</a>
+        </li>
+        @if (Model.CanViewAllQueues)
+        {
+            <li class="nav-item">
+                <a class="nav-link @(Model.View == "all" ? "active" : "")" asp-page="./Queue" asp-route-view="all">All Open (@Model.AllTaskCount)</a>
+            </li>
+        }
+    </ul>
+
+    @if (Model.OpenTasks.Count == 0)
+    {
+        <p class="text-muted mb-0">No open workflow tasks in this view. The queue is clear.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Submission</th>
+                        <th>Workflow</th>
+                        <th>Step</th>
+                        <th>Assigned to</th>
+                        <th>Status</th>
+                        <th>Started</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var task in Model.OpenTasks)
+                    {
+                        <tr>
+                            <td>
+                                <a asp-page="/Submissions/Details" asp-route-id="@task.FormSubmissionId">
+                                    <code>@task.FormSubmission?.SubmissionNumber.ToString("D8")</code>
+                                </a>
+                                <strong class="d-block">@task.FormSubmission?.FormDefinition?.Name</strong>
+                                <small class="d-block text-muted">@task.FormSubmission?.SubmitterName</small>
+                            </td>
+                            <td>@task.SubmissionWorkflowInstance?.WorkflowDefinition?.Name</td>
+                            <td>
+                                <strong>@task.WorkflowStep?.Name</strong>
+                                @if (!string.IsNullOrWhiteSpace(task.WorkflowStep?.Instructions))
+                                {
+                                    <small class="d-block text-muted">@task.WorkflowStep.Instructions</small>
+                                }
+                            </td>
+                            <td>
+                                @if (task.AssignedUser is not null)
+                                {
+                                    <span>@task.AssignedUser.DisplayName</span>
+                                }
+                                else if (task.AssignedTeam is not null)
+                                {
+                                    <span>@task.AssignedTeam.Name</span>
+                                    <small class="d-block text-muted">Team queue</small>
+                                }
+                                else
+                                {
+                                    <span>Unassigned</span>
+                                }
+                            </td>
+                            <td><span class="badge text-bg-primary">@task.Status</span></td>
+                            <td>@UserDates.Format(task.CreatedAt)</td>
+                            <td class="mf-queue-actions">
+                                <form method="post" class="d-flex flex-column gap-2">
+                                    <input type="hidden" name="taskId" value="@task.Id" />
+                                    <input type="hidden" name="View" value="@Model.View" />
+                                    <input name="Notes" class="form-control form-control-sm" placeholder="Optional note" />
+                                    <div class="d-flex gap-2">
+                                        @foreach (var outcome in MatterForge.Services.WorkflowOutcomeParser.GetOutcomes(task.WorkflowStep!))
+                                        {
+                                            var buttonClass = outcome.Action == MatterForge.Services.WorkflowOutcomeActions.Return
+                                                ? "btn-outline-warning"
+                                                : outcome.Action == MatterForge.Services.WorkflowOutcomeActions.Complete
+                                                    ? "btn-success"
+                                                    : "btn-primary";
+                                            <button class="btn btn-sm @buttonClass" name="outcomeKey" value="@outcome.Key" asp-page-handler="Outcome">@outcome.Label</button>
+                                        }
+                                    </div>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="mf-panel mt-3">
+    <h2>Recent Workflow Events</h2>
+    @if (Model.RecentEvents.Count == 0)
+    {
+        <p class="text-muted mt-3 mb-0">No workflow events yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Submission</th>
+                        <th>Event</th>
+                        <th>Actor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var workflowEvent in Model.RecentEvents)
+                    {
+                        <tr>
+                            <td>@UserDates.Format(workflowEvent.CreatedAt)</td>
+                            <td>
+                                <a asp-page="/Submissions/Details" asp-route-id="@workflowEvent.FormSubmissionId">
+                                    <code>@workflowEvent.FormSubmission?.SubmissionNumber.ToString("D8")</code>
+                                </a>
+                                <small class="d-block text-muted">@workflowEvent.FormSubmission?.FormDefinition?.Name</small>
+                            </td>
+                            <td>
+                                <strong>@workflowEvent.EventType</strong>
+                                <small class="d-block text-muted">@workflowEvent.Message</small>
+                            </td>
+                            <td>@(workflowEvent.ActorUser?.DisplayName ?? "System")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

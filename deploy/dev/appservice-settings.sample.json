@@ -1,0 +1,12 @@
+{
+  "ASPNETCORE_ENVIRONMENT": "Production",
+  "ConnectionStrings__DefaultConnection": "Server=tcp:gwmatterforge.database.windows.net,1433;Initial Catalog=matterforge-prototype;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;",
+  "MatterForge__CurrentUserEmail": "imauser@twodumbdogs.com",
+  "MatterForge__CurrentUserDisplayName": "Ima User",
+  "MatterForge__DemoMode": "true",
+  "MatterForge__RunMigrationsOnStartup": "false",
+  "SubmissionAttachments__ConnectionString": "<set-in-azure-not-in-git>",
+  "SubmissionAttachments__ContainerName": "submission-attachments",
+  "SubmissionAttachments__UseManagedIdentity": "true",
+  "SubmissionAttachments__AccountName": "cmiforgeattachasgmt7"
+}

@@ -1,0 +1,97 @@
+@page
+@model MatterForge.Pages.Entities.Matters.CreateModel
+@{
+    ViewData["Title"] = "Create Matter";
+    ViewData["ActiveEntityTab"] = "Matters";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Entities</p>
+        <h1>Create Matter</h1>
+    </div>
+</div>
+
+<partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+<div class="alert @(Model.MatterLimit.CanCreate ? "alert-info" : "alert-warning")">
+    @Model.MatterLimit.Message
+</div>
+
+@if (Model.ClientOptions.Count == 0)
+{
+    <div class="alert alert-warning">
+        Create at least one client before creating a matter.
+        <a asp-page="/Entities/Clients/Create">Create client</a>
+    </div>
+}
+else
+{
+    <form method="post" class="mf-panel">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label asp-for="Input.Name" class="form-label"></label>
+                <input asp-for="Input.Name" class="form-control" />
+                <span asp-validation-for="Input.Name" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.ClientId" class="form-label"></label>
+                <select asp-for="Input.ClientId" asp-items="Model.ClientOptions" class="form-select">
+                    <option value="">Choose client...</option>
+                </select>
+                <span asp-validation-for="Input.ClientId" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.ResponsibleUserId" class="form-label"></label>
+                <select asp-for="Input.ResponsibleUserId" asp-items="Model.UserOptions" class="form-select">
+                    <option value="">Unassigned</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.PracticeArea" class="form-label"></label>
+                <select asp-for="Input.PracticeArea" class="form-select">
+                    <option>Corporate</option>
+                    <option>Litigation</option>
+                    <option>Real Estate</option>
+                    <option>Employment</option>
+                    <option>Other</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.Status" class="form-label"></label>
+                <select asp-for="Input.Status" class="form-select">
+                    <option>Open</option>
+                    <option>Pending</option>
+                    <option>On Hold</option>
+                    <option>Closed</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.OpenedDate" class="form-label"></label>
+                <input asp-for="Input.OpenedDate" class="form-control" type="date" />
+            </div>
+            <div class="col-12">
+                <label asp-for="Input.Notes" class="form-label"></label>
+                <textarea asp-for="Input.Notes" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+            @if (Model.MatterLimit.CanCreate)
+            {
+                <button class="btn btn-primary" type="submit">Create matter</button>
+            }
+            else
+            {
+                <button class="btn btn-primary" type="submit" disabled>Create matter</button>
+            }
+            <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
+        </div>
+    </form>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

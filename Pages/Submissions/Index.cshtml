@@ -1,0 +1,73 @@
+@page
+@model MatterForge.Pages.Submissions.IndexModel
+@{
+    ViewData["Title"] = "Submissions";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Intake queue</p>
+        <h1>Submissions</h1>
+    </div>
+</div>
+
+<div class="mf-panel">
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link @(Model.View == "mine" ? "active" : "")" asp-page="./Index" asp-route-view="mine">My Submissions (@Model.MySubmissionCount)</a>
+        </li>
+        @if (Model.CanViewAll)
+        {
+            <li class="nav-item">
+                <a class="nav-link @(Model.View == "all" ? "active" : "")" asp-page="./Index" asp-route-view="all">All Submissions (@Model.AllSubmissionCount)</a>
+            </li>
+        }
+    </ul>
+
+    @if (Model.Submissions.Count == 0)
+    {
+        <p class="text-muted mb-0">No submissions yet. Fill one of the published forms to create the first intake record.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Form</th>
+                        <th>Submitted by</th>
+                        <th>Status</th>
+                        <th>Submitted</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var submission in Model.Submissions)
+                    {
+                        <tr>
+                            <td><a asp-page="./Details" asp-route-id="@submission.Id"><code>@submission.SubmissionNumber.ToString("D8")</code></a></td>
+                            <td>
+                                <a class="mf-record-link" asp-page="./Details" asp-route-id="@submission.Id">
+                                    <strong>@submission.FormDefinition?.Name</strong>
+                                    <small class="d-block text-muted">v@(submission.FormVersion?.VersionNumber)</small>
+                                </a>
+                            </td>
+                            <td>
+                                @if (submission.SubmitterUser is not null)
+                                {
+                                    <a asp-page="/Entities/Users/Details" asp-route-id="@submission.SubmitterUser.Id">@submission.SubmitterUser.DisplayName</a>
+                                }
+                                else
+                                {
+                                    @submission.SubmitterName
+                                }
+                            </td>
+                            <td><span class="badge text-bg-success">@submission.Status</span></td>
+                            <td>@UserDates.Format(submission.SubmittedAt)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

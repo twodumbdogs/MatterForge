@@ -1,0 +1,61 @@
+@page
+@model MatterForge.Pages.Security.AuditModel
+@{
+    ViewData["Title"] = "Audit Log";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Security</p>
+        <h1>Audit Log</h1>
+        <p class="text-muted">Recent admin and destructive activity captured by CMIForge.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="./Index">Back to Security</a>
+</div>
+
+<section class="mf-panel">
+    @if (Model.AuditLogs.Count == 0)
+    {
+        <p class="text-muted mb-0">No audit activity has been recorded yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Actor</th>
+                        <th>Action</th>
+                        <th>Entity</th>
+                        <th>Summary</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in Model.AuditLogs)
+                    {
+                        <tr>
+                            <td>@UserDates.Format(log.CreatedAt)</td>
+                            <td>
+                                @log.ActorDisplayName
+                                @if (!string.IsNullOrWhiteSpace(log.ActorEmail))
+                                {
+                                    <small class="d-block text-muted">@log.ActorEmail</small>
+                                }
+                            </td>
+                            <td><code>@log.Action</code></td>
+                            <td>
+                                @log.EntityType
+                                @if (!string.IsNullOrWhiteSpace(log.EntityNumber))
+                                {
+                                    <small class="d-block text-muted">@log.EntityNumber</small>
+                                }
+                            </td>
+                            <td>@log.Summary</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

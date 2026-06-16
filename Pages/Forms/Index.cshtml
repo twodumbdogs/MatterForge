@@ -1,0 +1,64 @@
+@page
+@model MatterForge.Pages.Forms.IndexModel
+@{
+    ViewData["Title"] = "Forms";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Admin</p>
+        <h1>Forms</h1>
+    </div>
+    <a class="btn btn-primary" asp-page="./Create">Create form</a>
+</div>
+
+<div class="mf-panel">
+    @if (Model.Forms.Count == 0)
+    {
+        <p class="text-muted mb-0">No forms have been created yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Key</th>
+                        <th>Versions</th>
+                        <th>Workflow</th>
+                        <th>Submissions</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var form in Model.Forms)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@form.Name</strong>
+                                <small class="d-block text-muted">@form.Description</small>
+                            </td>
+                            <td><code>@form.Key</code></td>
+                            <td>@form.Versions.Count</td>
+                            <td>
+                                @{
+                                    var latestVersion = form.Versions
+                                        .Where(x => x.IsPublished)
+                                        .OrderByDescending(x => x.VersionNumber)
+                                        .FirstOrDefault();
+                                }
+                                @(latestVersion?.WorkflowDefinition?.Name ?? "None")
+                            </td>
+                            <td>@Model.SubmissionCounts.GetValueOrDefault(form.Id)</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-secondary" asp-page="./Edit" asp-route-id="@form.Id">Edit</a>
+                                <a class="btn btn-sm btn-outline-primary" asp-page="./Submit" asp-route-id="@form.Id">Fill</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

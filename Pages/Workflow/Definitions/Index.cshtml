@@ -1,0 +1,60 @@
+@page
+@model MatterForge.Pages.Workflow.Definitions.IndexModel
+@{
+    ViewData["Title"] = "Workflow Definitions";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Workflow builder</p>
+        <h1>Workflow Definitions</h1>
+    </div>
+    <div class="mf-hero-actions">
+        <a class="btn btn-outline-secondary" asp-page="/Workflow/Queue">Approval queue</a>
+        <a class="btn btn-primary" asp-page="./Create">Create workflow</a>
+    </div>
+</div>
+
+<div class="mf-panel">
+    @if (Model.Workflows.Count == 0)
+    {
+        <p class="text-muted mb-0">No workflows have been created yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Key</th>
+                        <th>Default form scope</th>
+                        <th>Steps</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var workflow in Model.Workflows)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@workflow.Name</strong>
+                                <small class="d-block text-muted">@workflow.Description</small>
+                            </td>
+                            <td><code>@workflow.Key</code></td>
+                            <td>@(workflow.FormDefinition?.Name ?? "Global fallback")</td>
+                            <td>@workflow.Steps.Count</td>
+                            <td>
+                                <span class="badge @(workflow.IsActive ? "text-bg-success" : "text-bg-secondary")">@(workflow.IsActive ? "Active" : "Inactive")</span>
+                            </td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" asp-page="./Edit" asp-route-id="@workflow.Id">Edit</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

@@ -1,0 +1,57 @@
+@page
+@model MatterForge.Pages.Entities.Matters.IndexModel
+@{
+    ViewData["Title"] = "Matters";
+    ViewData["ActiveEntityTab"] = "Matters";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Entities</p>
+        <h1>Matters</h1>
+    </div>
+    <a class="btn btn-primary" asp-page="./Create">Create matter</a>
+</div>
+
+<partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+<div class="mf-panel">
+    @if (Model.Matters.Count == 0)
+    {
+        <p class="text-muted mb-0">No matters yet. Create a client first, then create the first matter record.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Matter</th>
+                        <th>Client</th>
+                        <th>Practice area</th>
+                        <th>Status</th>
+                        <th>Responsible user</th>
+                        <th>Opened</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var matter in Model.Matters)
+                    {
+                        <tr>
+                            <td><a asp-page="./Details" asp-route-id="@matter.Id"><code>@matter.MatterNumber.ToString("D8")</code></a></td>
+                            <td>
+                                <strong>@matter.Name</strong>
+                            </td>
+                            <td>@matter.Client?.Name</td>
+                            <td>@matter.PracticeArea</td>
+                            <td><span class="badge text-bg-primary">@matter.Status</span></td>
+                            <td>@(matter.ResponsibleUser?.DisplayName ?? "Unassigned")</td>
+                            <td>@matter.OpenedDate?.ToString("MMM d, yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

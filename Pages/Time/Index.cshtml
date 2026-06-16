@@ -1,0 +1,133 @@
+@page
+@model MatterForge.Pages.Time.IndexModel
+@{
+    ViewData["Title"] = "Time";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Time Recording</p>
+        <h1>Time</h1>
+        <p class="text-muted">Capture work against clients and matters without turning this into billing software too soon.</p>
+    </div>
+    <div class="mf-hero-actions">
+        @if (Model.CanCreate)
+        {
+            <a class="btn btn-primary" asp-page="./Create">Record time</a>
+        }
+        <a class="btn btn-outline-secondary" asp-page-handler="Export"
+           asp-route-from="@Model.From?.ToString("yyyy-MM-dd")"
+           asp-route-to="@Model.To?.ToString("yyyy-MM-dd")"
+           asp-route-userId="@Model.UserId"
+           asp-route-matterId="@Model.MatterId"
+           asp-route-status="@Model.Status">Export CSV</a>
+    </div>
+</div>
+
+<section class="mf-stat-grid" aria-label="Time totals">
+    <div class="mf-stat">
+        <span>@Model.TotalHours.ToString("0.0")</span>
+        <strong>Total hours</strong>
+    </div>
+    <div class="mf-stat">
+        <span>@Model.BillableHours.ToString("0.0")</span>
+        <strong>Billable hours</strong>
+    </div>
+    <div class="mf-stat">
+        <span>@Model.DraftCount</span>
+        <strong>Draft entries</strong>
+    </div>
+</section>
+
+<form method="get" class="mf-panel mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-2">
+            <label asp-for="From" class="form-label">From</label>
+            <input asp-for="From" class="form-control" type="date" />
+        </div>
+        <div class="col-md-2">
+            <label asp-for="To" class="form-label">To</label>
+            <input asp-for="To" class="form-control" type="date" />
+        </div>
+        @if (Model.CanViewAll)
+        {
+            <div class="col-md-3">
+                <label asp-for="UserId" class="form-label">User</label>
+                <select asp-for="UserId" asp-items="Model.UserOptions" class="form-select">
+                    <option value="">All users</option>
+                </select>
+            </div>
+        }
+        <div class="col-md-3">
+            <label asp-for="MatterId" class="form-label">Matter</label>
+            <select asp-for="MatterId" asp-items="Model.MatterOptions" class="form-select">
+                <option value="">All matters</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="Status" class="form-label">Status</label>
+            <select asp-for="Status" asp-items="Model.StatusOptions" class="form-select">
+                <option value="">All statuses</option>
+            </select>
+        </div>
+        <div class="col-md-12 d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Apply filters</button>
+            <a class="btn btn-outline-secondary" asp-page="./Index">Clear</a>
+        </div>
+    </div>
+</form>
+
+<section class="mf-panel">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>Entries</h2>
+        <small class="text-muted">Showing up to 250 entries</small>
+    </div>
+    @if (Model.Entries.Count == 0)
+    {
+        <p class="text-muted mt-3 mb-0">No time entries match the current filters.</p>
+    }
+    else
+    {
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Date</th>
+                        <th>User</th>
+                        <th>Client</th>
+                        <th>Matter</th>
+                        <th>Hours</th>
+                        <th>Billable</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in Model.Entries)
+                    {
+                        <tr>
+                            <td><a asp-page="./Details" asp-route-id="@entry.Id"><code>@entry.TimeEntryNumber.ToString("D8")</code></a></td>
+                            <td>@entry.WorkDate.ToString("MMM d, yyyy")</td>
+                            <td>@entry.User?.DisplayName</td>
+                            <td>
+                                @if (entry.Client is not null)
+                                {
+                                    <a asp-page="/Entities/Clients/Details" asp-route-id="@entry.Client.Id">@entry.Client.Name</a>
+                                }
+                            </td>
+                            <td>
+                                @if (entry.Matter is not null)
+                                {
+                                    <a asp-page="/Entities/Matters/Details" asp-route-id="@entry.Matter.Id">@entry.Matter.Name</a>
+                                }
+                            </td>
+                            <td>@((entry.Minutes / 60m).ToString("0.00"))</td>
+                            <td>@(entry.IsBillable ? "Yes" : "No")</td>
+                            <td>@entry.Status</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

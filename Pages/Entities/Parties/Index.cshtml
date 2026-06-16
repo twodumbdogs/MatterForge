@@ -1,0 +1,59 @@
+@page
+@model MatterForge.Pages.Entities.Parties.IndexModel
+@{
+    ViewData["Title"] = "Parties";
+    ViewData["ActiveEntityTab"] = "Parties";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Entities</p>
+        <h1>Parties</h1>
+        <p class="text-muted">Searchable people, companies, aliases, and relationships used by conflict searches.</p>
+    </div>
+    <a class="btn btn-primary" asp-page="./Create">Create party</a>
+</div>
+
+<partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+<div class="mf-panel">
+    @if (Model.Parties.Count == 0)
+    {
+        <p class="text-muted mb-0">No parties yet. Parties are created directly here and synced from clients during startup/conversion.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Party</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Aliases</th>
+                        <th>Matter links</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var party in Model.Parties)
+                    {
+                        <tr>
+                            <td><a asp-page="./Details" asp-route-id="@party.Id"><code>@party.PartyNumber.ToString("D8")</code></a></td>
+                            <td>
+                                <a class="mf-record-link" asp-page="./Details" asp-route-id="@party.Id">
+                                    <strong>@party.Name</strong>
+                                    <small class="d-block text-muted">@party.NormalizedName</small>
+                                </a>
+                            </td>
+                            <td>@party.PartyType</td>
+                            <td><span class="badge text-bg-secondary">@party.Status</span></td>
+                            <td>@party.Aliases.Count</td>
+                            <td>@party.MatterParties.Count</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

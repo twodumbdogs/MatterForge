@@ -1,0 +1,59 @@
+@page
+@model MatterForge.Pages.Entities.Clients.IndexModel
+@{
+    ViewData["Title"] = "Clients";
+    ViewData["ActiveEntityTab"] = "Clients";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Entities</p>
+        <h1>Clients</h1>
+    </div>
+    <a class="btn btn-primary" asp-page="./Create">Create client</a>
+</div>
+
+<partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+<div class="mf-panel">
+    @if (Model.Clients.Count == 0)
+    {
+        <p class="text-muted mb-0">No clients yet. Create the first client record to start building the operational side of CMIForge.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Primary contact</th>
+                        <th>Email</th>
+                        <th>Matters</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var client in Model.Clients)
+                    {
+                        <tr>
+                            <td><a asp-page="./Details" asp-route-id="@client.Id"><code>@client.ClientNumber.ToString("D8")</code></a></td>
+                            <td>
+                                <strong>@client.Name</strong>
+                                @if (!string.IsNullOrWhiteSpace(client.Notes))
+                                {
+                                    <small class="d-block text-muted">@client.Notes</small>
+                                }
+                            </td>
+                            <td><span class="badge text-bg-success">@client.Status</span></td>
+                            <td>@client.PrimaryContact</td>
+                            <td>@client.Email</td>
+                            <td>@client.Matters.Count</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

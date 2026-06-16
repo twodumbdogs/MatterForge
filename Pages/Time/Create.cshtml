@@ -1,0 +1,72 @@
+@page
+@model MatterForge.Pages.Time.CreateModel
+@{
+    ViewData["Title"] = "Record Time";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Time Recording</p>
+        <h1>Record Time</h1>
+        <p class="text-muted">Attach work to the matter now; billing can come later when it deserves its own proper design.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+</div>
+
+<form method="post" class="mf-panel">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="Input.MatterId" class="form-label"></label>
+            <select asp-for="Input.MatterId" asp-items="Model.MatterOptions" class="form-select">
+                <option value="">Choose matter...</option>
+            </select>
+            <span asp-validation-for="Input.MatterId" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Input.UserId" class="form-label"></label>
+            <select asp-for="Input.UserId" asp-items="Model.UserOptions" class="form-select" disabled="@(!Model.CanRecordForOthers)">
+                <option value="">Choose user...</option>
+            </select>
+            @if (!Model.CanRecordForOthers)
+            {
+                <input type="hidden" asp-for="Input.UserId" />
+            }
+            <span asp-validation-for="Input.UserId" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Input.WorkDate" class="form-label"></label>
+            <input asp-for="Input.WorkDate" class="form-control" type="date" />
+            <span asp-validation-for="Input.WorkDate" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Input.Hours" class="form-label"></label>
+            <input asp-for="Input.Hours" class="form-control" type="number" min="0.01" max="24" step="0.05" />
+            <span asp-validation-for="Input.Hours" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Input.Status" class="form-label"></label>
+            <select asp-for="Input.Status" asp-items="Model.StatusOptions" class="form-select"></select>
+            <span asp-validation-for="Input.Status" class="text-danger"></span>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <div class="form-check mb-2">
+                <input asp-for="Input.IsBillable" class="form-check-input" />
+                <label asp-for="Input.IsBillable" class="form-check-label"></label>
+            </div>
+        </div>
+        <div class="col-12">
+            <label asp-for="Input.Narrative" class="form-label"></label>
+            <textarea asp-for="Input.Narrative" class="form-control" rows="5"></textarea>
+            <span asp-validation-for="Input.Narrative" class="text-danger"></span>
+        </div>
+    </div>
+    <div class="d-flex gap-2 mt-4">
+        <button class="btn btn-primary" type="submit">Save time</button>
+        <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

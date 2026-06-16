@@ -1,0 +1,151 @@
+@page
+@{
+    ViewData["Title"] = "Help";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">CMIForge Help</p>
+        <h1>How CMIForge Works</h1>
+        <p class="text-muted">A practical guide to the current build: intake forms, workflows, entities, conflicts, imports, security, and what is still intentionally in progress.</p>
+    </div>
+</div>
+
+<section class="mf-help-grid">
+    <aside class="mf-panel mf-help-toc">
+        <h2>Contents</h2>
+        <nav class="nav flex-column mt-3">
+            <a class="nav-link" href="#big-picture">Big Picture</a>
+            <a class="nav-link" href="#forms">Forms</a>
+            <a class="nav-link" href="#submissions">Submissions</a>
+            <a class="nav-link" href="#workflows">Workflows</a>
+            <a class="nav-link" href="#entities">Entities</a>
+            <a class="nav-link" href="#conflicts">Conflicts</a>
+            <a class="nav-link" href="#imports">Imports</a>
+            <a class="nav-link" href="#security">Security</a>
+            <a class="nav-link" href="#plans">Plans</a>
+            <a class="nav-link" href="#current-limits">Current Limits</a>
+        </nav>
+    </aside>
+
+    <div class="mf-help-content">
+        <section id="big-picture" class="mf-panel">
+            <h2>Big Picture</h2>
+            <p>CMIForge is a configurable legal intake and conflicts platform. The core idea is simple: build intake forms, collect submissions, route those submissions through workflow, run conflict checks, and convert approved submissions into client and matter records.</p>
+            <ol class="mf-help-steps">
+                <li>Create or edit a form.</li>
+                <li>Attach a workflow to the published form version.</li>
+                <li>Users submit the form.</li>
+                <li>Workflow tasks route to users or teams.</li>
+                <li>Conflicts can be run from a submission or matter context.</li>
+                <li>Approved submissions can be converted into client and matter records.</li>
+            </ol>
+        </section>
+
+        <section id="forms" class="mf-panel">
+            <h2>Forms</h2>
+            <p>Forms define the intake questions users answer. CMIForge stores form designs as versioned schemas so historical submissions still render against the exact form version that was used at the time.</p>
+            <ul>
+                <li><strong>Create Form</strong> publishes the first version.</li>
+                <li><strong>Edit Form</strong> publishes a new version instead of changing older submissions.</li>
+                <li>Blank designer rows are ignored.</li>
+                <li>Select, radio-style, and checkbox-style fields use static options for now.</li>
+                <li>A form version can be attached to a workflow definition.</li>
+            </ul>
+        </section>
+
+        <section id="submissions" class="mf-panel">
+            <h2>Submissions</h2>
+            <p>Submissions are completed intake forms. Each submission receives a stable number and can be reviewed, routed, converted, and linked back to operational records.</p>
+            <ul>
+                <li>Status values include <code>Submitted</code>, <code>In Review</code>, <code>Approved</code>, <code>Returned</code>, and <code>Converted</code>.</li>
+                <li><strong>My Submissions</strong> shows the current user's work.</li>
+                <li><strong>All Submissions</strong> is permission-gated.</li>
+                <li>Conversion is locked until a submission is approved.</li>
+                <li>Converted submissions link to the created client and matter.</li>
+            </ul>
+        </section>
+
+        <section id="workflows" class="mf-panel">
+            <h2>Workflows</h2>
+            <p>Workflows define approval steps. A workflow can be scoped to a form or used as a fallback, and a published form version can point to a workflow definition.</p>
+            <ul>
+                <li>Workflow steps are ordered by step number.</li>
+                <li>Steps can be assigned to a user, a team, or both.</li>
+                <li>Workflow queues include personal, team, and all-open views based on permissions.</li>
+                <li>Outcomes can advance, complete, or return a workflow.</li>
+                <li>Answer-based routing can run steps only when a submitted field matches a condition.</li>
+            </ul>
+            <p class="mb-0"><strong>Outcome format:</strong> use <code>Label|Action|Status|Next step</code>, separated by semicolons. Example: <code>Approve|Advance|In Review; Return|Return|Returned</code>.</p>
+        </section>
+
+        <section id="entities" class="mf-panel">
+            <h2>Entities</h2>
+            <p>Entities are operational records used by the platform after intake is approved or data is imported.</p>
+            <ul>
+                <li><strong>Clients</strong> have client numbers, contact details, status, and related matters.</li>
+                <li><strong>Matters</strong> have matter numbers, client links, status, practice area, responsible user, and related parties.</li>
+                <li><strong>Parties</strong> support conflicts searching through names, aliases, relationships, and matter roles.</li>
+                <li><strong>Users</strong> are application data users with system IDs, name parts, email, title, activity status, teams, and roles.</li>
+            </ul>
+        </section>
+
+        <section id="conflicts" class="mf-panel">
+            <h2>Conflicts</h2>
+            <p>Conflict searches compare entered search terms against the party index. The search engine normalizes names, checks aliases, scores fuzzy matches, and expands strong matches through known party relationships.</p>
+            <ul>
+                <li>Searches can be linked to a submission or a matter.</li>
+                <li>Results show score, risk, matched party, matter/client context, explanation, and AI assist assessment.</li>
+                <li>Reviewer decisions are currently recorded at the overall search level.</li>
+                <li>Previous conflict searches are retained as history, but search matching currently runs against parties, aliases, relationships, clients, matters, and matter-party roles rather than prior search result text.</li>
+            </ul>
+            <p class="mb-0"><strong>Current review behavior:</strong> use the search-level reviewer decision and notes to document overall clearance. Per-result clearance decisions are a planned next slice.</p>
+        </section>
+
+        <section id="imports" class="mf-panel">
+            <h2>Imports</h2>
+            <p>The Import Center loads CSV files for clients, matters, and parties. Each import card includes a downloadable template, validation mode, and import mode.</p>
+            <ul>
+                <li><strong>Validate CSV</strong> checks the file and stores row-level messages without creating or updating records.</li>
+                <li><strong>Import CSV</strong> runs the same checks and writes the accepted rows.</li>
+                <li>Clients upsert by <code>ClientNumber</code>.</li>
+                <li>Matters upsert by <code>MatterNumber</code> and require an existing <code>ClientNumber</code>.</li>
+                <li>Parties link to matters by <code>MatterNumber</code> and reuse existing parties by normalized name.</li>
+            </ul>
+        </section>
+
+        <section id="security" class="mf-panel">
+            <h2>Security</h2>
+            <p>CMIForge has an internal role and permission model. Authentication is optional during local development, but permissions still control what the current user can see and do.</p>
+            <ul>
+                <li>Users can have direct roles.</li>
+                <li>Teams can have roles.</li>
+                <li>Users inherit permissions from their teams.</li>
+                <li>Navigation and server-side page handlers both enforce permissions.</li>
+                <li>Optional Microsoft Entra login can map authenticated people to rows in the <code>Users</code> table.</li>
+            </ul>
+        </section>
+
+        <section id="plans" class="mf-panel">
+            <h2>Plans</h2>
+            <p>Plans are currently hardcoded product gates, not billing. They help test the product shape before payment infrastructure exists.</p>
+            <ul>
+                <li><strong>Free</strong>: limited users and matters, basic forms, basic conflicts.</li>
+                <li><strong>Standard</strong>: more users, workflow, email notifications, audit trail, and time recording.</li>
+                <li><strong>Professional</strong>: unlimited users, advanced workflow, reporting, Entra/SSO, and future advanced features.</li>
+            </ul>
+            <p class="mb-0">The development build is currently hardcoded to Professional so development work is not blocked by feature gates.</p>
+        </section>
+
+        <section id="current-limits" class="mf-panel">
+            <h2>Current Limits And Next Slices</h2>
+            <ul>
+                <li>Conflict result clearance is currently search-level only. Per-result clearance needs result-level status, notes, reviewer, and timestamp fields.</li>
+                <li>Conflict searches do not yet search the text of previous searches or previous result notes.</li>
+                <li>Submission attachments now support small PDF, Word, Excel, and hyperlink records. Richer attachment workflows are still a future slice.</li>
+                <li>Workflow versioning is not fully separated from workflow editing yet, so careful admin control matters.</li>
+                <li>The current UI is functional and work-focused; richer designer screens are still a future slice.</li>
+            </ul>
+        </section>
+    </div>
+</section>

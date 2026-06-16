@@ -1,0 +1,61 @@
+@page
+@model MatterForge.Pages.Entities.Clients.CreateModel
+@{
+    ViewData["Title"] = "Create Client";
+    ViewData["ActiveEntityTab"] = "Clients";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Entities</p>
+        <h1>Create Client</h1>
+    </div>
+</div>
+
+<partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+<form method="post" class="mf-panel">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="row g-3">
+        <div class="col-md-8">
+            <label asp-for="Input.Name" class="form-label"></label>
+            <input asp-for="Input.Name" class="form-control" />
+            <span asp-validation-for="Input.Name" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.Status" class="form-label"></label>
+            <select asp-for="Input.Status" class="form-select">
+                <option>Active</option>
+                <option>Prospective</option>
+                <option>Inactive</option>
+            </select>
+        </div>
+        <div class="col-md-8">
+            <label asp-for="Input.PrimaryContact" class="form-label"></label>
+            <input asp-for="Input.PrimaryContact" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Input.Email" class="form-label"></label>
+            <input asp-for="Input.Email" class="form-control" />
+            <span asp-validation-for="Input.Email" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Input.Phone" class="form-label"></label>
+            <input asp-for="Input.Phone" class="form-control" />
+        </div>
+        <div class="col-12">
+            <label asp-for="Input.Notes" class="form-label"></label>
+            <textarea asp-for="Input.Notes" class="form-control" rows="3"></textarea>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button class="btn btn-primary" type="submit">Create client</button>
+        <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

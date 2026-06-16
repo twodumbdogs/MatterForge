@@ -1,0 +1,195 @@
+@page
+@model MatterForge.Pages.Reports.IndexModel
+@{
+    ViewData["Title"] = "Reports";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Reporting</p>
+        <h1>Reports</h1>
+        <p class="text-muted">Hardcoded operational reports for intake, conflicts, workflows, matters, and time.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page-handler="TimeCsv"
+       asp-route-from="@Model.From?.ToString("yyyy-MM-dd")"
+       asp-route-to="@Model.To?.ToString("yyyy-MM-dd")">Export time detail</a>
+</div>
+
+<form method="get" class="mf-panel mb-3">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label asp-for="From" class="form-label">From</label>
+            <input asp-for="From" type="date" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="To" class="form-label">To</label>
+            <input asp-for="To" type="date" class="form-control" />
+        </div>
+        <div class="col-md-6 d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Run reports</button>
+            <a class="btn btn-outline-secondary" asp-page="./Index">Reset</a>
+        </div>
+    </div>
+</form>
+
+<section class="mf-stat-grid" aria-label="Report highlights">
+    <div class="mf-stat">
+        <span>@Model.TimeEntryCount</span>
+        <strong>Time entries</strong>
+    </div>
+    <div class="mf-stat">
+        <span>@Model.TotalHours.ToString("0.0")</span>
+        <strong>Total hours</strong>
+    </div>
+    <div class="mf-stat">
+        <span>@Model.OpenWorkflowTasks</span>
+        <strong>Open workflow tasks</strong>
+    </div>
+</section>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <section class="mf-panel h-100">
+            <h2>Submission Status</h2>
+            @if (Model.SubmissionStatuses.Count == 0)
+            {
+                <p class="text-muted mt-3 mb-0">No submissions yet.</p>
+            }
+            else
+            {
+                <table class="table table-sm align-middle mt-3">
+                    <thead><tr><th>Status</th><th class="text-end">Count</th></tr></thead>
+                    <tbody>
+                        @foreach (var row in Model.SubmissionStatuses)
+                        {
+                            <tr><td>@row.Label</td><td class="text-end">@row.Count</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    </div>
+    <div class="col-lg-6">
+        <section class="mf-panel h-100">
+            <h2>Workflow Queue Aging</h2>
+            <dl class="row mt-3 mb-0">
+                <dt class="col-sm-6">Open tasks</dt>
+                <dd class="col-sm-6">@Model.OpenWorkflowTasks</dd>
+                <dt class="col-sm-6">Average age</dt>
+                <dd class="col-sm-6">@Model.AverageWorkflowAgeDays.ToString("0.0") days</dd>
+                <dt class="col-sm-6">Oldest task</dt>
+                <dd class="col-sm-6">@Model.OldestWorkflowTask</dd>
+            </dl>
+        </section>
+    </div>
+    <div class="col-lg-6">
+        <section class="mf-panel h-100">
+            <h2>Conflicts</h2>
+            @if (Model.ConflictStatuses.Count == 0)
+            {
+                <p class="text-muted mt-3 mb-0">No conflict searches yet.</p>
+            }
+            else
+            {
+                <table class="table table-sm align-middle mt-3">
+                    <thead><tr><th>Status / decision</th><th class="text-end">Count</th></tr></thead>
+                    <tbody>
+                        @foreach (var row in Model.ConflictStatuses)
+                        {
+                            <tr><td>@row.Label</td><td class="text-end">@row.Count</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    </div>
+    <div class="col-lg-6">
+        <section class="mf-panel h-100">
+            <h2>Matters by Practice Area</h2>
+            @if (Model.MatterPracticeAreas.Count == 0)
+            {
+                <p class="text-muted mt-3 mb-0">No matters yet.</p>
+            }
+            else
+            {
+                <table class="table table-sm align-middle mt-3">
+                    <thead><tr><th>Practice area</th><th class="text-end">Count</th></tr></thead>
+                    <tbody>
+                        @foreach (var row in Model.MatterPracticeAreas)
+                        {
+                            <tr><td>@row.Label</td><td class="text-end">@row.Count</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    </div>
+    <div class="col-lg-6">
+        <section class="mf-panel h-100">
+            <h2>New Matters by Month</h2>
+            <table class="table table-sm align-middle mt-3">
+                <thead><tr><th>Month</th><th class="text-end">Count</th></tr></thead>
+                <tbody>
+                    @foreach (var row in Model.NewMattersByMonth)
+                    {
+                        <tr><td>@row.Month</td><td class="text-end">@row.Count</td></tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    </div>
+    <div class="col-lg-6">
+        <section class="mf-panel h-100">
+            <h2>Time by User</h2>
+            @if (Model.TimeByUser.Count == 0)
+            {
+                <p class="text-muted mt-3 mb-0">No time in the selected date range.</p>
+            }
+            else
+            {
+                <table class="table table-sm align-middle mt-3">
+                    <thead><tr><th>User</th><th class="text-end">Hours</th><th class="text-end">Billable</th><th class="text-end">Entries</th></tr></thead>
+                    <tbody>
+                        @foreach (var row in Model.TimeByUser)
+                        {
+                            <tr>
+                                <td>@row.UserName</td>
+                                <td class="text-end">@row.Hours.ToString("0.00")</td>
+                                <td class="text-end">@row.BillableHours.ToString("0.00")</td>
+                                <td class="text-end">@row.EntryCount</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    </div>
+    <div class="col-12">
+        <section class="mf-panel">
+            <h2>Time by Client and Matter</h2>
+            @if (Model.TimeByMatter.Count == 0)
+            {
+                <p class="text-muted mt-3 mb-0">No time in the selected date range.</p>
+            }
+            else
+            {
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm align-middle">
+                        <thead><tr><th>Client</th><th>Matter</th><th class="text-end">Hours</th><th class="text-end">Billable</th></tr></thead>
+                        <tbody>
+                            @foreach (var row in Model.TimeByMatter)
+                            {
+                                <tr>
+                                    <td>@row.ClientName</td>
+                                    <td>@row.MatterName</td>
+                                    <td class="text-end">@row.Hours.ToString("0.00")</td>
+                                    <td class="text-end">@row.BillableHours.ToString("0.00")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+</div>

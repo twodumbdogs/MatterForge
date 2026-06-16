@@ -1,0 +1,113 @@
+@page
+@model MatterForge.Pages.Security.IndexModel
+@{
+    ViewData["Title"] = "Security";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Administration</p>
+        <h1>Security</h1>
+        <p class="text-muted">Teams, roles, and permissions for CMIForge access control.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" asp-page="./Audit">Audit log</a>
+        <a class="btn btn-primary" asp-page="./Teams/Index">Manage teams</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-3">
+        <div class="mf-panel h-100">
+            <h2>Current User</h2>
+            @if (Model.CurrentUser is null)
+            {
+                <p class="text-muted mb-0">No active current user was found.</p>
+            }
+            else
+            {
+                <strong>@Model.CurrentUser.DisplayName</strong>
+                <small class="d-block text-muted">@Model.CurrentUser.Email</small>
+            }
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="mf-panel h-100">
+            <h2>Teams</h2>
+            <p class="display-6 mb-0">@Model.Teams.Count</p>
+            <small class="text-muted">Active assignment groups</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="mf-panel h-100">
+            <h2>Roles</h2>
+            <p class="display-6 mb-0">@Model.Roles.Count</p>
+            <small class="text-muted">Permission bundles</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="mf-panel h-100">
+            <h2>Audit</h2>
+            <p class="display-6 mb-0">@Model.AuditLogCount</p>
+            <small class="text-muted">Recorded security events</small>
+        </div>
+    </div>
+</div>
+
+<div class="mf-panel mt-3">
+    <h2>Roles</h2>
+    <div class="table-responsive mt-3">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Role</th>
+                    <th>Key</th>
+                    <th>Permissions</th>
+                    <th>Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var role in Model.Roles)
+                {
+                    <tr>
+                        <td>
+                            <strong>@role.Name</strong>
+                            <small class="d-block text-muted">@role.Description</small>
+                        </td>
+                        <td><code>@role.Key</code></td>
+                        <td>@role.RolePermissions.Count</td>
+                        <td>@(role.IsSystem ? "System" : "Custom")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mf-panel mt-3">
+    <h2>Permissions</h2>
+    <div class="table-responsive mt-3">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Permission</th>
+                    <th>Key</th>
+                    <th>Category</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var permission in Model.Permissions)
+                {
+                    <tr>
+                        <td>
+                            <strong>@permission.Name</strong>
+                            <small class="d-block text-muted">@permission.Description</small>
+                        </td>
+                        <td><code>@permission.Key</code></td>
+                        <td>@permission.Category</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,239 @@
+@page
+@model MatterForge.Pages.Imports.IndexModel
+@{
+    ViewData["Title"] = "Import Center";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Import Center</p>
+        <h1>Import Data</h1>
+        <p class="text-muted">Bring in clients, matters, and matter parties from CSV files with stable number-based upserts.</p>
+    </div>
+</div>
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+@if (Model.LatestBatch is not null)
+{
+    var batchAction = Model.LatestBatch.Status is MatterForge.Models.ImportBatchStatuses.ValidationPassed or MatterForge.Models.ImportBatchStatuses.ValidationIssues
+        ? "validation"
+        : "import";
+    <section class="alert @(Model.LatestBatch.ErrorRows > 0 ? "alert-warning" : "alert-success")">
+        <strong>@Model.LatestBatch.ImportType @batchAction finished:</strong>
+        @Model.LatestBatch.Summary
+    </section>
+}
+
+<section class="row g-4">
+    <div class="col-lg-4">
+        <form method="post" enctype="multipart/form-data" class="mf-panel h-100">
+            <h2>Import Clients</h2>
+            <p class="text-muted mt-2">Upsert clients by <code>ClientNumber</code>.</p>
+            <ul class="small text-muted">
+                <li><code>ClientNumber</code></li>
+                <li><code>ClientName</code></li>
+                <li><code>Status</code></li>
+                <li><code>PrimaryContact</code></li>
+                <li><code>Email</code></li>
+            </ul>
+            <a class="btn btn-outline-secondary w-100" asp-page-handler="ClientTemplate">Download Client Template</a>
+            <label class="mf-upload-drop">
+                <input asp-for="ClientFile" type="file" accept=".csv,text/csv" />
+                <span>Drag CSV here</span>
+                <small>or click to choose a file</small>
+            </label>
+            <div class="mf-import-actions">
+                @if (Model.CanRunImports)
+                {
+                    <button class="btn btn-outline-primary" type="submit" asp-page-handler="ValidateClients">Validate CSV</button>
+                    <button class="btn btn-primary" type="submit" asp-page-handler="Clients">Import CSV</button>
+                }
+                else
+                {
+                    <button class="btn btn-outline-primary" type="submit" disabled>Validate CSV</button>
+                    <button class="btn btn-primary" type="submit" disabled>Import CSV</button>
+                }
+            </div>
+        </form>
+    </div>
+    <div class="col-lg-4">
+        <form method="post" enctype="multipart/form-data" class="mf-panel h-100">
+            <h2>Import Matters</h2>
+            <p class="text-muted mt-2">Upsert matters by <code>MatterNumber</code>; clients must already exist.</p>
+            <ul class="small text-muted">
+                <li><code>MatterNumber</code></li>
+                <li><code>MatterName</code></li>
+                <li><code>ClientNumber</code></li>
+                <li><code>Status</code></li>
+                <li><code>ResponsibleAttorney</code></li>
+            </ul>
+            <a class="btn btn-outline-secondary w-100" asp-page-handler="MatterTemplate">Download Matter Template</a>
+            <label class="mf-upload-drop">
+                <input asp-for="MatterFile" type="file" accept=".csv,text/csv" />
+                <span>Drag CSV here</span>
+                <small>or click to choose a file</small>
+            </label>
+            <div class="mf-import-actions">
+                @if (Model.CanRunImports)
+                {
+                    <button class="btn btn-outline-primary" type="submit" asp-page-handler="ValidateMatters">Validate CSV</button>
+                    <button class="btn btn-primary" type="submit" asp-page-handler="Matters">Import CSV</button>
+                }
+                else
+                {
+                    <button class="btn btn-outline-primary" type="submit" disabled>Validate CSV</button>
+                    <button class="btn btn-primary" type="submit" disabled>Import CSV</button>
+                }
+            </div>
+        </form>
+    </div>
+    <div class="col-lg-4">
+        <form method="post" enctype="multipart/form-data" class="mf-panel h-100">
+            <h2>Import Parties</h2>
+            <p class="text-muted mt-2">Create/link parties to existing matters by <code>MatterNumber</code>.</p>
+            <ul class="small text-muted">
+                <li><code>PartyName</code></li>
+                <li><code>Role</code></li>
+                <li><code>MatterNumber</code></li>
+            </ul>
+            <a class="btn btn-outline-secondary w-100" asp-page-handler="PartyTemplate">Download Party Template</a>
+            <label class="mf-upload-drop">
+                <input asp-for="PartyFile" type="file" accept=".csv,text/csv" />
+                <span>Drag CSV here</span>
+                <small>or click to choose a file</small>
+            </label>
+            <div class="mf-import-actions">
+                @if (Model.CanRunImports)
+                {
+                    <button class="btn btn-outline-primary" type="submit" asp-page-handler="ValidateParties">Validate CSV</button>
+                    <button class="btn btn-primary" type="submit" asp-page-handler="Parties">Import CSV</button>
+                }
+                else
+                {
+                    <button class="btn btn-outline-primary" type="submit" disabled>Validate CSV</button>
+                    <button class="btn btn-primary" type="submit" disabled>Import CSV</button>
+                }
+            </div>
+        </form>
+    </div>
+</section>
+
+@if (Model.LatestBatch is not null)
+{
+    <section class="mf-panel mt-4">
+        <h2>Latest Import Details</h2>
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Row</th>
+                        <th>Status</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.LatestBatch.Rows.OrderBy(x => x.RowNumber).Take(25))
+                    {
+                        <tr>
+                            <td>@row.RowNumber</td>
+                            <td><span class="badge @BadgeClass(row.Status)">@row.Status</span></td>
+                            <td>@row.Message</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+<section class="mf-panel mt-4">
+    <h2>Recent Import Activity</h2>
+    @if (Model.RecentBatches.Count == 0)
+    {
+        <p class="text-muted mt-3 mb-0">No imports have been run yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Type</th>
+                        <th>File</th>
+                        <th>Status</th>
+                        <th>Imported</th>
+                        <th>Updated</th>
+                        <th>Skipped</th>
+                        <th>Errors</th>
+                        <th>By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var batch in Model.RecentBatches)
+                    {
+                        <tr>
+                            <td>@UserDates.Format(batch.CreatedAt)</td>
+                            <td>@batch.ImportType</td>
+                            <td>@batch.FileName</td>
+                            <td><span class="badge @BadgeClass(batch.Status)">@batch.Status</span></td>
+                            <td>@batch.ImportedRows</td>
+                            <td>@batch.UpdatedRows</td>
+                            <td>@batch.SkippedRows</td>
+                            <td>@batch.ErrorRows</td>
+                            <td>@(batch.ImportedByUser?.DisplayName ?? "System")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@functions {
+    private static string BadgeClass(string status)
+    {
+        return status switch
+        {
+            MatterForge.Models.ImportBatchStatuses.Completed => "text-bg-success",
+            MatterForge.Models.ImportBatchStatuses.ValidationPassed => "text-bg-success",
+            MatterForge.Models.ImportRowStatuses.Imported => "text-bg-success",
+            MatterForge.Models.ImportRowStatuses.WouldImport => "text-bg-success",
+            MatterForge.Models.ImportRowStatuses.Updated => "text-bg-primary",
+            MatterForge.Models.ImportRowStatuses.WouldUpdate => "text-bg-primary",
+            MatterForge.Models.ImportRowStatuses.Skipped => "text-bg-secondary",
+            MatterForge.Models.ImportRowStatuses.WouldSkip => "text-bg-secondary",
+            MatterForge.Models.ImportBatchStatuses.CompletedWithErrors => "text-bg-warning",
+            MatterForge.Models.ImportBatchStatuses.ValidationIssues => "text-bg-warning",
+            MatterForge.Models.ImportRowStatuses.Error => "text-bg-danger",
+            MatterForge.Models.ImportBatchStatuses.Failed => "text-bg-danger",
+            _ => "text-bg-secondary"
+        };
+    }
+}
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.mf-upload-drop').forEach((dropZone) => {
+            const input = dropZone.querySelector('input[type="file"]');
+            const label = dropZone.querySelector('small');
+            const setFileName = () => {
+                label.textContent = input.files.length > 0 ? input.files[0].name : 'or click to choose a file';
+            };
+
+            input.addEventListener('change', setFileName);
+            dropZone.addEventListener('dragover', (event) => {
+                event.preventDefault();
+                dropZone.classList.add('is-dragging');
+            });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('is-dragging'));
+            dropZone.addEventListener('drop', (event) => {
+                event.preventDefault();
+                dropZone.classList.remove('is-dragging');
+                input.files = event.dataTransfer.files;
+                setFileName();
+            });
+        });
+    </script>
+}

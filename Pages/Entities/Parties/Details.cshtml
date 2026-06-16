@@ -1,0 +1,203 @@
+@page "{id:guid}"
+@model MatterForge.Pages.Entities.Parties.DetailsModel
+@{
+    ViewData["Title"] = Model.Party is null ? "Party Details" : $"Party {Model.Party.PartyNumber:D8}";
+    ViewData["ActiveEntityTab"] = "Parties";
+}
+
+@if (Model.Party is null)
+{
+    <div class="alert alert-warning">That party could not be found.</div>
+}
+else
+{
+    <div class="mf-page-heading">
+        <div>
+            <p class="mf-eyebrow">Party <span>@Model.Party.PartyNumber.ToString("D8")</span></p>
+            <h1>@Model.Party.Name</h1>
+            <p class="text-muted">@Model.Party.PartyType · @Model.Party.Status</p>
+        </div>
+        <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+    </div>
+
+    <partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="mf-panel mb-3">
+                <h2>Party Details</h2>
+                <dl class="row mt-3 mb-0">
+                    <dt class="col-sm-5">Number</dt>
+                    <dd class="col-sm-7"><code>@Model.Party.PartyNumber.ToString("D8")</code></dd>
+                    <dt class="col-sm-5">Normalized name</dt>
+                    <dd class="col-sm-7">@Model.Party.NormalizedName</dd>
+                    <dt class="col-sm-5">Notes</dt>
+                    <dd class="col-sm-7">@Model.Party.Notes</dd>
+                </dl>
+            </div>
+
+            <div class="mf-panel">
+                <h2>Add Alias</h2>
+                <form method="post" class="row g-2 mt-2">
+                    <div class="col-12">
+                        <input asp-for="AliasInput.Alias" class="form-control" placeholder="Alternate spelling or DBA" />
+                        <span asp-validation-for="AliasInput.Alias" class="text-danger"></span>
+                    </div>
+                    <div class="col-12">
+                        <input asp-for="AliasInput.Notes" class="form-control" placeholder="Notes" />
+                    </div>
+                    <div class="col-12">
+                        <button class="btn btn-sm btn-primary" asp-page-handler="Alias">Add alias</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="mf-panel mb-3">
+                <h2>Aliases</h2>
+                @if (Model.Party.Aliases.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No aliases yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Alias</th>
+                                    <th>Normalized</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var alias in Model.Party.Aliases.OrderBy(x => x.Alias))
+                                {
+                                    <tr>
+                                        <td>@alias.Alias</td>
+                                        <td>@alias.NormalizedAlias</td>
+                                        <td>@alias.Notes</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <div class="mf-panel mb-3">
+                <h2>Matter Roles</h2>
+                @if (Model.Party.MatterParties.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No matter roles yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Matter</th>
+                                    <th>Client</th>
+                                    <th>Role</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var matterParty in Model.Party.MatterParties.OrderBy(x => x.Matter?.MatterNumber))
+                                {
+                                    <tr>
+                                        <td>
+                                            @if (matterParty.Matter is not null)
+                                            {
+                                                <a asp-page="/Entities/Matters/Details" asp-route-id="@matterParty.Matter.Id">@matterParty.Matter.MatterNumber.ToString("D8") - @matterParty.Matter.Name</a>
+                                            }
+                                        </td>
+                                        <td>@matterParty.Matter?.Client?.Name</td>
+                                        <td>@matterParty.Role</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <hr />
+                <form method="post" class="row g-2">
+                    <div class="col-md-5">
+                        <select asp-for="MatterPartyInput.MatterId" asp-items="Model.MatterOptions" class="form-select"></select>
+                    </div>
+                    <div class="col-md-3">
+                        <select asp-for="MatterPartyInput.Role" asp-items="Model.PartyRoleOptions" class="form-select"></select>
+                    </div>
+                    <div class="col-md-3">
+                        <input asp-for="MatterPartyInput.Notes" class="form-control" placeholder="Notes" />
+                    </div>
+                    <div class="col-md-1">
+                        <button class="btn btn-sm btn-primary" asp-page-handler="MatterParty">Add</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="mf-panel">
+                <h2>Relationships</h2>
+                @if (Model.Party.OutboundRelationships.Count == 0 && Model.Party.InboundRelationships.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No relationships yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Direction</th>
+                                    <th>Party</th>
+                                    <th>Relationship</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var relationship in Model.Party.OutboundRelationships.OrderBy(x => x.ToParty?.Name))
+                                {
+                                    <tr>
+                                        <td>Outbound</td>
+                                        <td><a asp-page="./Details" asp-route-id="@relationship.ToPartyId">@relationship.ToParty?.Name</a></td>
+                                        <td>@relationship.RelationshipType</td>
+                                    </tr>
+                                }
+                                @foreach (var relationship in Model.Party.InboundRelationships.OrderBy(x => x.FromParty?.Name))
+                                {
+                                    <tr>
+                                        <td>Inbound</td>
+                                        <td><a asp-page="./Details" asp-route-id="@relationship.FromPartyId">@relationship.FromParty?.Name</a></td>
+                                        <td>@relationship.RelationshipType</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <hr />
+                <form method="post" class="row g-2">
+                    <div class="col-md-5">
+                        <select asp-for="RelationshipInput.ToPartyId" asp-items="Model.PartyOptions" class="form-select"></select>
+                    </div>
+                    <div class="col-md-3">
+                        <select asp-for="RelationshipInput.RelationshipType" asp-items="Model.RelationshipTypeOptions" class="form-select"></select>
+                    </div>
+                    <div class="col-md-3">
+                        <input asp-for="RelationshipInput.Notes" class="form-control" placeholder="Notes" />
+                    </div>
+                    <div class="col-md-1">
+                        <button class="btn btn-sm btn-primary" asp-page-handler="Relationship">Add</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,155 @@
+@page "{id:guid}"
+@model MatterForge.Pages.Entities.Users.DetailsModel
+@{
+    ViewData["Title"] = Model.UserRecord is null ? "User Details" : $"User {Model.UserRecord.SystemId:D8}";
+    ViewData["ActiveEntityTab"] = "Users";
+}
+
+@if (Model.UserRecord is null)
+{
+    <div class="alert alert-warning">That user could not be found.</div>
+}
+else
+{
+    <div class="mf-page-heading">
+        <div>
+            <p class="mf-eyebrow">User <span>@Model.UserRecord.SystemId.ToString("D8")</span></p>
+            <h1>@Model.UserRecord.DisplayName</h1>
+            <p class="text-muted">@Model.UserRecord.Title</p>
+        </div>
+        <div class="mf-hero-actions">
+            @if (Model.IsEditLocked)
+            {
+                <span class="badge text-bg-info align-self-center">Protected in live demo</span>
+            }
+            else
+            {
+                <a class="btn btn-primary" asp-page="./Edit" asp-route-id="@Model.UserRecord.Id">Edit user</a>
+            }
+            <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+        </div>
+    </div>
+
+    <partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+    @if (Model.IsEditLocked)
+    {
+        <div class="alert alert-info">@Model.ProtectedUserMessage</div>
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="mf-panel">
+                <h2>User Details</h2>
+                <dl class="row mt-3 mb-0">
+                    <dt class="col-sm-5">System ID</dt>
+                    <dd class="col-sm-7"><code>@Model.UserRecord.SystemId.ToString("D8")</code></dd>
+                    <dt class="col-sm-5">First name</dt>
+                    <dd class="col-sm-7">@Model.UserRecord.FirstName</dd>
+                    <dt class="col-sm-5">Middle name</dt>
+                    <dd class="col-sm-7">@(string.IsNullOrWhiteSpace(Model.UserRecord.MiddleName) ? "None" : Model.UserRecord.MiddleName)</dd>
+                    <dt class="col-sm-5">Last name</dt>
+                    <dd class="col-sm-7">@Model.UserRecord.LastName</dd>
+                    <dt class="col-sm-5">Display name</dt>
+                    <dd class="col-sm-7">@Model.UserRecord.DisplayName</dd>
+                    <dt class="col-sm-5">Email</dt>
+                    <dd class="col-sm-7">@Model.UserRecord.Email</dd>
+                    <dt class="col-sm-5">Title / role</dt>
+                    <dd class="col-sm-7">@Model.UserRecord.Title</dd>
+                    <dt class="col-sm-5">Status</dt>
+                    <dd class="col-sm-7">
+                        <span class="badge @(Model.UserRecord.IsActive ? "text-bg-success" : "text-bg-secondary")">
+                            @(Model.UserRecord.IsActive ? "Active" : "Inactive")
+                        </span>
+                    </dd>
+                    <dt class="col-sm-5">Record GUID</dt>
+                    <dd class="col-sm-7"><code>@Model.UserRecord.Id</code></dd>
+                    <dt class="col-sm-5">Created</dt>
+                    <dd class="col-sm-7">@UserDates.Format(Model.UserRecord.CreatedAt)</dd>
+                    <dt class="col-sm-5">Updated</dt>
+                    <dd class="col-sm-7">@UserDates.Format(Model.UserRecord.UpdatedAt)</dd>
+                </dl>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="mf-panel">
+                <h2>Responsible Matters</h2>
+                @if (Model.UserRecord.ResponsibleMatters.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No matters are assigned to this user yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Number</th>
+                                    <th>Matter</th>
+                                    <th>Client</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var matter in Model.UserRecord.ResponsibleMatters.OrderBy(x => x.MatterNumber))
+                                {
+                                    <tr>
+                                        <td><a asp-page="/Entities/Matters/Details" asp-route-id="@matter.Id"><code>@matter.MatterNumber.ToString("D8")</code></a></td>
+                                        <td>@matter.Name</td>
+                                        <td>
+                                            @if (matter.Client is not null)
+                                            {
+                                                <a asp-page="/Entities/Clients/Details" asp-route-id="@matter.Client.Id">@matter.Client.Name</a>
+                                            }
+                                        </td>
+                                        <td>@matter.Status</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+            <div class="mf-panel mt-4">
+                <h2>Security</h2>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-6">
+                        <h3 class="h5">Teams</h3>
+                        @if (Model.UserRecord.TeamMemberships.Count == 0)
+                        {
+                            <p class="text-muted mb-0">No team memberships.</p>
+                        }
+                        else
+                        {
+                            <ul class="list-group">
+                                @foreach (var membership in Model.UserRecord.TeamMemberships.OrderBy(x => x.Team?.Name))
+                                {
+                                    <li class="list-group-item">@membership.Team?.Name</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                    <div class="col-md-6">
+                        <h3 class="h5">Direct Roles</h3>
+                        @if (Model.UserRecord.Roles.Count == 0)
+                        {
+                            <p class="text-muted mb-0">No direct roles.</p>
+                        }
+                        else
+                        {
+                            <ul class="list-group">
+                                @foreach (var role in Model.UserRecord.Roles.OrderBy(x => x.SecurityRole?.Name))
+                                {
+                                    <li class="list-group-item">
+                                        <strong>@role.SecurityRole?.Name</strong>
+                                        <small class="d-block text-muted">@role.SecurityRole?.Description</small>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

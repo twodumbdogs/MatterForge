@@ -1,0 +1,71 @@
+@page
+@model MatterForge.Pages.Entities.Users.CreateModel
+@{
+    ViewData["Title"] = "Create User";
+    ViewData["ActiveEntityTab"] = "Users";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Entities</p>
+        <h1>Create User</h1>
+    </div>
+</div>
+
+<partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+<div class="alert @(Model.UserLimit.CanCreate ? "alert-info" : "alert-warning")">
+    @Model.UserLimit.Message
+</div>
+
+<form method="post" class="mf-panel">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label asp-for="Input.FirstName" class="form-label"></label>
+            <input asp-for="Input.FirstName" class="form-control" />
+            <span asp-validation-for="Input.FirstName" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.MiddleName" class="form-label"></label>
+            <input asp-for="Input.MiddleName" class="form-control" />
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Input.LastName" class="form-label"></label>
+            <input asp-for="Input.LastName" class="form-control" />
+            <span asp-validation-for="Input.LastName" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Input.Email" class="form-label"></label>
+            <input asp-for="Input.Email" class="form-control" />
+            <span asp-validation-for="Input.Email" class="text-danger"></span>
+        </div>
+        <div class="col-md-8">
+            <label asp-for="Input.Title" class="form-label"></label>
+            <input asp-for="Input.Title" class="form-control" />
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div class="form-check mb-2">
+                <input asp-for="Input.IsActive" class="form-check-input" />
+                <label asp-for="Input.IsActive" class="form-check-label"></label>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        @if (Model.UserLimit.CanCreate)
+        {
+            <button class="btn btn-primary" type="submit">Create user</button>
+        }
+        else
+        {
+            <button class="btn btn-primary" type="submit" disabled>Create user</button>
+        }
+        <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,376 @@
+@page "{id:guid}"
+@model MatterForge.Pages.Submissions.DetailsModel
+@{
+    ViewData["Title"] = "Submission Details";
+}
+
+@if (Model.Submission is null)
+{
+    <div class="alert alert-warning">That submission could not be found.</div>
+}
+else
+{
+    <div class="mf-page-heading">
+        <div>
+            <p class="mf-eyebrow">Submission <span>@Model.Submission.SubmissionNumber.ToString("D8")</span> · @Model.Submission.Status</p>
+            <h1>@Model.Submission.FormDefinition?.Name</h1>
+            <p class="text-muted">
+                Submitted by
+                @if (Model.Submission.SubmitterUser is not null)
+                {
+                    <a asp-page="/Entities/Users/Details" asp-route-id="@Model.Submission.SubmitterUser.Id">@Model.Submission.SubmitterUser.DisplayName</a>
+                }
+                else
+                {
+                    @Model.Submission.SubmitterName
+                }
+                on @UserDates.Format(Model.Submission.SubmittedAt, "f")
+            </p>
+        </div>
+        <div class="mf-hero-actions">
+            @if (Model.CanRunConflicts)
+            {
+                <a class="btn btn-outline-primary" asp-page="/Conflicts/Create" asp-route-submissionId="@Model.Submission.Id">Run Conflict Search</a>
+            }
+            @if (Model.CanConvert)
+            {
+                <a class="btn btn-primary" asp-page="./Convert" asp-route-id="@Model.Submission.Id">Create Client/Matter</a>
+            }
+            else if (Model.Submission.Status != MatterForge.Services.SubmissionStatuses.Converted && (Model.Submission.Client is null || Model.Submission.Matter is null))
+            {
+                <button class="btn btn-outline-secondary" type="button" disabled>Conversion locked until approval</button>
+            }
+            <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+        </div>
+    </div>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert alert-danger" asp-validation-summary="ModelOnly"></div>
+    }
+
+    <div class="mf-panel mb-3">
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+            <div>
+                <strong>Workflow status</strong>
+                <span class="badge text-bg-success ms-2">@Model.Submission.Status</span>
+                <code class="ms-2">@Model.Submission.SubmissionNumber.ToString("D8")</code>
+            </div>
+            @if (Model.WorkflowInstances.Count == 0 && Model.Submission.Status != MatterForge.Services.SubmissionStatuses.Converted)
+            {
+                <form method="post">
+                    <input type="hidden" name="id" value="@Model.Submission.Id" />
+                    <button class="btn btn-sm btn-primary" asp-page-handler="StartWorkflow">Start workflow</button>
+                </form>
+            }
+            else
+            {
+                <a class="btn btn-sm btn-outline-primary" asp-page="/Workflow/Queue">Open queue</a>
+            }
+        </div>
+        @{
+            var openTasks = Model.WorkflowTasks
+                .Where(x => x.Status == MatterForge.Services.WorkflowStatuses.TaskOpen)
+                .OrderBy(x => x.CreatedAt)
+                .ToList();
+        }
+        @if (openTasks.Count > 0)
+        {
+            <hr />
+            <h2 class="h5">Current Workflow Actions</h2>
+            <div class="row g-3 mt-1">
+                @foreach (var task in openTasks)
+                {
+                    <div class="col-lg-6">
+                        <div class="border rounded p-3 h-100">
+                            <strong>@task.WorkflowStep?.Name</strong>
+                            <small class="d-block text-muted mb-2">
+                                Assigned to @(task.AssignedUser?.DisplayName ?? task.AssignedTeam?.Name ?? "Unassigned")
+                                @if (task.AssignedTeam is not null && task.AssignedUser is null)
+                                {
+                                    <span> team queue</span>
+                                }
+                            </small>
+                            @if (!string.IsNullOrWhiteSpace(task.WorkflowStep?.Instructions))
+                            {
+                                <p class="mb-2">@task.WorkflowStep.Instructions</p>
+                            }
+                            <form method="post" class="d-flex flex-column gap-2">
+                                <input type="hidden" name="id" value="@Model.Submission.Id" />
+                                <input type="hidden" name="taskId" value="@task.Id" />
+                                <input name="Notes" class="form-control form-control-sm" placeholder="Optional note" />
+                                <div class="d-flex gap-2">
+                                    @foreach (var outcome in MatterForge.Services.WorkflowOutcomeParser.GetOutcomes(task.WorkflowStep!))
+                                    {
+                                        var buttonClass = outcome.Action == MatterForge.Services.WorkflowOutcomeActions.Return
+                                            ? "btn-outline-warning"
+                                            : outcome.Action == MatterForge.Services.WorkflowOutcomeActions.Complete
+                                                ? "btn-success"
+                                                : "btn-primary";
+                                        <button class="btn btn-sm @buttonClass" name="outcomeKey" value="@outcome.Key" asp-page-handler="OutcomeTask">@outcome.Label</button>
+                                    }
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        @if (Model.WorkflowInstances.Count > 0)
+        {
+            <hr />
+            <div class="row g-3">
+                @foreach (var instance in Model.WorkflowInstances)
+                {
+                    <div class="col-md-4">
+                        <strong>@instance.WorkflowDefinition?.Name</strong>
+                        <span class="badge text-bg-primary ms-2">@instance.Status</span>
+                        <small class="d-block text-muted">Started @UserDates.Format(instance.StartedAt)</small>
+                    </div>
+                }
+            </div>
+        }
+        @if (Model.Submission.Client is not null || Model.Submission.Matter is not null)
+        {
+            <hr />
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <strong>Client</strong>
+                    @if (Model.Submission.Client is not null)
+                    {
+                        <a class="d-block" asp-page="/Entities/Clients/Details" asp-route-id="@Model.Submission.Client.Id">@Model.Submission.Client.ClientNumber.ToString("D8") - @Model.Submission.Client.Name</a>
+                    }
+                </div>
+                <div class="col-md-6">
+                    <strong>Matter</strong>
+                    @if (Model.Submission.Matter is not null)
+                    {
+                        <a class="d-block" asp-page="/Entities/Matters/Details" asp-route-id="@Model.Submission.Matter.Id">@Model.Submission.Matter.MatterNumber.ToString("D8") - @Model.Submission.Matter.Name</a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="mf-panel mb-3">
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+            <div>
+                <h2>Attachments</h2>
+                <small class="text-muted">PDF, DOC, DOCX, XLS, XLSX up to 25 MB, or an http/https hyperlink.</small>
+            </div>
+        </div>
+        @if (Model.Attachments.Count == 0)
+        {
+            <p class="text-muted mt-3 mb-0">No attachments are linked to this submission yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive mt-3">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Source</th>
+                            <th>Size</th>
+                            <th>Added by</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var attachment in Model.Attachments)
+                        {
+                            var isLink = attachment.AttachmentType == MatterForge.Models.SubmissionAttachmentTypes.Link;
+                            <tr>
+                                <td>
+                                    @if (isLink)
+                                    {
+                                        <a asp-page-handler="DownloadAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id" target="_blank" rel="noopener noreferrer">@attachment.DisplayName</a>
+                                    }
+                                    else
+                                    {
+                                        <a asp-page-handler="DownloadAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id">@attachment.DisplayName</a>
+                                    }
+                                </td>
+                                <td><span class="badge @(isLink ? "text-bg-info" : "text-bg-secondary")">@(isLink ? "Hyperlink" : "File")</span></td>
+                                <td class="text-break">@(isLink ? attachment.Url : attachment.OriginalFileName)</td>
+                                <td>@(isLink ? "-" : DetailsModel.FormatAttachmentSize(attachment.SizeBytes))</td>
+                                <td>
+                                    @(attachment.UploadedByUser?.DisplayName ?? "Unknown")
+                                    <small class="d-block text-muted">@UserDates.Format(attachment.CreatedAt)</small>
+                                </td>
+                                <td class="text-end">
+                                    @if (Model.CanManageAttachments)
+                                    {
+                                        <form method="post" asp-page-handler="DeleteAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id">
+                                            <input type="hidden" name="id" value="@Model.Submission.Id" />
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @if (Model.CanManageAttachments)
+        {
+            <hr />
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <form method="post" enctype="multipart/form-data" asp-page-handler="UploadAttachment" asp-route-id="@Model.Submission.Id" class="h-100">
+                        <input type="hidden" name="id" value="@Model.Submission.Id" />
+                        <h3 class="h6">Upload file</h3>
+                        <div class="mb-2">
+                            <label asp-for="AttachmentDisplayName" class="form-label">Display name</label>
+                            <input asp-for="AttachmentDisplayName" class="form-control" placeholder="Optional" />
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="AttachmentFile" class="form-label">File</label>
+                            <input asp-for="AttachmentFile" class="form-control" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                        </div>
+                        <button class="btn btn-primary" type="submit">Upload file</button>
+                    </form>
+                </div>
+                <div class="col-lg-6">
+                    <form method="post" asp-page-handler="AddAttachmentLink" asp-route-id="@Model.Submission.Id" class="h-100">
+                        <input type="hidden" name="id" value="@Model.Submission.Id" />
+                        <h3 class="h6">Add hyperlink</h3>
+                        <div class="mb-2">
+                            <label asp-for="LinkDisplayName" class="form-label">Display name</label>
+                            <input asp-for="LinkDisplayName" class="form-control" placeholder="Optional" />
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="LinkUrl" class="form-label">Hyperlink</label>
+                            <input asp-for="LinkUrl" class="form-control" placeholder="https://example.com/document" />
+                        </div>
+                        <button class="btn btn-outline-primary" type="submit">Add hyperlink</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (Model.WorkflowTasks.Count > 0)
+    {
+        <div class="mf-panel mb-3">
+            <h2>Workflow Tasks</h2>
+            <div class="table-responsive mt-3">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Step</th>
+                            <th>Assigned to</th>
+                            <th>Status</th>
+                            <th>Outcome</th>
+                            <th>Completed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var task in Model.WorkflowTasks)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@task.WorkflowStep?.Name</strong>
+                                    @if (!string.IsNullOrWhiteSpace(task.Notes))
+                                    {
+                                        <small class="d-block text-muted">@task.Notes</small>
+                                    }
+                                </td>
+                                <td>@(task.AssignedUser?.DisplayName ?? task.AssignedTeam?.Name ?? "Unassigned")</td>
+                                <td><span class="badge @(task.Status == MatterForge.Services.WorkflowStatuses.TaskOpen ? "text-bg-primary" : task.Status == MatterForge.Services.WorkflowStatuses.TaskReturned ? "text-bg-warning" : "text-bg-success")">@task.Status</span></td>
+                                <td>@task.Outcome</td>
+                                <td>@UserDates.FormatNullable(task.CompletedAt)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <div class="mf-panel mb-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>Conflict Searches</h2>
+            @if (Model.CanRunConflicts)
+            {
+                <a asp-page="/Conflicts/Create" asp-route-submissionId="@Model.Submission.Id">Run search</a>
+            }
+        </div>
+        @if (Model.ConflictSearches.Count == 0)
+        {
+            <p class="text-muted mt-3 mb-0">No conflict searches are linked to this submission yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive mt-3">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Number</th>
+                            <th>Status</th>
+                            <th>Decision</th>
+                            <th>Results</th>
+                            <th>AI summary</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var search in Model.ConflictSearches)
+                        {
+                            <tr>
+                                <td><a asp-page="/Conflicts/Details" asp-route-id="@search.Id"><code>@search.SearchNumber.ToString("D8")</code></a></td>
+                                <td><span class="badge text-bg-primary">@search.Status</span></td>
+                                <td>@search.ReviewerDecision</td>
+                                <td>@search.Results.Count</td>
+                                <td>@search.AiSummary</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    @if (Model.WorkflowEvents.Count > 0)
+    {
+        <div class="mf-panel mb-3">
+            <h2>Workflow History</h2>
+            <div class="table-responsive mt-3">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>When</th>
+                            <th>Event</th>
+                            <th>Actor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var workflowEvent in Model.WorkflowEvents)
+                        {
+                            <tr>
+                                <td>@UserDates.Format(workflowEvent.CreatedAt)</td>
+                                <td>
+                                    <strong>@workflowEvent.EventType</strong>
+                                    <small class="d-block text-muted">@workflowEvent.Message</small>
+                                </td>
+                                <td>@(workflowEvent.ActorUser?.DisplayName ?? "System")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <div class="mf-panel">
+        <dl class="row">
+            @foreach (var answer in Model.Answers)
+            {
+                <dt class="col-sm-4">@answer.Label</dt>
+                <dd class="col-sm-8">@answer.Value</dd>
+            }
+        </dl>
+    </div>
+}

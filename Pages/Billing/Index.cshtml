@@ -1,0 +1,74 @@
+@page
+@model MatterForge.Pages.Billing.IndexModel
+@{
+    ViewData["Title"] = "Plan";
+    var lockedLabel = Model.LockedFeatureLabel();
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Plan</p>
+        <h1>Plan Limits</h1>
+        <p class="text-muted">Current hardcoded plan: <strong>@Model.CurrentPlan.Name</strong> · @MatterForge.Services.ProductInfo.Version</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(lockedLabel))
+{
+    <div class="alert alert-warning">
+        <strong>@lockedLabel</strong> is not included in the current @Model.CurrentPlan.Name plan.
+    </div>
+}
+
+<section class="mf-stat-grid" aria-label="Plan usage">
+    <div class="mf-stat">
+        <span>@Model.Usage.UserCount</span>
+        <strong>Users used / @(Model.CurrentPlan.UserLimit?.ToString("N0") ?? "Unlimited")</strong>
+    </div>
+    <div class="mf-stat">
+        <span>@Model.Usage.MatterCount</span>
+        <strong>Matters used / @(Model.CurrentPlan.MatterLimit?.ToString("N0") ?? "Unlimited")</strong>
+    </div>
+    <div class="mf-stat">
+        <span>@Model.Usage.ClientCount</span>
+        <strong>Clients used / Unlimited</strong>
+    </div>
+</section>
+
+<div class="row g-4">
+    @foreach (var plan in Model.Plans)
+    {
+        var isCurrent = plan.Key == Model.CurrentPlan.Key;
+        <div class="col-lg-4">
+            <section class="mf-panel h-100 @(isCurrent ? "mf-plan-current" : "")">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                        <h2>@plan.Name</h2>
+                        <p class="text-muted mb-0">@plan.PriceRange</p>
+                    </div>
+                    @if (isCurrent)
+                    {
+                        <span class="badge text-bg-primary">Current</span>
+                    }
+                </div>
+                <dl class="row mt-3 mb-3">
+                    <dt class="col-7">Users</dt>
+                    <dd class="col-5 text-end">@(plan.UserLimit?.ToString("N0") ?? "Unlimited")</dd>
+                    <dt class="col-7">Matters</dt>
+                    <dd class="col-5 text-end">@(plan.MatterLimit?.ToString("N0") ?? "Unlimited")</dd>
+                    <dt class="col-7">Clients</dt>
+                    <dd class="col-5 text-end">@(plan.UnlimitedClients ? "Unlimited" : "Limited")</dd>
+                </dl>
+                <ul class="list-group list-group-flush">
+                    @foreach (var feature in plan.FeatureKeys)
+                    {
+                        <li class="list-group-item px-0 d-flex justify-content-between gap-2">
+                            <span>@MatterForge.Services.ProductFeatureKeys.Label(feature)</span>
+                            <span class="badge text-bg-success">Included</span>
+                        </li>
+                    }
+                </ul>
+            </section>
+        </div>
+    }
+</div>

@@ -1,0 +1,96 @@
+@page "{id:guid}"
+@model MatterForge.Pages.Forms.EditModel
+@{
+    ViewData["Title"] = "Edit Form";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Definition builder</p>
+        <h1>Edit Form</h1>
+        <p class="text-muted">Saving changes publishes the next version. Existing submissions keep their original version.</p>
+    </div>
+</div>
+
+<form method="post" class="mf-panel">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input type="hidden" asp-for="Id" />
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="Input.Name" class="form-label"></label>
+            <input asp-for="Input.Name" class="form-control" />
+            <span asp-validation-for="Input.Name" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Input.Key" class="form-label"></label>
+            <input asp-for="Input.Key" class="form-control" />
+            <span asp-validation-for="Input.Key" class="text-danger"></span>
+        </div>
+        <div class="col-12">
+            <label asp-for="Input.Description" class="form-label"></label>
+            <textarea asp-for="Input.Description" class="form-control" rows="2"></textarea>
+        </div>
+        @if (Model.CanAttachWorkflow)
+        {
+            <div class="col-md-6">
+                <label asp-for="Input.WorkflowDefinitionId" class="form-label"></label>
+                <select asp-for="Input.WorkflowDefinitionId" asp-items="Model.WorkflowOptions" class="form-select">
+                    <option value="">No workflow</option>
+                </select>
+                <span asp-validation-for="Input.WorkflowDefinitionId" class="text-danger"></span>
+            </div>
+        }
+        else
+        {
+            <div class="col-12">
+                <div class="alert alert-warning mb-0">
+                    Workflow attachment is available on Standard and Professional plans. Publishing this version will leave workflow automation unattached.
+                    <a asp-page="/Billing/Index" asp-route-locked="@MatterForge.Services.ProductFeatureKeys.Workflow">View plans</a>
+                </div>
+            </div>
+        }
+    </div>
+
+    <hr />
+
+    <h2 class="h5">Fields</h2>
+    <p class="text-muted">Current published version: v@Model.CurrentVersionNumber.</p>
+
+    <div class="table-responsive mf-designer-table">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Label</th>
+                    <th>Key</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Options</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < Model.Input.Fields.Count; i++)
+                {
+                    <tr>
+                        <td><input class="form-control" asp-for="Input.Fields[i].Label" /></td>
+                        <td><input class="form-control" asp-for="Input.Fields[i].Key" /></td>
+                        <td>
+                            <select class="form-select" asp-for="Input.Fields[i].Type" asp-items="Model.FieldTypeOptions"></select>
+                        </td>
+                        <td class="text-center"><input class="form-check-input" asp-for="Input.Fields[i].Required" /></td>
+                        <td><input class="form-control" asp-for="Input.Fields[i].Options" placeholder="Corporate, Litigation, Real Estate" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Publish new version</button>
+        <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

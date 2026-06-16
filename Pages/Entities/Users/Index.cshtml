@@ -1,0 +1,57 @@
+@page
+@model MatterForge.Pages.Entities.Users.IndexModel
+@{
+    ViewData["Title"] = "Users";
+    ViewData["ActiveEntityTab"] = "Users";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Entities</p>
+        <h1>Users</h1>
+    </div>
+    <a class="btn btn-primary" asp-page="./Create">Create user</a>
+</div>
+
+<partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+<div class="mf-panel">
+    @if (Model.Users.Count == 0)
+    {
+        <p class="text-muted mb-0">No users yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>System ID</th>
+                        <th>Name</th>
+                        <th>First</th>
+                        <th>Last</th>
+                        <th>Email</th>
+                        <th>Title / role</th>
+                        <th>Status</th>
+                        <th>Responsible matters</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model.Users)
+                    {
+                        <tr>
+                            <td><a asp-page="./Details" asp-route-id="@user.Id"><code>@user.SystemId.ToString("D8")</code></a></td>
+                            <td><a asp-page="./Details" asp-route-id="@user.Id"><strong>@user.DisplayName</strong></a></td>
+                            <td>@user.FirstName</td>
+                            <td>@user.LastName</td>
+                            <td>@user.Email</td>
+                            <td>@user.Title</td>
+                            <td><span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-secondary")">@(user.IsActive ? "Active" : "Inactive")</span></td>
+                            <td>@user.ResponsibleMatters.Count</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

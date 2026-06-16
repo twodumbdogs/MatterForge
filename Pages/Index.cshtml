@@ -1,0 +1,88 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<section class="mf-hero">
+    <div>
+        <p class="mf-eyebrow">@MatterForge.Services.ProductInfo.Version</p>
+        <h1>CMIForge</h1>
+        <p class="lead">Dynamic intake, workflow approvals, operational entities, and conflict searches for law-firm CMI workflows.</p>
+        <p class="mb-0">Current plan: <strong>@Model.CurrentPlan.Name</strong></p>
+    </div>
+    <div class="mf-hero-actions">
+        <a class="btn btn-light btn-lg" asp-page="/Forms/Index">Fill form</a>
+        <a class="btn btn-outline-light btn-lg" asp-page="/Time/Create">Record time</a>
+        <a class="btn btn-outline-light btn-lg" asp-page="/Reports/Index">Reports</a>
+        <a class="btn btn-outline-light btn-lg" asp-page="/Forms/Create">Design forms</a>
+        <a class="btn btn-outline-light btn-lg" asp-page="/Billing/Index">View plan</a>
+    </div>
+</section>
+
+<section class="mf-stat-grid" aria-label="CMIForge counts">
+    <div class="mf-stat">
+        <span>@Model.FormCount</span>
+        <strong>Active forms</strong>
+    </div>
+    <div class="mf-stat">
+        <span>@Model.SubmissionCount</span>
+        <strong>Submissions</strong>
+    </div>
+    <div class="mf-stat">
+        <span>@Model.PublishedVersionCount</span>
+        <strong>Published versions</strong>
+    </div>
+    <div class="mf-stat">
+        <span>@Model.TimeHours.ToString("0.0")</span>
+        <strong>Recorded hours</strong>
+    </div>
+</section>
+
+<section class="mf-panel mb-4">
+    <h2>Current Limits</h2>
+    <div class="row g-3 mt-1">
+        <div class="col-md-4">
+            <strong>@Model.Usage.UserCount / @(Model.CurrentPlan.UserLimit?.ToString("N0") ?? "Unlimited")</strong>
+            <small class="d-block text-muted">Users</small>
+        </div>
+        <div class="col-md-4">
+            <strong>@Model.Usage.MatterCount / @(Model.CurrentPlan.MatterLimit?.ToString("N0") ?? "Unlimited")</strong>
+            <small class="d-block text-muted">Matters</small>
+        </div>
+        <div class="col-md-4">
+            <strong>@Model.Usage.ClientCount / Unlimited</strong>
+            <small class="d-block text-muted">Clients</small>
+        </div>
+    </div>
+</section>
+
+<section class="row g-4 mt-1">
+    <div class="col-12">
+        <div class="mf-panel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Latest Forms</h2>
+                <a asp-page="/Forms/Create">New form</a>
+            </div>
+            @if (Model.LatestForms.Count == 0)
+            {
+                <p class="text-muted mb-0">No forms yet. Create the first intake form to start shaping the platform.</p>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var form in Model.LatestForms)
+                    {
+                        <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" asp-page="/Forms/Submit" asp-route-id="@form.Id">
+                            <span>
+                                <strong>@form.Name</strong>
+                                <small class="d-block text-muted">@form.Description</small>
+                            </span>
+                            <span class="badge text-bg-primary">Fill</span>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</section>
