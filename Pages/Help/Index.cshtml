@@ -7,7 +7,7 @@
     <div>
         <p class="mf-eyebrow">CMIForge Help</p>
         <h1>How CMIForge Works</h1>
-        <p class="text-muted">A practical guide to the current build: intake forms, workflows, entities, conflicts, imports, security, and what is still intentionally in progress.</p>
+        <p class="text-muted">A practical guide to the current build: intake forms, workflows, entities, conflicts, imports, security, settings, and what is still intentionally in progress.</p>
     </div>
 </div>
 
@@ -23,6 +23,7 @@
             <a class="nav-link" href="#conflicts">Conflicts</a>
             <a class="nav-link" href="#imports">Imports</a>
             <a class="nav-link" href="#security">Security</a>
+            <a class="nav-link" href="#settings">Settings</a>
             <a class="nav-link" href="#plans">Plans</a>
             <a class="nav-link" href="#current-limits">Current Limits</a>
         </nav>
@@ -126,13 +127,25 @@
             </ul>
         </section>
 
+        <section id="settings" class="mf-panel">
+            <h2>Settings</h2>
+            <p>System settings hold operational configuration such as support contact details, default timezone fallback, and email notification settings.</p>
+            <ul>
+                <li>Settings are grouped by category, starting with General and Email.</li>
+                <li>SMTP password configuration is represented as a secret reference so the actual secret can live outside the settings table.</li>
+                <li>Settings updates are audit logged.</li>
+                <li>Settings are hidden from the System menu and read-only in demo mode.</li>
+                <li>Password resets, MFA, account verification, lockout, and sign-in policy belong in Microsoft Entra, not inside CMIForge settings.</li>
+            </ul>
+        </section>
+
         <section id="plans" class="mf-panel">
             <h2>Plans</h2>
             <p>Plans are currently hardcoded product gates, not billing. They help test the product shape before payment infrastructure exists.</p>
             <ul>
-                <li><strong>Free</strong>: limited users and matters, basic forms, basic conflicts.</li>
-                <li><strong>Standard</strong>: more users, workflow, email notifications, audit trail, and time recording.</li>
-                <li><strong>Professional</strong>: unlimited users, advanced workflow, reporting, Entra/SSO, and future advanced features.</li>
+                <li><strong>Community</strong>: free, 3 users, 100 matters, 100 clients, all features, and community support.</li>
+                <li><strong>Professional</strong>: $99/month, includes 10 users, 500 matters, 500 clients, all features, email support, and additional users at $10/user/month.</li>
+                <li><strong>Enterprise</strong>: coming soon.</li>
             </ul>
             <p class="mb-0">The development build is currently hardcoded to Professional so development work is not blocked by feature gates.</p>
         </section>

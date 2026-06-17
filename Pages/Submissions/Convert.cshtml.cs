@@ -38,6 +38,8 @@ public class ConvertModel(
 
     public ProductLimitStatus MatterLimit { get; private set; } = new("matters", 0, null, true, string.Empty);
 
+    public ProductLimitStatus ClientLimit { get; private set; } = new("clients", 0, null, true, string.Empty);
+
     public bool HasExistingClientMatches => ExistingClientOptions.Count > 0;
 
     public async Task<IActionResult> OnGetAsync()
@@ -76,6 +78,11 @@ public class ConvertModel(
         if (!MatterLimit.CanCreate)
         {
             ModelState.AddModelError(string.Empty, MatterLimit.Message);
+        }
+
+        if (!Input.UseExistingClient && !ClientLimit.CanCreate)
+        {
+            ModelState.AddModelError(string.Empty, ClientLimit.Message);
         }
 
         if (Submission.ClientId.HasValue || Submission.MatterId.HasValue)
@@ -185,6 +192,7 @@ public class ConvertModel(
             .Select(x => new SelectListItem(x.DisplayName, x.Id.ToString()))
             .ToListAsync();
         MatterLimit = await productPlanService.GetMatterLimitAsync();
+        ClientLimit = await productPlanService.GetClientLimitAsync();
 
         if (Submission?.FormVersion is null)
         {

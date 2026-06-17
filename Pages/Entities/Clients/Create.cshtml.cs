@@ -1,23 +1,34 @@
 using System.ComponentModel.DataAnnotations;
 using MatterForge.Data;
 using MatterForge.Models;
+using MatterForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
 namespace MatterForge.Pages.Entities.Clients;
 
-public class CreateModel(MatterForgeDbContext db) : PageModel
+public class CreateModel(MatterForgeDbContext db, ProductPlanService productPlanService) : PageModel
 {
     [BindProperty]
     public ClientInput Input { get; set; } = new();
 
-    public void OnGet()
+    public ProductLimitStatus ClientLimit { get; private set; } = new("clients", 0, null, true, string.Empty);
+
+    public async Task OnGetAsync()
     {
+        ClientLimit = await productPlanService.GetClientLimitAsync();
     }
 
     public async Task<IActionResult> OnPostAsync()
     {
+        ClientLimit = await productPlanService.GetClientLimitAsync();
+
+        if (!ClientLimit.CanCreate)
+        {
+            ModelState.AddModelError(string.Empty, ClientLimit.Message);
+        }
+
         if (!ModelState.IsValid)
         {
             return Page();

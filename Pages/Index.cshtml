@@ -51,7 +51,7 @@
             <small class="d-block text-muted">Matters</small>
         </div>
         <div class="col-md-4">
-            <strong>@Model.Usage.ClientCount / Unlimited</strong>
+            <strong>@Model.Usage.ClientCount / @(Model.CurrentPlan.ClientLimit?.ToString("N0") ?? "Unlimited")</strong>
             <small class="d-block text-muted">Clients</small>
         </div>
     </div>

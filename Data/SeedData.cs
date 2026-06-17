@@ -30,6 +30,7 @@ public static class SeedData
 
         await EnsureStarterUserAsync(db);
         await EnsureStarterSecurityAsync(db);
+        await EnsureStarterSystemSettingsAsync(db);
         await EnsureStarterFormAsync(db);
         await EnsureStarterWorkflowAsync(db);
         await EnsureStarterConflictDataAsync(db);
@@ -243,6 +244,46 @@ public static class SeedData
         var conflictSearchService = new ConflictSearchService(db);
         await conflictSearchService.SyncExistingClientMatterPartiesAsync();
         await EnsureDemoConflictPartiesAsync(db, conflictSearchService);
+    }
+
+    private static async Task EnsureStarterSystemSettingsAsync(MatterForgeDbContext db)
+    {
+        var settings = new[]
+        {
+            new SettingSeed("General.SupportEmail", "General", "Support email", "Primary support address shown to users and used in outbound support-related messages.", "support@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingSeed("General.DefaultTimeZone", "General", "Default timezone", "Fallback timezone used when the browser has not provided a local timezone cookie.", "Central Standard Time", SystemSettingValueTypes.Text),
+            new SettingSeed("Email.NotificationsEnabled", "Email", "Enable email notifications", "Turns outbound workflow and system email notifications on or off once notification sending is wired.", "false", SystemSettingValueTypes.Boolean),
+            new SettingSeed("Email.SmtpHost", "Email", "SMTP host", "Hostname for the SMTP server used for outbound notifications.", string.Empty, SystemSettingValueTypes.Text),
+            new SettingSeed("Email.SmtpPort", "Email", "SMTP port", "Port for the SMTP server. Common values are 25, 465, and 587.", "587", SystemSettingValueTypes.Integer),
+            new SettingSeed("Email.SmtpUseSsl", "Email", "Use SSL/TLS", "Whether SMTP should use SSL/TLS for outbound connections.", "true", SystemSettingValueTypes.Boolean),
+            new SettingSeed("Email.SmtpUsername", "Email", "SMTP username", "Username for SMTP authentication, when required.", string.Empty, SystemSettingValueTypes.Text),
+            new SettingSeed("Email.SmtpPasswordSecretName", "Email", "SMTP password secret", "Key Vault secret name or secret identifier for the SMTP password. The secret value itself should live in Key Vault, not in CMIForge settings.", string.Empty, SystemSettingValueTypes.SecretReference, IsSecret: true),
+            new SettingSeed("Email.FromEmail", "Email", "From email", "Email address used as the sender for outbound CMIForge notifications.", "support@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingSeed("Email.FromName", "Email", "From name", "Display name used as the sender for outbound CMIForge notifications.", "CMIForge", SystemSettingValueTypes.Text)
+        };
+
+        foreach (var seed in settings)
+        {
+            var setting = await db.SystemSettings.FirstOrDefaultAsync(x => x.Key == seed.Key);
+            if (setting is null)
+            {
+                setting = new SystemSetting
+                {
+                    Key = seed.Key,
+                    Value = seed.Value
+                };
+                db.SystemSettings.Add(setting);
+            }
+
+            setting.Category = seed.Category;
+            setting.DisplayName = seed.DisplayName;
+            setting.Description = seed.Description;
+            setting.ValueType = seed.ValueType;
+            setting.IsSecret = seed.IsSecret;
+            setting.IsEditable = true;
+        }
+
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureStarterTimeEntriesAsync(MatterForgeDbContext db)
@@ -943,4 +984,13 @@ public static class SeedData
             });
         }
     }
+
+    private sealed record SettingSeed(
+        string Key,
+        string Category,
+        string DisplayName,
+        string Description,
+        string Value,
+        string ValueType,
+        bool IsSecret = false);
 }

@@ -38,6 +38,8 @@ public class CsvImportService(MatterForgeDbContext db, ProductPlanService produc
             return batch;
         }
 
+        var currentClientCount = await db.Clients.CountAsync();
+        var clientLimit = productPlanService.CurrentPlan.ClientLimit;
         var seenNumbers = new HashSet<int>();
         foreach (var row in rows.Rows)
         {
@@ -65,6 +67,13 @@ public class CsvImportService(MatterForgeDbContext db, ProductPlanService produc
             var status = DefaultIfBlank(row.Value("Status"), "Active");
             if (client is null)
             {
+                if (clientLimit.HasValue && currentClientCount >= clientLimit.Value)
+                {
+                    AddRow(batch, row, ImportRowStatuses.Error, $"The current plan is limited to {clientLimit.Value:N0} clients.");
+                    continue;
+                }
+
+                currentClientCount++;
                 batch.ImportedRows++;
                 if (validateOnly)
                 {

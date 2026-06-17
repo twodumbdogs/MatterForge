@@ -23,8 +23,9 @@ The product currently has two public-facing surfaces:
 - Private submission attachments
 - Time recording and operational reports
 - Team, role, permission, and audit-log foundation
+- Admin-editable system settings for operational configuration
 - Optional Microsoft Entra ID sign-in plumbing
-- Hardcoded Free/Standard/Professional plan limiter
+- Hardcoded Community/Professional/Enterprise plan limiter
 - Azure SQL-ready EF Core model and migration
 
 ## Current Architecture
@@ -102,13 +103,11 @@ Submission attachments in the dev App Service use private Azure Blob Storage thr
 
 The app currently runs as `Professional`:
 
-- Unlimited users
-- Unlimited matters
-- Workflow
-- Email notifications
-- Audit trail
-- Advanced workflow
-- Reporting
-- Azure AD / SSO
+- Includes 10 users
+- 500 matters
+- 500 clients
+- All features
+- Email support
+- Additional users priced at `$10/user/month`
 
-Free and Standard tiers are visible in the app on `/Billing`, but payment handling is intentionally deferred.
+Community and Enterprise tiers are visible in the app on `/Billing`, but payment handling is intentionally deferred.

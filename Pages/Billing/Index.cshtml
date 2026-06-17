@@ -31,7 +31,7 @@
     </div>
     <div class="mf-stat">
         <span>@Model.Usage.ClientCount</span>
-        <strong>Clients used / Unlimited</strong>
+        <strong>Clients used / @(Model.CurrentPlan.ClientLimit?.ToString("N0") ?? "Unlimited")</strong>
     </div>
 </section>
 
@@ -45,6 +45,10 @@
                     <div>
                         <h2>@plan.Name</h2>
                         <p class="text-muted mb-0">@plan.PriceRange</p>
+                        @if (!string.IsNullOrWhiteSpace(plan.Note))
+                        {
+                            <p class="small text-muted mt-2 mb-0">@plan.Note</p>
+                        }
                     </div>
                     @if (isCurrent)
                     {
@@ -57,15 +61,25 @@
                     <dt class="col-7">Matters</dt>
                     <dd class="col-5 text-end">@(plan.MatterLimit?.ToString("N0") ?? "Unlimited")</dd>
                     <dt class="col-7">Clients</dt>
-                    <dd class="col-5 text-end">@(plan.UnlimitedClients ? "Unlimited" : "Limited")</dd>
+                    <dd class="col-5 text-end">@(plan.ClientLimit?.ToString("N0") ?? "Unlimited")</dd>
                 </dl>
                 <ul class="list-group list-group-flush">
-                    @foreach (var feature in plan.FeatureKeys)
+                    @if (plan.FeatureKeys.Count >= MatterForge.Services.ProductFeatureKeys.All.Count)
                     {
                         <li class="list-group-item px-0 d-flex justify-content-between gap-2">
-                            <span>@MatterForge.Services.ProductFeatureKeys.Label(feature)</span>
+                            <span>All features</span>
                             <span class="badge text-bg-success">Included</span>
                         </li>
+                    }
+                    else
+                    {
+                        @foreach (var feature in plan.FeatureKeys)
+                        {
+                            <li class="list-group-item px-0 d-flex justify-content-between gap-2">
+                                <span>@MatterForge.Services.ProductFeatureKeys.Label(feature)</span>
+                                <span class="badge text-bg-success">Included</span>
+                            </li>
+                        }
                     }
                 </ul>
             </section>

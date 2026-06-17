@@ -73,6 +73,7 @@ The Help page covers:
 - Conflicts search behavior and current review limits
 - CSV imports and validation mode
 - Teams, roles, permissions, and optional Entra login
+- System settings for operational configuration
 - Hardcoded product plans
 - Current limits and likely next slices
 
@@ -104,37 +105,34 @@ The current Azure SQL database has the full entity, workflow, conflicts, import,
 
 CMIForge now has a hardcoded plan limiter. This is not a payment system yet; it is a product-gating layer that gives the app realistic tier behavior while billing is deferred.
 
-Current hardcoded plan: `Professional`, so development can continue without feature gates blocking workflow, SSO, reporting, imports, or advanced experiments.
+Current hardcoded plan: `Professional`, so development can continue with the paid-plan limits and all features enabled.
 
 Current plan tiers:
 
-- `Free`
+- `Community`
+  - Free
   - 3 users
   - 100 matters
-  - Unlimited clients
-  - Basic conflicts search
-  - Basic intake forms
-- `Standard`
-  - 10 users
-  - Unlimited matters
-  - Workflow
-  - Email notifications
-  - Audit trail
+  - 100 clients
+  - All features
+  - Community support
 - `Professional`
-  - Unlimited users
-  - Advanced workflow
-  - Reporting
-  - Azure AD / SSO
-  - Future advanced features
+  - `$99/month`
+  - Includes 10 users
+  - 500 matters
+  - 500 clients
+  - All features
+  - Email support
+  - Additional users at `$10/user/month`
+- `Enterprise`
+  - Coming soon
 
 Current enforcement:
 
 - User creation is blocked when the current plan reaches its user limit.
 - Matter creation is blocked when the current plan reaches its matter limit.
 - Submission-to-client/matter conversion also respects the matter limit.
-- Workflow navigation, workflow designer pages, and automatic workflow startup are gated behind the `Workflow` feature.
-- Form creation/editing remains available on Free, but workflow attachment is hidden and ignored unless the current plan includes workflow.
-- Optional Entra sign-in is treated as a Professional-tier feature.
+- Feature gates still exist in code, but the current Community and Professional packaging includes all features. The practical plan limits are user, matter, and client counts.
 
 Plan and usage details are shown at:
 
@@ -166,7 +164,7 @@ Important behavior:
 - Options are only required for field types that actually use options.
 - Select-style fields remain static-option driven for now.
 - Table-backed user picker fields are intentionally deferred.
-- Workflow attachment is plan-gated. On the hardcoded Free plan, forms can still be created and edited, but workflow attachment is hidden and ignored.
+- Workflow attachment remains feature-gated in code, but the current Community and Professional packaging includes workflow.
 
 ## Submissions
 
@@ -547,8 +545,7 @@ Also verified in the running app:
 - User edit saves successfully.
 - Users show first/last name columns.
 - Dashboard shows version `20260616.1`.
-- Plan page shows Free, Standard, and Professional tiers.
-- Workflow pages redirect to the Plan page on the hardcoded Free plan.
+- Plan page shows Community, Professional, and Enterprise tiers.
 - Parties show seeded conflict-test records.
 - A rich conflict search against `Stark Stone`, `Globex Bio Systems`, and `Mina Caldera` produced multiple Critical/Medium hits with AI assist and relationship expansion.
 - The Import Center migration applied to Azure SQL.
@@ -564,7 +561,7 @@ Also verified in the running app:
 - Blob soft delete is enabled.
 - App Service FTP/SCM basic publishing credentials are disabled.
 - The public marketing site was deployed to Azure Static Web Apps and verified at `https://cmiforge.com`.
-- The public site now presents the current Free/Standard/Professional packaging, live demo link, support contact, and pain-focused platform messaging.
+- The public site now presents the current Community/Professional/Enterprise packaging, live demo link, support contact, and pain-focused platform messaging.
 
 ## Workflow Slice
 
@@ -763,7 +760,7 @@ New permissions:
 - `Time.Approve`
 - `Reporting.View`
 
-The Professional plan remains hardcoded as the active development plan. The product ladder now models Standard at `$99/mo` and Professional at `$299/mo`, with time recording included in Standard and Professional.
+The Professional plan remains hardcoded as the active development plan. The product ladder now models Community as free, Professional at `$99/month`, additional users at `$10/user/month`, and Enterprise as coming soon.
 
 ## Security Hardening Slice
 
@@ -779,6 +776,39 @@ CMIForge now has the first low-cost SaaS hardening pass:
 - Security headers are emitted for content type sniffing, framing, referrer behavior, browser permissions, and content security policy.
 - `AuditLogs` records admin/destructive activity such as user edits, team/role changes, workflow/form designer changes, submission status changes, conversion, and attachment activity.
 - Visible timestamps now render through the user's browser timezone when available, falling back to the configured default timezone.
+
+## System Settings Slice
+
+CMIForge now has a first-pass `System -> Settings` area for admin-editable operational configuration.
+
+Current settings behavior:
+
+- Settings are stored in the `SystemSettings` table.
+- Settings are grouped by category, starting with `General` and `Email`.
+- Settings support value types for text, integer, boolean, email, and secret reference values.
+- Secret-style settings are masked in the UI. The current implementation stores a secret reference/name rather than the raw secret value.
+- Settings updates are audit logged through `AuditLogs`.
+- Settings are permission-gated through the existing `Security.Manage` permission for this first slice.
+- Settings are hidden from the System menu in demo mode.
+- Direct access to the Settings page in demo mode is read-only and server-side save attempts are blocked.
+
+Initial seeded settings include:
+
+- Support email
+- Default timezone fallback
+- Email notifications enabled flag
+- SMTP host
+- SMTP port
+- SMTP SSL/TLS flag
+- SMTP username
+- SMTP password Key Vault secret reference
+- From email
+- From display name
+
+Identity-management note:
+
+- Microsoft Entra should own password resets, account verification, MFA, lockout, and sign-in policy.
+- CMIForge owns app-level authorization, roles, teams, permissions, and operational settings.
 
 ## Near-Term Next Steps
 
@@ -824,9 +854,10 @@ CMIForge is now in a local prototype shape with the important spine:
 - Private submission attachments through Azure Blob Storage
 - Managed-identity attachment storage support
 - Audit log foundation for admin and destructive actions
+- Admin-editable system settings with demo-mode protection
 - Browser-local timezone display for visible timestamps
 - Seeded conflict-test parties, aliases, relationships, and matter roles
-- Hardcoded Free/Standard/Professional product-plan limiter
+- Hardcoded Community/Professional/Enterprise product-plan limiter
 - My/all submission views
 - Approval-gated conversion
 - Configurable workflow outcomes

@@ -14,6 +14,14 @@
 
 <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
+@if (!Model.ClientLimit.CanCreate)
+{
+    <div class="alert alert-warning">
+        @Model.ClientLimit.Message
+        <a asp-page="/Billing/Index">View plans</a>
+    </div>
+}
+
 <form method="post" class="mf-panel">
     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
@@ -51,7 +59,14 @@
     </div>
 
     <div class="d-flex gap-2 mt-4">
-        <button class="btn btn-primary" type="submit">Create client</button>
+        @if (Model.ClientLimit.CanCreate)
+        {
+            <button class="btn btn-primary" type="submit">Create client</button>
+        }
+        else
+        {
+            <button class="btn btn-primary" type="submit" disabled>Create client</button>
+        }
         <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
     </div>
 </form>

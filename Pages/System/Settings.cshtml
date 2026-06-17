@@ -1,0 +1,112 @@
+@page
+@model MatterForge.Pages.System.SettingsModel
+@{
+    ViewData["Title"] = "System Settings";
+    string? currentCategory = null;
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">System</p>
+        <h1>Settings</h1>
+        <p class="text-muted">Manage operational configuration for email notifications, support contact details, and platform defaults.</p>
+    </div>
+</div>
+
+@if (TempData["StatusMessage"] is string statusMessage)
+{
+    <div class="alert alert-success">@statusMessage</div>
+}
+
+@if (Model.IsDemoMode)
+{
+    <div class="alert alert-warning">
+        <strong>Settings are read-only in demo mode.</strong>
+        The live demo does not allow visitors to update SMTP, support, or platform configuration.
+    </div>
+}
+
+<div class="alert alert-info">
+    <strong>Identity note:</strong> password resets, MFA, account verification, and sign-in policy should stay in Microsoft Entra.
+    CMIForge settings are for application configuration, notifications, and platform behavior.
+</div>
+
+<form method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    @for (var i = 0; i < Model.Settings.Count; i++)
+    {
+        var setting = Model.Settings[i];
+        if (!string.Equals(currentCategory, setting.Category, StringComparison.OrdinalIgnoreCase))
+        {
+            if (currentCategory is not null)
+            {
+                @:</section>
+            }
+
+            currentCategory = setting.Category;
+            @:<section class="mf-panel mb-4">
+            <h2>@setting.Category</h2>
+        }
+
+        <div class="border-top py-3">
+            <input type="hidden" asp-for="Settings[i].Id" />
+            <input type="hidden" asp-for="Settings[i].Key" />
+            <input type="hidden" asp-for="Settings[i].Category" />
+            <input type="hidden" asp-for="Settings[i].DisplayName" />
+            <input type="hidden" asp-for="Settings[i].Description" />
+            <input type="hidden" asp-for="Settings[i].ValueType" />
+            <input type="hidden" asp-for="Settings[i].IsSecret" />
+            <input type="hidden" asp-for="Settings[i].IsEditable" />
+            <input type="hidden" asp-for="Settings[i].HasValue" />
+
+            <div class="row g-3 align-items-start">
+                <div class="col-lg-5">
+                    <label asp-for="Settings[i].Value" class="form-label fw-semibold">@setting.DisplayName</label>
+                    <p class="text-muted small mb-0">@setting.Description</p>
+                    <p class="text-muted small mb-0"><code>@setting.Key</code></p>
+                    @if (setting.IsSecret && setting.HasValue)
+                    {
+                        <p class="text-muted small mb-0">Current value is configured and hidden. Leave blank to keep it.</p>
+                    }
+                </div>
+                <div class="col-lg-7">
+                    @if (setting.ValueType == MatterForge.Models.SystemSettingValueTypes.Boolean)
+                    {
+                        <select asp-for="Settings[i].Value" class="form-select" disabled="@(Model.IsDemoMode || !setting.IsEditable)">
+                            <option value="true">True</option>
+                            <option value="false">False</option>
+                        </select>
+                    }
+                    else if (setting.ValueType == MatterForge.Models.SystemSettingValueTypes.Integer)
+                    {
+                        <input asp-for="Settings[i].Value" class="form-control" inputmode="numeric" disabled="@(Model.IsDemoMode || !setting.IsEditable)" />
+                    }
+                    else if (setting.IsSecret)
+                    {
+                        <input asp-for="Settings[i].Value" class="form-control" type="password" autocomplete="off" placeholder="@(setting.HasValue ? "Configured - leave blank to keep" : "Not configured")" disabled="@(Model.IsDemoMode || !setting.IsEditable)" />
+                    }
+                    else
+                    {
+                        <input asp-for="Settings[i].Value" class="form-control" disabled="@(Model.IsDemoMode || !setting.IsEditable)" />
+                    }
+                    <span asp-validation-for="Settings[i].Value" class="text-danger"></span>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (currentCategory is not null)
+    {
+        @:</section>
+    }
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit" disabled="@Model.IsDemoMode">Save settings</button>
+        <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

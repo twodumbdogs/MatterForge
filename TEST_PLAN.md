@@ -19,6 +19,7 @@ By the end of this walkthrough, you should have personally exercised:
 - Conflict searches and review notes
 - CSV import templates, validation, and import flows
 - Security/team/role pages
+- System settings and demo-mode protection
 - Attachments and external links
 - Plan page and in-app help
 
@@ -29,7 +30,7 @@ By the end of this walkthrough, you should have personally exercised:
 - The live dev app is available at `https://cmiforge-dev-web-06161223.azurewebsites.net`.
 - The public marketing site is available at `https://cmiforge.com`.
 - The live dev app currently uses demo mode with the seeded `Ima User` context.
-- The current hardcoded plan is `Professional`, so workflow and other gated features should be available.
+- The current hardcoded plan is `Professional`, so all features should be available with the Professional user and matter limits.
 - Azure SQL and Azure Blob attachment storage are already configured.
 - In the live dev app, private submission attachments use Azure Blob Storage through managed identity.
 
@@ -80,9 +81,10 @@ Steps:
    - `Workflows`
    - `Imports`
    - `Security`
-   - `Plan`
-4. Open `/Help`.
-5. Skim each help section in the contents list.
+   - `Terms`
+4. If you are not in demo mode, confirm `Settings` also appears under `System`.
+5. Open `/Help`.
+6. Skim each help section in the contents list.
 
 Expected results:
 
@@ -398,19 +400,39 @@ Purpose: understand how the current hardcoded product tiers are represented.
 
 Steps:
 
-1. Open `System -> Plan`.
+1. Open `/Billing` directly or use a contextual `View plan` link from the dashboard or a plan-limit message.
 2. Review the visible tiers:
-   - Free
-   - Standard
+   - Community
    - Professional
+   - Enterprise
 3. Confirm the current development plan is shown as `Professional`.
 
 Expected results:
 
 - Billing is presented as product gating, not real payment plumbing.
-- The current build is intentionally unlocked for development.
+- The current build is feature-unlocked for development, while still showing Professional user and matter limits.
 
-## 13. Optional Entra Login Review
+## 13. System Settings
+
+Purpose: confirm operational settings exist, are grouped clearly, and are protected in demo mode.
+
+Steps:
+
+1. In a non-demo/local environment, open `System -> Settings`.
+2. Review the General and Email settings.
+3. Confirm SMTP-related settings include host, port, SSL/TLS, username, from email, from name, and a secret-reference field for the SMTP password.
+4. Save a harmless non-secret change, such as the support email or from name, then change it back.
+5. In the live demo environment, confirm Settings is not shown in the System dropdown.
+6. In the live demo environment, browse directly to `/System/Settings`.
+
+Expected results:
+
+- Non-demo admins can update settings.
+- Demo mode shows Settings as read-only and blocks saving.
+- SMTP password values are not displayed as plain text.
+- Entra remains the expected place for password resets, verification, MFA, and sign-in policy.
+
+## 14. Optional Entra Login Review
 
 Purpose: understand the authentication direction, even if not active locally.
 
@@ -427,7 +449,7 @@ Expected results:
 
 - Authentication and authorization are separate concepts in the platform design.
 
-## 14. Suggested Smoke Regression Pass
+## 15. Suggested Smoke Regression Pass
 
 Use this as the short “did we break anything obvious?” sweep after future changes:
 
@@ -453,11 +475,12 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] CSV import works
 - [ ] Security pages load
 - [ ] Security audit log loads
+- [ ] System settings page loads in non-demo or is read-only in demo
 - [ ] Attachment upload/download still works after storage key rotation
 - [ ] Visible timestamps match the browser's local timezone
 - [ ] Plan page loads
 
-## 15. What To Notice While Testing
+## 16. What To Notice While Testing
 
 This is the “buyer brain” part of the walkthrough. As you test, pay attention to:
 
@@ -467,7 +490,7 @@ This is the “buyer brain” part of the walkthrough. As you test, pay attentio
 - Does the platform feel more like firm software than a demo CRUD app?
 - Which screens feel “beta but useful” versus “next obvious polish target”?
 
-## 16. Notes Template
+## 17. Notes Template
 
 Use this if you want to jot reactions as you go:
 

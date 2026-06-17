@@ -36,6 +36,8 @@ public static class ProductFeatureKeys
         [FutureFancy] = "Future fancy stuff"
     };
 
+    public static IReadOnlySet<string> All { get; } = Labels.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
     public static string Label(string featureKey)
     {
         return Labels.TryGetValue(featureKey, out var label) ? label : featureKey;
@@ -48,8 +50,9 @@ public sealed record ProductPlan(
     string PriceRange,
     int? UserLimit,
     int? MatterLimit,
-    bool UnlimitedClients,
-    IReadOnlySet<string> FeatureKeys)
+    int? ClientLimit,
+    IReadOnlySet<string> FeatureKeys,
+    string? Note = null)
 {
     public bool Allows(string featureKey)
     {
@@ -68,58 +71,51 @@ public sealed record ProductLimitStatus(
 
 public class ProductPlanService(MatterForgeDbContext db)
 {
-    private static readonly ProductPlan Free = new(
-        "free",
-        "Free",
+    private static readonly HashSet<string> AllFeatureKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ProductFeatureKeys.BasicConflicts,
+        ProductFeatureKeys.BasicIntakeForms,
+        ProductFeatureKeys.Workflow,
+        ProductFeatureKeys.EmailNotifications,
+        ProductFeatureKeys.AuditTrail,
+        ProductFeatureKeys.AdvancedWorkflow,
+        ProductFeatureKeys.Reporting,
+        ProductFeatureKeys.TimeRecording,
+        ProductFeatureKeys.EntraSso,
+        ProductFeatureKeys.FutureFancy
+    };
+
+    private static readonly ProductPlan Community = new(
+        "community",
+        "Community",
         "$0/mo",
         UserLimit: 3,
         MatterLimit: 100,
-        UnlimitedClients: true,
-        FeatureKeys: new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ProductFeatureKeys.BasicConflicts,
-            ProductFeatureKeys.BasicIntakeForms
-        });
-
-    private static readonly ProductPlan Standard = new(
-        "standard",
-        "Standard",
-        "$99/mo",
-        UserLimit: 10,
-        MatterLimit: null,
-        UnlimitedClients: true,
-        FeatureKeys: new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ProductFeatureKeys.BasicConflicts,
-            ProductFeatureKeys.BasicIntakeForms,
-            ProductFeatureKeys.Workflow,
-            ProductFeatureKeys.EmailNotifications,
-            ProductFeatureKeys.AuditTrail,
-            ProductFeatureKeys.TimeRecording
-        });
+        ClientLimit: 100,
+        FeatureKeys: AllFeatureKeys,
+        Note: "Community support");
 
     private static readonly ProductPlan Professional = new(
         "professional",
         "Professional",
-        "$299/mo",
+        "$99/month",
+        UserLimit: 10,
+        MatterLimit: 500,
+        ClientLimit: 500,
+        FeatureKeys: AllFeatureKeys,
+        Note: "Email support. Additional users are $10/user/month.");
+
+    private static readonly ProductPlan Enterprise = new(
+        "enterprise",
+        "Enterprise",
+        "Coming soon",
         UserLimit: null,
         MatterLimit: null,
-        UnlimitedClients: true,
-        FeatureKeys: new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ProductFeatureKeys.BasicConflicts,
-            ProductFeatureKeys.BasicIntakeForms,
-            ProductFeatureKeys.Workflow,
-            ProductFeatureKeys.EmailNotifications,
-            ProductFeatureKeys.AuditTrail,
-            ProductFeatureKeys.AdvancedWorkflow,
-            ProductFeatureKeys.Reporting,
-            ProductFeatureKeys.TimeRecording,
-            ProductFeatureKeys.EntraSso,
-            ProductFeatureKeys.FutureFancy
-        });
+        ClientLimit: null,
+        FeatureKeys: AllFeatureKeys,
+        Note: "Enterprise packaging is coming soon.");
 
-    public IReadOnlyList<ProductPlan> Plans { get; } = [Free, Standard, Professional];
+    public IReadOnlyList<ProductPlan> Plans { get; } = [Community, Professional, Enterprise];
 
     public ProductPlan CurrentPlan => Professional;
 
@@ -146,6 +142,12 @@ public class ProductPlanService(MatterForgeDbContext db)
     {
         var count = await db.Matters.CountAsync();
         return BuildLimitStatus("matters", count, CurrentPlan.MatterLimit);
+    }
+
+    public async Task<ProductLimitStatus> GetClientLimitAsync()
+    {
+        var count = await db.Clients.CountAsync();
+        return BuildLimitStatus("clients", count, CurrentPlan.ClientLimit);
     }
 
     private static ProductLimitStatus BuildLimitStatus(string resourceName, int currentCount, int? limit)

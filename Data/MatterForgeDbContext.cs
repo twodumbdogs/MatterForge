@@ -63,6 +63,8 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<FormDefinition>(entity =>
@@ -188,6 +190,23 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
                 .HasOne(x => x.ActorUser)
                 .WithMany()
                 .HasForeignKey(x => x.ActorUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<SystemSetting>(entity =>
+        {
+            entity.Property(x => x.Key).HasMaxLength(120);
+            entity.Property(x => x.Category).HasMaxLength(80);
+            entity.Property(x => x.DisplayName).HasMaxLength(160);
+            entity.Property(x => x.Description).HasMaxLength(1000);
+            entity.Property(x => x.Value).HasMaxLength(2000);
+            entity.Property(x => x.ValueType).HasMaxLength(40);
+            entity.HasIndex(x => x.Key).IsUnique();
+            entity.HasIndex(x => new { x.Category, x.DisplayName });
+            entity
+                .HasOne(x => x.UpdatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.UpdatedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
