@@ -343,7 +343,11 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
             entity.Property(x => x.RiskLevel).HasMaxLength(40);
             entity.Property(x => x.Explanation).HasMaxLength(2000);
             entity.Property(x => x.AiAssessment).HasMaxLength(2000);
+            entity.Property(x => x.ClearanceStatus).HasMaxLength(80).HasDefaultValue(ConflictSearchDecisions.Pending);
+            entity.Property(x => x.ClearanceNotes).HasMaxLength(2000);
             entity.HasIndex(x => new { x.ConflictSearchId, x.Score });
+            entity.HasIndex(x => new { x.ConflictSearchId, x.ClearanceStatus });
+            entity.HasIndex(x => new { x.ClearedByUserId, x.ClearedAt });
             entity
                 .HasOne(x => x.ConflictSearch)
                 .WithMany(x => x.Results)
@@ -364,6 +368,11 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
                 .WithMany()
                 .HasForeignKey(x => x.ClientId)
                 .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.ClearedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.ClearedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<MatterForgeUser>(entity =>
@@ -374,9 +383,20 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
             entity.Property(x => x.LastName).HasMaxLength(120);
             entity.Property(x => x.DisplayName).HasMaxLength(160);
             entity.Property(x => x.Email).HasMaxLength(254);
+            entity.Property(x => x.EntraTenantId).HasMaxLength(80);
+            entity.Property(x => x.EntraObjectId).HasMaxLength(80);
+            entity.Property(x => x.EntraUserPrincipalName).HasMaxLength(254);
             entity.Property(x => x.Title).HasMaxLength(120);
             entity.HasIndex(x => x.SystemId).IsUnique();
             entity.HasIndex(x => x.Email).IsUnique();
+            entity
+                .HasIndex(x => new { x.EntraTenantId, x.EntraObjectId })
+                .IsUnique()
+                .HasFilter("[EntraTenantId] <> '' AND [EntraObjectId] <> ''");
+            entity
+                .HasIndex(x => x.EntraUserPrincipalName)
+                .IsUnique()
+                .HasFilter("[EntraUserPrincipalName] <> ''");
         });
 
         modelBuilder.Entity<ImportBatch>(entity =>

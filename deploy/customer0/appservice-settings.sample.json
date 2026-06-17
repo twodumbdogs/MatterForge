@@ -1,0 +1,22 @@
+{
+  "ConnectionStrings__DefaultConnection": "Server=tcp:gwmatterforge.database.windows.net,1433;Initial Catalog=cmiforge-customer0;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120;",
+  "Authentication__Microsoft__Enabled": "true",
+  "Authentication__Microsoft__TenantId": "<entra-tenant-id>",
+  "Authentication__Microsoft__ClientId": "<app-registration-client-id>",
+  "Authentication__Microsoft__ClientSecret": "<store-in-app-service-or-key-vault-reference>",
+  "Authentication__Microsoft__CallbackPath": "/signin-oidc",
+  "EntraProvisioning__Enabled": "false",
+  "EntraProvisioning__Domain": "cmiforge.com",
+  "SubmissionAttachments__ContainerName": "customer0-attachments",
+  "SubmissionAttachments__UseManagedIdentity": "true",
+  "SubmissionAttachments__AccountName": "cmiforgeattachasgmt7",
+  "MatterForge__BootstrapAdminEmail": "<your-admin-email>",
+  "MatterForge__DemoMode": "false",
+  "MatterForge__DemoResetEnabled": "false",
+  "MatterForge__DemoResetIntervalHours": "12",
+  "MatterForge__RunMigrationsOnStartup": "false",
+  "MatterForge__RunSeedDataOnStartup": "true",
+  "MatterForge__SeedSampleData": "false",
+  "MatterForge__DefaultTimeZone": "America/Chicago",
+  "ASPNETCORE_ENVIRONMENT": "Production"
+}

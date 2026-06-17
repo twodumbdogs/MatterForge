@@ -40,6 +40,7 @@
             <label asp-for="Input.Email" class="form-label"></label>
             <input asp-for="Input.Email" class="form-control" />
             <span asp-validation-for="Input.Email" class="text-danger"></span>
+            <div class="form-text">This is the email CMIForge stores for contact and notifications. It does not have to match the Entra login.</div>
         </div>
         <div class="col-md-8">
             <label asp-for="Input.Title" class="form-label"></label>
@@ -50,6 +51,43 @@
                 <input asp-for="Input.IsActive" class="form-check-input" />
                 <label asp-for="Input.IsActive" class="form-check-label"></label>
             </div>
+        </div>
+    </div>
+
+    <hr class="my-4" />
+
+    <div class="row g-3">
+        <div class="col-12">
+            <h2 class="h5 mb-2">Entra Login</h2>
+            @if (Model.EntraProvisioningConfigured)
+            {
+                <p class="text-muted mb-0">
+                    Create a Microsoft Entra login in this tenant. The username becomes
+                    <code>username@@@Model.EntraDomain</code> and does not require a mailbox.
+                </p>
+            }
+            else
+            {
+                <div class="alert alert-info mb-0">
+                    Entra user provisioning is not enabled for this tenant yet. You can still create the CMIForge user record now and bind Entra identity later.
+                </div>
+            }
+        </div>
+        <div class="col-md-4">
+            <div class="form-check mt-2">
+                <input asp-for="Input.CreateEntraLogin" class="form-check-input" disabled="@(!Model.EntraProvisioningConfigured)" />
+                <label asp-for="Input.CreateEntraLogin" class="form-check-label"></label>
+            </div>
+            <span asp-validation-for="Input.CreateEntraLogin" class="text-danger"></span>
+        </div>
+        <div class="col-md-8">
+            <label asp-for="Input.EntraUserName" class="form-label"></label>
+            <div class="input-group">
+                <input asp-for="Input.EntraUserName" class="form-control" disabled="@(!Model.EntraProvisioningConfigured)" />
+                <span class="input-group-text">@@@Model.EntraDomain</span>
+            </div>
+            <span asp-validation-for="Input.EntraUserName" class="text-danger"></span>
+            <div class="form-text">Use letters, numbers, periods, underscores, or hyphens.</div>
         </div>
     </div>
 

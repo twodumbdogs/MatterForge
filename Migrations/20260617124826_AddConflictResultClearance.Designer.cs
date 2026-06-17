@@ -4,6 +4,7 @@ using MatterForge.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MatterForge.Migrations
 {
     [DbContext(typeof(MatterForgeDbContext))]
-    partial class MatterForgeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260617124826_AddConflictResultClearance")]
+    partial class AddConflictResultClearance
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -630,21 +633,6 @@ namespace MatterForge.Migrations
                         .HasMaxLength(254)
                         .HasColumnType("nvarchar(254)");
 
-                    b.Property<string>("EntraObjectId")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<string>("EntraTenantId")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<string>("EntraUserPrincipalName")
-                        .IsRequired()
-                        .HasMaxLength(254)
-                        .HasColumnType("nvarchar(254)");
-
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -679,16 +667,8 @@ namespace MatterForge.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.HasIndex("EntraUserPrincipalName")
-                        .IsUnique()
-                        .HasFilter("[EntraUserPrincipalName] <> ''");
-
                     b.HasIndex("SystemId")
                         .IsUnique();
-
-                    b.HasIndex("EntraTenantId", "EntraObjectId")
-                        .IsUnique()
-                        .HasFilter("[EntraTenantId] <> '' AND [EntraObjectId] <> ''");
 
                     b.ToTable("Users", (string)null);
                 });

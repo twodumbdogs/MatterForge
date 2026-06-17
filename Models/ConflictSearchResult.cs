@@ -38,6 +38,16 @@ public class ConflictSearchResult
 
     public string AiAssessment { get; set; } = string.Empty;
 
+    public string ClearanceStatus { get; set; } = ConflictSearchDecisions.Pending;
+
+    public string ClearanceNotes { get; set; } = string.Empty;
+
+    public Guid? ClearedByUserId { get; set; }
+
+    public MatterForgeUser? ClearedByUser { get; set; }
+
+    public DateTimeOffset? ClearedAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 

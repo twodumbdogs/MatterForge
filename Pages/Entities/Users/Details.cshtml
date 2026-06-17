@@ -37,6 +37,22 @@ else
         <div class="alert alert-info">@Model.ProtectedUserMessage</div>
     }
 
+    @if (!string.IsNullOrWhiteSpace(Model.CreatedEntraTemporaryPassword))
+    {
+        <div class="alert alert-warning">
+            <h2 class="h5">Entra login created</h2>
+            <p class="mb-2">
+                Give this temporary password to the user now. It will not be shown again.
+            </p>
+            <dl class="row mb-0">
+                <dt class="col-sm-3">Username</dt>
+                <dd class="col-sm-9"><code>@Model.CreatedEntraUserPrincipalName</code></dd>
+                <dt class="col-sm-3">Temporary password</dt>
+                <dd class="col-sm-9"><code>@Model.CreatedEntraTemporaryPassword</code></dd>
+            </dl>
+        </div>
+    }
+
     <div class="row g-4">
         <div class="col-lg-5">
             <div class="mf-panel">
@@ -54,6 +70,28 @@ else
                     <dd class="col-sm-7">@Model.UserRecord.DisplayName</dd>
                     <dt class="col-sm-5">Email</dt>
                     <dd class="col-sm-7">@Model.UserRecord.Email</dd>
+                    <dt class="col-sm-5">Entra login</dt>
+                    <dd class="col-sm-7">
+                        @if (string.IsNullOrWhiteSpace(Model.UserRecord.EntraUserPrincipalName))
+                        {
+                            <span class="text-muted">Not bound</span>
+                        }
+                        else
+                        {
+                            <code>@Model.UserRecord.EntraUserPrincipalName</code>
+                        }
+                    </dd>
+                    <dt class="col-sm-5">Entra object ID</dt>
+                    <dd class="col-sm-7">
+                        @if (string.IsNullOrWhiteSpace(Model.UserRecord.EntraObjectId))
+                        {
+                            <span class="text-muted">None</span>
+                        }
+                        else
+                        {
+                            <code>@Model.UserRecord.EntraObjectId</code>
+                        }
+                    </dd>
                     <dt class="col-sm-5">Title / role</dt>
                     <dd class="col-sm-7">@Model.UserRecord.Title</dd>
                     <dt class="col-sm-5">Status</dt>

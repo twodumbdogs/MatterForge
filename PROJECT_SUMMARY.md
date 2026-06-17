@@ -45,7 +45,8 @@ Current Azure resources:
 - App Service plan: `cmiforge-dev-plan`
 - App Service app: `cmiforge-dev-web-06161223`
 - Azure SQL server: `gwmatterforge.database.windows.net`
-- Azure SQL database: `matterforge-prototype`
+- Azure SQL prototype/dev database: `matterforge-prototype`
+- Azure SQL public demo database: `cmiforge-demo`
 - Attachment storage account: `cmiforgeattachasgmt7`
 - Attachment container: `submission-attachments`
 - Static Web App: `cmiforge-web-06161219`
@@ -57,7 +58,70 @@ Current hosting stance:
 - The public marketing site is separate and deployed through Azure Static Web Apps.
 - The Static Web App + Function App split is scaffolded for later, but the app has not been rewritten into that model.
 - The live dev app uses demo mode so visitors can explore with the seeded `Ima User` context.
+- The live demo app points at the separate `cmiforge-demo` database so public test data stays away from the prototype/dev database.
 - `app.cmiforge.com` is intentionally not bound yet because App Service custom domains require a paid plan tier.
+
+## Customer 0 Tenant Slice
+
+The repo now includes a deployment slice for Gabe's real non-demo tenant, called Customer 0.
+
+Customer 0 is intended to be the first production-style CMIForge space:
+
+- Separate App Service app: `cmiforge-customer0-web`.
+- Separate Azure SQL database: `cmiforge-customer0`.
+- Separate private Blob container: `customer0-attachments`.
+- Microsoft Entra login enabled.
+- Demo mode disabled.
+- Demo resets disabled.
+- Sample/demo data disabled.
+- Bootstrap admin configured through `MatterForge:BootstrapAdminEmail`.
+
+Customer 0 was provisioned on `2026-06-17` at `https://cmiforge-customer0-web.azurewebsites.net` using the `CMIForge Customer 0` Entra app registration. It currently uses the free `F1` App Service SKU and a `Basic` Azure SQL database so it can run without binding the paid `app.cmiforge.com` subdomain yet.
+
+The Customer 0 slice now includes the first Entra user-provisioning foundation:
+
+- `cmiforge.com` has been added to Entra as a custom domain and is awaiting DNS TXT verification.
+- The required DNS TXT value is `MS=ms36377677`.
+- Microsoft also provided alternate MX verification: `ms36377677.msv1.invalid` with priority `32767`.
+- Customer 0 stores Entra tenant ID, object ID, and UPN on user records.
+- The create-user flow can optionally create an Entra user, generate a temporary password, and link the Entra identity back to the CMIForge user record.
+- The user's CMIForge work/contact email can differ from the Entra UPN.
+- A UPN such as `first.last@cmiforge.com` does not require a real mailbox.
+- The Customer 0 web app managed identity has the Microsoft Graph `User.ReadWrite.All` application permission needed for user creation.
+- `EntraProvisioning__Enabled` remains off until `cmiforge.com` verifies successfully in Entra.
+
+Tracked Customer 0 files:
+
+- `deploy/customer0/deploy-customer0.ps1`
+- `deploy/customer0/appservice-settings.sample.json`
+- `deploy/customer0/ENTRA_CHECKLIST.md`
+- `deploy/customer0/README.md`
+
+The app now supports `MatterForge:BootstrapAdminEmail`. When Microsoft Entra login is enabled and demo mode is off, a matching authenticated user is activated if needed and granted the seeded `Administrator` role. This prevents a fresh tenant from being easy to lock yourself out of.
+
+Startup seeding is now split between core platform seed data and sample/demo seed data:
+
+- `MatterForge:RunSeedDataOnStartup=true` allows startup seed execution.
+- `MatterForge:SeedSampleData=false` seeds core platform structure without public-demo filler data.
+- `MatterForge:SeedSampleData=true` keeps local/demo-style sample data available when needed.
+
+The near-term tenant model is database-per-customer. That is simpler for support, backup/restore, customer export/delete, and early legal-data isolation. A future subscription flow can queue a provisioning job that creates the customer database, attachment container, app settings, Entra configuration, seed data, and first admin.
+
+## Public Demo Safety
+
+The live demo now has dedicated guardrails for public visitors:
+
+- `MatterForge:DemoMode=true` enables demo behavior.
+- `MatterForge:DemoResetEnabled=true` enables scheduled demo resets.
+- `MatterForge:DemoResetIntervalHours=12` configures the reset interval.
+- A visible banner appears at the top of every page explaining public demo behavior.
+- `/System/Demo` shows demo behavior and exposes a manual `Reset demo now` button.
+- Manual reset clears demo-created records and reruns starter seed data.
+- Scheduled reset runs every 12 hours while the App Service process is awake.
+- Demo mode blocks administrative/designer POST actions such as Security, System Settings, Imports, Form designer, and Workflow designer changes.
+- Demo mode blocks destructive handlers with `Delete` or `Remove` in the handler name.
+- User `00000001` remains protected.
+- Submitted form text is screened for obvious abusive/unsafe public demo content before handlers write data.
 
 ## In-App Help
 
@@ -70,7 +134,7 @@ The Help page covers:
 - Submissions and approval-gated conversion
 - Workflow definitions, queues, outcomes, and routing conditions
 - Clients, matters, parties, and users
-- Conflicts search behavior and current review limits
+- Conflicts search behavior, prior-history matching, and result-level clearance
 - CSV imports and validation mode
 - Teams, roles, permissions, and optional Entra login
 - System settings for operational configuration
@@ -413,12 +477,15 @@ Current search behavior:
 - Searches party aliases.
 - Expands matches through party relationships.
 - Includes matter/client context when a party is linked to matters.
+- Searches prior conflict search names, terms, review notes, and AI summaries.
+- Searches prior conflict result clearance notes.
 - Scores exact normalized matches.
 - Scores contains/token matches.
 - Scores fuzzy trigram similarity.
 - Scores edit-distance similarity.
 - Produces risk labels: Low, Medium, High, Critical.
 - Produces per-result explanations.
+- Tracks per-result clearance status, notes, reviewer, and timestamp.
 
 Current AI behavior:
 
@@ -434,6 +501,8 @@ Conflict reviewer decisions:
 - Potential Conflict
 - Conflict
 - Needs Info
+
+Conflict decisions can be captured at the overall search level or on individual result rows. Row-level decisions roll up into the search status when the results collectively indicate clear, needs-info, potential-conflict, or conflict outcomes.
 
 Conflict search pages live at:
 

@@ -22,19 +22,39 @@ public static class SeedData
         var db = scope.ServiceProvider.GetRequiredService<MatterForgeDbContext>();
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-        var runMigrationsOnStartup = configuration.GetValue("MatterForge:RunMigrationsOnStartup", true);
+        var runMigrationsOnStartup = configuration.GetValue("MatterForge:RunMigrationsOnStartup", false);
+        var runSeedDataOnStartup = configuration.GetValue("MatterForge:RunSeedDataOnStartup", false);
         if (db.Database.IsRelational() && runMigrationsOnStartup)
         {
             await db.Database.MigrateAsync();
         }
 
-        await EnsureStarterUserAsync(db);
+        if (!runSeedDataOnStartup)
+        {
+            return;
+        }
+
+        var seedSampleData = configuration.GetValue("MatterForge:SeedSampleData", false);
+        await EnsureApplicationSeedDataAsync(db, seedSampleData);
+    }
+
+    public static async Task EnsureApplicationSeedDataAsync(MatterForgeDbContext db, bool seedSampleData = true)
+    {
+        if (seedSampleData)
+        {
+            await EnsureStarterUserAsync(db);
+        }
+
         await EnsureStarterSecurityAsync(db);
         await EnsureStarterSystemSettingsAsync(db);
-        await EnsureStarterFormAsync(db);
+        await EnsureStarterFormAsync(db, seedSampleData);
         await EnsureStarterWorkflowAsync(db);
-        await EnsureStarterConflictDataAsync(db);
-        await EnsureStarterTimeEntriesAsync(db);
+
+        if (seedSampleData)
+        {
+            await EnsureStarterConflictDataAsync(db);
+            await EnsureStarterTimeEntriesAsync(db);
+        }
     }
 
     private static async Task EnsureStarterUserAsync(MatterForgeDbContext db)
@@ -73,7 +93,9 @@ public static class SeedData
         var demoUser = await FindDemoUserAsync(db);
         if (demoUser is null)
         {
-            var nextSystemId = (await db.Users.MaxAsync(x => (int?)x.SystemId) ?? 0) + 1;
+            var databaseMaxSystemId = await db.Users.MaxAsync(x => (int?)x.SystemId) ?? 0;
+            var localMaxSystemId = db.Users.Local.Count == 0 ? 0 : db.Users.Local.Max(x => x.SystemId);
+            var nextSystemId = Math.Max(databaseMaxSystemId, localMaxSystemId) + 1;
             demoUser = new MatterForgeUser
             {
                 SystemId = nextSystemId,
@@ -114,10 +136,6 @@ public static class SeedData
     {
         var protectedUser = await db.Users.FirstOrDefaultAsync(x => x.SystemId == DemoUserSystemId);
         var demoUser = await FindDemoUserAsync(db);
-        if (protectedUser is null && demoUser is null)
-        {
-            return;
-        }
 
         var permissions = new (string Key, string Name, string Category, string Description)[]
         {
@@ -633,7 +651,7 @@ public static class SeedData
         }
     }
 
-    private static async Task EnsureStarterFormAsync(MatterForgeDbContext db)
+    private static async Task EnsureStarterFormAsync(MatterForgeDbContext db, bool seedSampleData)
     {
         var existingForm = await db.FormDefinitions
             .Include(x => x.Versions)
@@ -642,7 +660,11 @@ public static class SeedData
         if (existingForm is not null)
         {
             await EnsureClientLookupFieldAsync(db, existingForm);
-            await EnsureAssignedUserFieldAsync(db, existingForm);
+            if (seedSampleData)
+            {
+                await EnsureAssignedUserFieldAsync(db, existingForm);
+            }
+
             return;
         }
 
@@ -653,18 +675,30 @@ public static class SeedData
             Description = "Starter intake form for collecting the first wave of client and matter details."
         };
 
+        var fields = new List<FormField>
+        {
+            new() { Key = "clientName", Label = "Client name", Type = FieldType.Client, Required = true },
+            new() { Key = "matterName", Label = "Matter name", Type = FieldType.Text, Required = true },
+            new() { Key = "practiceArea", Label = "Practice area", Type = FieldType.Select, Required = true, Options = ["Corporate", "Litigation", "Real Estate", "Employment"] },
+            new() { Key = "estimatedFees", Label = "Estimated fees", Type = FieldType.Currency },
+            new() { Key = "summary", Label = "Matter summary", Type = FieldType.TextArea, Required = true }
+        };
+
+        if (seedSampleData)
+        {
+            fields.Insert(fields.Count - 1, new FormField
+            {
+                Key = "assignedUser",
+                Label = "Assigned user",
+                Type = FieldType.Select,
+                Options = ["Ima User"]
+            });
+        }
+
         var schema = new FormSchema
         {
             Title = "New Matter Intake",
-            Fields =
-            [
-                new FormField { Key = "clientName", Label = "Client name", Type = FieldType.Client, Required = true },
-                new FormField { Key = "matterName", Label = "Matter name", Type = FieldType.Text, Required = true },
-                new FormField { Key = "practiceArea", Label = "Practice area", Type = FieldType.Select, Required = true, Options = ["Corporate", "Litigation", "Real Estate", "Employment"] },
-                new FormField { Key = "estimatedFees", Label = "Estimated fees", Type = FieldType.Currency },
-                new FormField { Key = "assignedUser", Label = "Assigned user", Type = FieldType.Select, Options = ["Ima User"] },
-                new FormField { Key = "summary", Label = "Matter summary", Type = FieldType.TextArea, Required = true }
-            ]
+            Fields = fields
         };
 
         form.Versions.Add(new FormVersion

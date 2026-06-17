@@ -1,0 +1,36 @@
+@page
+@model MatterForge.Pages.System.DemoModel
+@{
+    ViewData["Title"] = "Demo Mode";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">System</p>
+        <h1>Demo Mode</h1>
+        <p class="text-muted">Public demo behavior, guardrails, and reset controls.</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.ResetMessage))
+{
+    <div class="alert alert-success">@Model.ResetMessage</div>
+}
+
+<div class="mf-panel">
+    <h2>Public Demo Guardrails</h2>
+    <p class="mt-3">This environment is designed for visitors to explore CMIForge without putting the real development data or brand experience at risk.</p>
+    <ul class="mb-0">
+        <li>Demo data resets every @Model.ResetIntervalHours.ToString("g") hours while the app process is running.</li>
+        <li>Manual reset immediately clears demo-created records and rebuilds the starter dataset.</li>
+        <li>Admin and destructive actions are disabled.</li>
+        <li>User <code>00000001</code> is protected.</li>
+        <li>Submitted text is screened for abusive or unsafe demo content.</li>
+    </ul>
+</div>
+
+<form method="post" class="mf-panel mt-3">
+    <h2>Reset Demo Data</h2>
+    <p class="text-muted mt-3">This removes demo-created records, clears uploaded attachment records, and recreates the starter clients, matters, parties, users, forms, workflows, settings, conflicts data, and sample time entries.</p>
+    <button class="btn btn-danger" asp-page-handler="Reset" type="submit">Reset demo now</button>
+</form>

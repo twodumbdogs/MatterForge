@@ -1,0 +1,104 @@
+using MatterForge.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace MatterForge.Services;
+
+public class DemoResetService(
+    IDbContextFactory<MatterForgeDbContext> dbFactory,
+    DemoModeService demoModeService,
+    SubmissionAttachmentService attachmentService,
+    ILogger<DemoResetService> logger)
+{
+    private static readonly SemaphoreSlim ResetLock = new(1, 1);
+
+    public async Task<DemoResetResult> ResetAsync(string trigger, CancellationToken cancellationToken = default)
+    {
+        if (!demoModeService.IsEnabled)
+        {
+            return new DemoResetResult(false, 0, "Demo reset is only available while demo mode is enabled.");
+        }
+
+        if (!await ResetLock.WaitAsync(0, cancellationToken))
+        {
+            return new DemoResetResult(false, 0, "A demo reset is already running.");
+        }
+
+        try
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+            var strategy = db.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+                var deletedRows = 0;
+                deletedRows += await DeleteAttachmentsAsync(db, cancellationToken);
+                deletedRows += await db.AuditLogs.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.TimeEntries.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.ConflictSearchResults.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.ConflictSearches.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.ImportBatchRows.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.ImportBatches.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.SubmissionWorkflowEvents.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.SubmissionWorkflowTasks.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.SubmissionWorkflowInstances.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.FormSubmissions.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.MatterParties.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.PartyRelationships.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.PartyAliases.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.Parties.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.Matters.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.Clients.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.WorkflowSteps.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.FormVersions.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.WorkflowDefinitions.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.FormDefinitions.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.TeamRoles.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.TeamMembers.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.UserRoles.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.RolePermissions.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.SecurityRoles.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.Permissions.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.Teams.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.SystemSettings.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.Users.ExecuteDeleteAsync(cancellationToken);
+
+                db.ChangeTracker.Clear();
+                await SeedData.EnsureApplicationSeedDataAsync(db);
+                await transaction.CommitAsync(cancellationToken);
+
+                logger.LogInformation("Demo reset completed from {Trigger}; deleted {DeletedRows} rows.", trigger, deletedRows);
+                return new DemoResetResult(true, deletedRows, "Demo data has been reset to the starter dataset.");
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Demo reset failed from {Trigger}.", trigger);
+            return new DemoResetResult(false, 0, "Demo reset failed. Check application logs for details.");
+        }
+        finally
+        {
+            ResetLock.Release();
+        }
+    }
+
+    private async Task<int> DeleteAttachmentsAsync(MatterForgeDbContext db, CancellationToken cancellationToken)
+    {
+        var attachments = await db.SubmissionAttachments.ToListAsync(cancellationToken);
+        foreach (var attachment in attachments)
+        {
+            try
+            {
+                await attachmentService.DeleteFileIfExistsAsync(attachment);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Could not delete demo attachment blob {BlobName}. The database reset will continue.", attachment.BlobName);
+            }
+        }
+
+        return await db.SubmissionAttachments.ExecuteDeleteAsync(cancellationToken);
+    }
+}
+
+public sealed record DemoResetResult(bool Succeeded, int DeletedRows, string Message);

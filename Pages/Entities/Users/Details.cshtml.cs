@@ -1,6 +1,7 @@
 using MatterForge.Data;
 using MatterForge.Models;
 using MatterForge.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,6 +14,12 @@ public class DetailsModel(MatterForgeDbContext db, DemoModeService demoModeServi
     public bool IsEditLocked => UserRecord is not null && demoModeService.IsProtectedSystemUser(UserRecord.SystemId);
 
     public string ProtectedUserMessage => demoModeService.ProtectedUserMessage;
+
+    [TempData]
+    public string? CreatedEntraUserPrincipalName { get; set; }
+
+    [TempData]
+    public string? CreatedEntraTemporaryPassword { get; set; }
 
     public async Task OnGetAsync(Guid id)
     {

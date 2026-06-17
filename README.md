@@ -9,6 +9,12 @@ The product currently has two public-facing surfaces:
 - Marketing site: `https://cmiforge.com`
 - Live dev app / demo: `https://cmiforge-dev-web-06161223.azurewebsites.net`
 
+The repo also now includes a Customer 0 deployment slice for a real, non-demo tenant with Entra login:
+
+- Customer 0 notes: `deploy/customer0/README.md`
+- Entra setup checklist: `deploy/customer0/ENTRA_CHECKLIST.md`
+- Customer 0 app settings sample: `deploy/customer0/appservice-settings.sample.json`
+
 ## Current Scope
 
 - Dynamic form definitions
@@ -24,7 +30,7 @@ The product currently has two public-facing surfaces:
 - Time recording and operational reports
 - Team, role, permission, and audit-log foundation
 - Admin-editable system settings for operational configuration
-- Optional Microsoft Entra ID sign-in plumbing
+- Optional Microsoft Entra ID sign-in and first-pass Entra user provisioning
 - Hardcoded Community/Professional/Enterprise plan limiter
 - Azure SQL-ready EF Core model and migration
 
@@ -43,6 +49,8 @@ Current dev architecture:
 - Future Azure Function App and Static Web App split-architecture resources are provisioned, but the current production-worthy app host remains App Service
 
 The live demo currently runs in demo mode with the seeded `Ima User` context. Microsoft Entra authentication is supported in the app, but demo mode keeps the public dev experience frictionless while the product is still being shaped.
+
+Real tenants should run with `MatterForge:DemoMode=false`, `Authentication:Microsoft:Enabled=true`, and a configured `MatterForge:BootstrapAdminEmail`. Customer-managed Entra user creation also needs a verified Entra custom domain, `EntraProvisioning:Enabled=true`, and `EntraProvisioning:Domain=<verified-domain>`.
 
 ## Run Locally
 

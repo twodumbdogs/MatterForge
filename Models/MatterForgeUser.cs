@@ -16,6 +16,12 @@ public class MatterForgeUser
 
     public string Email { get; set; } = string.Empty;
 
+    public string EntraTenantId { get; set; } = string.Empty;
+
+    public string EntraObjectId { get; set; } = string.Empty;
+
+    public string EntraUserPrincipalName { get; set; } = string.Empty;
+
     public string Title { get; set; } = string.Empty;
 
     public bool IsActive { get; set; } = true;

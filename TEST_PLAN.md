@@ -317,20 +317,37 @@ Expected results:
 - You should see multiple interesting hits from the seeded data.
 - Results should include score, risk, explanation, and AI-style assessment.
 
-### 9B. Review and Clear at the Search Level
+### 9B. Review and Clear Results
 
 Steps:
 
-1. On the conflict detail page, set a reviewer decision.
-2. Add reviewer notes.
-3. Save or confirm the review state.
+1. On the conflict detail page, review the overall search decision panel.
+2. On an individual result row, set a result clearance status.
+3. Add result-level clearance notes.
+4. Save the row.
+5. Repeat for enough rows to confirm the overall search status rolls up appropriately.
 
 Expected results:
 
-- Review is currently captured at the overall search level, not per individual result.
-- The saved decision persists.
+- Each result can store its own status, notes, reviewer, and timestamp.
+- The saved row-level clearance persists after reload.
+- Search-level status updates when result decisions collectively indicate clear, needs info, potential conflict, or conflict.
 
-### 9C. Run Conflicts from Context
+### 9C. Confirm Prior-History Matching
+
+Steps:
+
+1. Add a distinctive phrase or party name to a conflict result clearance note.
+2. Run a new conflict search using that distinctive text.
+3. Open the new search detail page.
+
+Expected results:
+
+- Prior conflict search text can appear as a historical hit.
+- Prior result clearance notes can appear as a historical hit.
+- Historical hits show as matched items rather than party records.
+
+### 9D. Run Conflicts from Context
 
 Steps:
 
@@ -432,7 +449,30 @@ Expected results:
 - SMTP password values are not displayed as plain text.
 - Entra remains the expected place for password resets, verification, MFA, and sign-in policy.
 
-## 14. Optional Entra Login Review
+## 14. Demo Mode Guardrails
+
+Purpose: confirm the public demo stays safe, disposable, and clearly labeled.
+
+Steps:
+
+1. Open the live demo app.
+2. Confirm the demo banner appears at the top of the page.
+3. Open `System -> Demo Mode`.
+4. Create a harmless client named `Reset Sentinel Demo Client`.
+5. Click `Reset demo now`.
+6. Confirm the sentinel client disappears and starter clients, matters, parties, forms, workflows, users, and time entries return.
+7. Try to create a client with obvious abusive language in the name.
+8. Try a blocked admin action, such as creating a team from `/Security/Teams`.
+
+Expected results:
+
+- The demo app points at the separate `cmiforge-demo` database.
+- Demo reset clears visitor-created data and reseeds starter records.
+- Bad content redirects to the demo-blocked page and creates no record.
+- Admin/destructive demo actions redirect to the demo-blocked page.
+- User `00000001` remains protected.
+
+## 15. Optional Entra Login Review
 
 Purpose: understand the authentication direction, even if not active locally.
 
@@ -449,7 +489,7 @@ Expected results:
 
 - Authentication and authorization are separate concepts in the platform design.
 
-## 15. Suggested Smoke Regression Pass
+## 16. Suggested Smoke Regression Pass
 
 Use this as the short “did we break anything obvious?” sweep after future changes:
 
@@ -480,7 +520,7 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] Visible timestamps match the browser's local timezone
 - [ ] Plan page loads
 
-## 16. What To Notice While Testing
+## 17. What To Notice While Testing
 
 This is the “buyer brain” part of the walkthrough. As you test, pay attention to:
 
@@ -490,7 +530,7 @@ This is the “buyer brain” part of the walkthrough. As you test, pay attentio
 - Does the platform feel more like firm software than a demo CRUD app?
 - Which screens feel “beta but useful” versus “next obvious polish target”?
 
-## 17. Notes Template
+## 18. Notes Template
 
 Use this if you want to jot reactions as you go:
 

@@ -33,7 +33,8 @@ It captures the current Azure dev resources, the expected app settings shape, an
 ### Shared supporting services
 
 - Azure SQL server: `gwmatterforge.database.windows.net`
-- Azure SQL database: `matterforge-prototype`
+- Azure SQL prototype/dev database: `matterforge-prototype`
+- Azure SQL public demo database: `cmiforge-demo`
 - Attachment storage account: `cmiforgeattachasgmt7`
 - Attachment container: `submission-attachments`
 
@@ -46,17 +47,24 @@ The live dev App Service currently expects:
 - `SubmissionAttachments__UseManagedIdentity`
 - `SubmissionAttachments__AccountName`
 - `ASPNETCORE_ENVIRONMENT`
+- `Authentication__Microsoft__Enabled`
 - `MatterForge__CurrentUserEmail`
 - `MatterForge__CurrentUserDisplayName`
+- `MatterForge__BootstrapAdminEmail`
 - `MatterForge__DemoMode`
+- `MatterForge__DemoResetEnabled`
+- `MatterForge__DemoResetIntervalHours`
+- `MatterForge__RunMigrationsOnStartup`
+- `MatterForge__RunSeedDataOnStartup`
+- `MatterForge__SeedSampleData`
 
-The intended Azure SQL connection string for the dev App Service is:
+The intended Azure SQL connection string for the public demo App Service is:
 
 ```text
-Server=tcp:gwmatterforge.database.windows.net,1433;Initial Catalog=matterforge-prototype;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;
+Server=tcp:gwmatterforge.database.windows.net,1433;Initial Catalog=cmiforge-demo;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120;
 ```
 
-The App Service managed identity already has a database user in `matterforge-prototype` with:
+The App Service managed identity already has a database user in `cmiforge-demo` with:
 
 - `db_datareader`
 - `db_datawriter`
@@ -166,6 +174,7 @@ Important note:
 - The current production-worthy host for the existing CMIForge app is App Service, not Static Web Apps.
 - The Static Web App and Function App are in place as future split-architecture scaffolding.
 - The live demo remains App Service-hosted and uses `MatterForge__DemoMode=true` so the app resolves to `Ima User` without requiring visitors to sign in.
+- Public demo data is isolated in `cmiforge-demo`, resets every 12 hours while the App Service process is awake, and can be manually reset from `System -> Demo Mode`.
 - Microsoft Entra login is supported by the app, but public demo mode intentionally bypasses the sign-in requirement for now.
 - `az staticwebapp functions link` still fails in this environment with `API version 2020-12-01 does not have operation group 'static_sites'`.
 - The working Azure CLI path was the newer backend-link flow:

@@ -16,7 +16,8 @@ if (-not (Test-Path $deployScript)) {
     throw "Could not find deploy script at '$deployScript'."
 }
 
-$sqlConnectionString = "Server=tcp:gwmatterforge.database.windows.net,1433;Initial Catalog=matterforge-prototype;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+$sqlConnectionString = "Server=tcp:gwmatterforge.database.windows.net,1433;Initial Catalog=cmiforge-demo;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120;"
+$migrationConnectionString = "Server=tcp:gwmatterforge.database.windows.net,1433;Initial Catalog=cmiforge-demo;Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120;"
 
 if ([string]::IsNullOrWhiteSpace($BlobConnectionString)) {
     Write-Host "Tip: pass -BlobConnectionString when you want file uploads enabled in the cloud dev app." -ForegroundColor Yellow
@@ -25,7 +26,7 @@ if ([string]::IsNullOrWhiteSpace($BlobConnectionString)) {
 if (-not $SkipDatabaseUpdate.IsPresent) {
     Write-Host "Applying EF migrations to Azure SQL from the local dev context..." -ForegroundColor Cyan
     dotnet tool restore | Out-Null
-    dotnet tool run dotnet-ef database update --configuration Release
+    dotnet tool run dotnet-ef database update --configuration Release --connection $migrationConnectionString
 }
 
 & $deployScript `
@@ -43,7 +44,11 @@ if (-not $SkipDatabaseUpdate.IsPresent) {
     -CurrentUserEmail "imauser@twodumbdogs.com" `
     -CurrentUserDisplayName "Ima User" `
     -DemoMode $true `
+    -DemoResetEnabled $true `
+    -DemoResetIntervalHours 12 `
     -RunMigrationsOnStartup $false `
+    -RunSeedDataOnStartup $false `
+    -SeedSampleData $true `
     -AssignManagedIdentity:$AssignManagedIdentity `
     -SkipPublish:$SkipPublish `
     -SkipDeploy:$SkipDeploy

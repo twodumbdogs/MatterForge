@@ -12,8 +12,20 @@ param(
     [bool]$UseManagedIdentityForBlobStorage = $false,
     [string]$CurrentUserEmail,
     [string]$CurrentUserDisplayName,
+    [string]$BootstrapAdminEmail,
+    [bool]$EntraEnabled = $false,
+    [string]$EntraTenantId,
+    [string]$EntraClientId,
+    [string]$EntraClientSecret,
+    [string]$EntraCallbackPath = "/signin-oidc",
+    [bool]$EntraProvisioningEnabled = $false,
+    [string]$EntraProvisioningDomain,
     [bool]$DemoMode = $false,
-    [bool]$RunMigrationsOnStartup = $true,
+    [bool]$DemoResetEnabled = $true,
+    [double]$DemoResetIntervalHours = 12,
+    [bool]$RunMigrationsOnStartup = $false,
+    [bool]$RunSeedDataOnStartup = $false,
+    [bool]$SeedSampleData = $false,
     [switch]$AssignManagedIdentity,
     [switch]$SkipPublish,
     [switch]$SkipDeploy
@@ -31,7 +43,7 @@ function Show-Usage {
     }
 
     Write-Host "Usage:" -ForegroundColor Yellow
-    Write-Host "  .\deployme.ps1 -ResourceGroup <rg> -PlanName <plan> -WebAppName <app> [-Location centralus] [-PlanSku F1|B1|S1] [-SqlConnectionString <value>] [-BlobConnectionString <value>] [-BlobAccountName <name>] [-UseManagedIdentityForBlobStorage `$true] [-AssignManagedIdentity]" -ForegroundColor Yellow
+    Write-Host "  .\deployme.ps1 -ResourceGroup <rg> -PlanName <plan> -WebAppName <app> [-Location centralus] [-PlanSku F1|B1|S1] [-SqlConnectionString <value>] [-BlobConnectionString <value>] [-BlobAccountName <name>] [-UseManagedIdentityForBlobStorage `$true] [-EntraEnabled `$true] [-EntraTenantId <tenant>] [-EntraClientId <client>] [-BootstrapAdminEmail <email>] [-AssignManagedIdentity]" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Notes:" -ForegroundColor Yellow
     Write-Host "  - F1 is fine for a cheap dev cloud home, but App Service custom domains require a paid tier."
@@ -116,7 +128,13 @@ $appSettings = @(
     "SubmissionAttachments__ContainerName=$BlobContainerName",
     "SubmissionAttachments__UseManagedIdentity=$UseManagedIdentityForBlobStorage",
     "MatterForge__DemoMode=$DemoMode",
-    "MatterForge__RunMigrationsOnStartup=$RunMigrationsOnStartup"
+    "MatterForge__DemoResetEnabled=$DemoResetEnabled",
+    "MatterForge__DemoResetIntervalHours=$DemoResetIntervalHours",
+    "MatterForge__RunMigrationsOnStartup=$RunMigrationsOnStartup",
+    "MatterForge__RunSeedDataOnStartup=$RunSeedDataOnStartup",
+    "MatterForge__SeedSampleData=$SeedSampleData",
+    "Authentication__Microsoft__Enabled=$EntraEnabled",
+    "EntraProvisioning__Enabled=$EntraProvisioningEnabled"
 )
 
 if (-not [string]::IsNullOrWhiteSpace($BlobAccountName)) {
@@ -129,6 +147,30 @@ if (-not [string]::IsNullOrWhiteSpace($CurrentUserEmail)) {
 
 if (-not [string]::IsNullOrWhiteSpace($CurrentUserDisplayName)) {
     $appSettings += "MatterForge__CurrentUserDisplayName=$CurrentUserDisplayName"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($BootstrapAdminEmail)) {
+    $appSettings += "MatterForge__BootstrapAdminEmail=$BootstrapAdminEmail"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($EntraTenantId)) {
+    $appSettings += "Authentication__Microsoft__TenantId=$EntraTenantId"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($EntraClientId)) {
+    $appSettings += "Authentication__Microsoft__ClientId=$EntraClientId"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($EntraClientSecret)) {
+    $appSettings += "Authentication__Microsoft__ClientSecret=$EntraClientSecret"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($EntraCallbackPath)) {
+    $appSettings += "Authentication__Microsoft__CallbackPath=$EntraCallbackPath"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($EntraProvisioningDomain)) {
+    $appSettings += "EntraProvisioning__Domain=$EntraProvisioningDomain"
 }
 
 if (-not [string]::IsNullOrWhiteSpace($SqlConnectionString)) {

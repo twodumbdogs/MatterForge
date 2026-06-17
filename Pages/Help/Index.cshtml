@@ -7,7 +7,7 @@
     <div>
         <p class="mf-eyebrow">CMIForge Help</p>
         <h1>How CMIForge Works</h1>
-        <p class="text-muted">A practical guide to the current build: intake forms, workflows, entities, conflicts, imports, security, settings, and what is still intentionally in progress.</p>
+        <p class="text-muted">A practical guide to the current build: intake forms, submissions, workflows, entities, conflicts, imports, time, reports, security, settings, and what is still intentionally in progress.</p>
     </div>
 </div>
 
@@ -18,12 +18,17 @@
             <a class="nav-link" href="#big-picture">Big Picture</a>
             <a class="nav-link" href="#forms">Forms</a>
             <a class="nav-link" href="#submissions">Submissions</a>
+            <a class="nav-link" href="#attachments">Attachments</a>
             <a class="nav-link" href="#workflows">Workflows</a>
             <a class="nav-link" href="#entities">Entities</a>
             <a class="nav-link" href="#conflicts">Conflicts</a>
             <a class="nav-link" href="#imports">Imports</a>
+            <a class="nav-link" href="#time">Time</a>
+            <a class="nav-link" href="#reports">Reports</a>
             <a class="nav-link" href="#security">Security</a>
-            <a class="nav-link" href="#settings">Settings</a>
+            <a class="nav-link" href="#audit">Audit</a>
+            <a class="nav-link" href="#settings">Settings & Terms</a>
+            <a class="nav-link" href="#demo-mode">Demo Mode</a>
             <a class="nav-link" href="#plans">Plans</a>
             <a class="nav-link" href="#current-limits">Current Limits</a>
         </nav>
@@ -34,12 +39,13 @@
             <h2>Big Picture</h2>
             <p>CMIForge is a configurable legal intake and conflicts platform. The core idea is simple: build intake forms, collect submissions, route those submissions through workflow, run conflict checks, and convert approved submissions into client and matter records.</p>
             <ol class="mf-help-steps">
-                <li>Create or edit a form.</li>
+                <li>Create or edit a form, then publish a version.</li>
                 <li>Attach a workflow to the published form version.</li>
                 <li>Users submit the form.</li>
                 <li>Workflow tasks route to users or teams.</li>
-                <li>Conflicts can be run from a submission or matter context.</li>
+                <li>Attachments, conflict searches, and notes stay tied to the submission or matter context.</li>
                 <li>Approved submissions can be converted into client and matter records.</li>
+                <li>Time can be recorded against matters, then reviewed in operational reports.</li>
             </ol>
         </section>
 
@@ -47,10 +53,13 @@
             <h2>Forms</h2>
             <p>Forms define the intake questions users answer. CMIForge stores form designs as versioned schemas so historical submissions still render against the exact form version that was used at the time.</p>
             <ul>
-                <li><strong>Create Form</strong> publishes the first version.</li>
+                <li><strong>Fill Form</strong> takes users to the form list so they can choose the right published intake form.</li>
+                <li><strong>Create Form</strong> publishes the first version for a new form definition.</li>
                 <li><strong>Edit Form</strong> publishes a new version instead of changing older submissions.</li>
                 <li>Blank designer rows are ignored.</li>
                 <li>Select, radio-style, and checkbox-style fields use static options for now.</li>
+                <li>Client fields can let a user pick an existing client or type a new client name.</li>
+                <li>The <strong>Submitted by</strong> value is selected from active users.</li>
                 <li>A form version can be attached to a workflow definition.</li>
             </ul>
         </section>
@@ -63,7 +72,21 @@
                 <li><strong>My Submissions</strong> shows the current user's work.</li>
                 <li><strong>All Submissions</strong> is permission-gated.</li>
                 <li>Conversion is locked until a submission is approved.</li>
-                <li>Converted submissions link to the created client and matter.</li>
+                <li>Conversion can reuse a matching existing client or create a new client.</li>
+                <li>Converted submissions link back to the client and matter records.</li>
+                <li>Dates and times display in the user's local timezone when the browser provides timezone information.</li>
+            </ul>
+        </section>
+
+        <section id="attachments" class="mf-panel">
+            <h2>Attachments</h2>
+            <p>Submissions can carry small supporting files and links so intake materials stay with the request instead of wandering through email.</p>
+            <ul>
+                <li>File uploads currently allow PDF, Word, and Excel-style files up to 25 MB.</li>
+                <li>Hyperlink attachments can be added when the supporting material already lives somewhere else.</li>
+                <li>Uploaded files are stored in Azure Blob Storage when cloud storage is configured.</li>
+                <li>Attachment links appear on submission details and are permission-gated with submission access.</li>
+                <li>Demo mode blocks destructive/admin-style behavior where appropriate.</li>
             </ul>
         </section>
 
@@ -88,19 +111,20 @@
                 <li><strong>Matters</strong> have matter numbers, client links, status, practice area, responsible user, and related parties.</li>
                 <li><strong>Parties</strong> support conflicts searching through names, aliases, relationships, and matter roles.</li>
                 <li><strong>Users</strong> are application data users with system IDs, name parts, email, title, activity status, teams, and roles.</li>
+                <li>Matter details show related parties, conflict searches, and recent time entries.</li>
             </ul>
         </section>
 
         <section id="conflicts" class="mf-panel">
             <h2>Conflicts</h2>
-            <p>Conflict searches compare entered search terms against the party index. The search engine normalizes names, checks aliases, scores fuzzy matches, and expands strong matches through known party relationships.</p>
+            <p>Conflict searches compare entered search terms against the party index and prior conflict history. The search engine normalizes names, checks aliases, scores fuzzy matches, expands strong matches through known party relationships, and checks previous search/review text for recurring issues.</p>
             <ul>
                 <li>Searches can be linked to a submission or a matter.</li>
-                <li>Results show score, risk, matched party, matter/client context, explanation, and AI assist assessment.</li>
-                <li>Reviewer decisions are currently recorded at the overall search level.</li>
-                <li>Previous conflict searches are retained as history, but search matching currently runs against parties, aliases, relationships, clients, matters, and matter-party roles rather than prior search result text.</li>
+                <li>Results show score, risk, matched item, matter/client context, explanation, AI assist assessment, and row-level clearance state.</li>
+                <li>Reviewer decisions can be recorded at the overall search level or on individual result rows.</li>
+                <li>Previous conflict search names, terms, review notes, AI summaries, and result clearance notes are included as searchable history.</li>
             </ul>
-            <p class="mb-0"><strong>Current review behavior:</strong> use the search-level reviewer decision and notes to document overall clearance. Per-result clearance decisions are a planned next slice.</p>
+            <p class="mb-0"><strong>Current review behavior:</strong> use row-level clearance to document how each hit was resolved. Result decisions roll up into the overall search status when they collectively indicate clear, needs-info, potential-conflict, or conflict outcomes.</p>
         </section>
 
         <section id="imports" class="mf-panel">
@@ -109,9 +133,36 @@
             <ul>
                 <li><strong>Validate CSV</strong> checks the file and stores row-level messages without creating or updating records.</li>
                 <li><strong>Import CSV</strong> runs the same checks and writes the accepted rows.</li>
+                <li>Each import type includes a downloadable CSV template.</li>
                 <li>Clients upsert by <code>ClientNumber</code>.</li>
                 <li>Matters upsert by <code>MatterNumber</code> and require an existing <code>ClientNumber</code>.</li>
                 <li>Parties link to matters by <code>MatterNumber</code> and reuse existing parties by normalized name.</li>
+            </ul>
+        </section>
+
+        <section id="time" class="mf-panel">
+            <h2>Time</h2>
+            <p>Time recording is matter-centered. It is intentionally operational for now, not a full billing system.</p>
+            <ul>
+                <li>Time entries receive stable eight-digit numbers.</li>
+                <li>Each entry links to a user, client, and matter.</li>
+                <li>Entries capture work date, hours, billable flag, status, and narrative.</li>
+                <li>Status values include <code>Draft</code>, <code>Submitted</code>, <code>Approved</code>, <code>Billed</code>, and <code>No Charge</code>.</li>
+                <li>The time list can be filtered by date range, matter, status, and user when permissions allow.</li>
+                <li>Users can export filtered time entries to CSV.</li>
+                <li>Matter pages provide a shortcut to record time directly against that matter.</li>
+            </ul>
+        </section>
+
+        <section id="reports" class="mf-panel">
+            <h2>Reports</h2>
+            <p>Reports are currently hardcoded operational views that make the demo useful before a full report designer exists.</p>
+            <ul>
+                <li>Report access is controlled by the reporting permission and plan feature gates.</li>
+                <li>The report page supports a date range filter.</li>
+                <li>Current report cards include submission status, workflow queue aging, conflict status/decision counts, matters by practice area, and new matters by month.</li>
+                <li>Time reporting includes total entries, total hours, billable hours, time by user, and time by client/matter.</li>
+                <li>Time detail can be exported to CSV for spreadsheet review.</li>
             </ul>
         </section>
 
@@ -124,11 +175,23 @@
                 <li>Users inherit permissions from their teams.</li>
                 <li>Navigation and server-side page handlers both enforce permissions.</li>
                 <li>Optional Microsoft Entra login can map authenticated people to rows in the <code>Users</code> table.</li>
+                <li>Demo mode protects system user <code>00000001</code> and blocks destructive demo actions.</li>
+            </ul>
+        </section>
+
+        <section id="audit" class="mf-panel">
+            <h2>Audit</h2>
+            <p>The audit log records sensitive or administrative actions so the platform can explain who changed important records and when.</p>
+            <ul>
+                <li>Audited actions include administrative/security changes, conversion, attachment changes, settings updates, and destructive actions as those actions are added.</li>
+                <li>Audit entries capture actor details, action, entity type, entity identifier, summary, IP address, user agent, and optional JSON details.</li>
+                <li>The Security area includes an audit log view for users with the right permissions.</li>
+                <li>Audit timestamps render through the same user-local timezone helper used elsewhere in the app.</li>
             </ul>
         </section>
 
         <section id="settings" class="mf-panel">
-            <h2>Settings</h2>
+            <h2>Settings & Terms</h2>
             <p>System settings hold operational configuration such as support contact details, default timezone fallback, and email notification settings.</p>
             <ul>
                 <li>Settings are grouped by category, starting with General and Email.</li>
@@ -136,6 +199,22 @@
                 <li>Settings updates are audit logged.</li>
                 <li>Settings are hidden from the System menu and read-only in demo mode.</li>
                 <li>Password resets, MFA, account verification, lockout, and sign-in policy belong in Microsoft Entra, not inside CMIForge settings.</li>
+                <li>The Terms & Conditions page lives under System and describes the baseline SaaS terms, data protection posture, support access, maintenance access, and related customer responsibilities.</li>
+            </ul>
+        </section>
+
+        <section id="demo-mode" class="mf-panel">
+            <h2>Demo Mode</h2>
+            <p>The live demo is intentionally separated from the prototype/dev database and is designed to be safe for public visitors.</p>
+            <ul>
+                <li>A visible banner explains that the environment is a public demo.</li>
+                <li>The live demo uses the separate <code>cmiforge-demo</code> Azure SQL database.</li>
+                <li>Demo data resets every 12 hours while the App Service process is running.</li>
+                <li>The System menu includes a Demo Mode page with a manual reset button.</li>
+                <li>Manual reset clears demo-created records and rebuilds the starter dataset.</li>
+                <li>Administrative/designer changes and destructive actions are blocked in demo mode.</li>
+                <li>User <code>00000001</code> is protected.</li>
+                <li>Submitted text is screened for obvious abusive or unsafe demo content before records are created.</li>
             </ul>
         </section>
 
@@ -147,15 +226,17 @@
                 <li><strong>Professional</strong>: $99/month, includes 10 users, 500 matters, 500 clients, all features, email support, and additional users at $10/user/month.</li>
                 <li><strong>Enterprise</strong>: coming soon.</li>
             </ul>
-            <p class="mb-0">The development build is currently hardcoded to Professional so development work is not blocked by feature gates.</p>
+            <p class="mb-0">The development and live demo build is currently hardcoded to Professional so development work and evaluation are not blocked by feature gates.</p>
         </section>
 
         <section id="current-limits" class="mf-panel">
             <h2>Current Limits And Next Slices</h2>
             <ul>
-                <li>Conflict result clearance is currently search-level only. Per-result clearance needs result-level status, notes, reviewer, and timestamp fields.</li>
-                <li>Conflict searches do not yet search the text of previous searches or previous result notes.</li>
+                <li>Conflict result clearance now supports row-level status, notes, reviewer, and timestamp fields; richer clearance workflow templates are still a future slice.</li>
+                <li>Conflict searches now search prior search text and previous result clearance notes; deeper full-text indexing is still a future scaling slice.</li>
                 <li>Submission attachments now support small PDF, Word, Excel, and hyperlink records. Richer attachment workflows are still a future slice.</li>
+                <li>Time recording is not yet billing, invoice generation, rate management, or accounting sync.</li>
+                <li>Reporting is hardcoded for now. A configurable report designer is a future slice.</li>
                 <li>Workflow versioning is not fully separated from workflow editing yet, so careful admin control matters.</li>
                 <li>The current UI is functional and work-focused; richer designer screens are still a future slice.</li>
             </ul>

@@ -93,8 +93,9 @@ else
                         <tr>
                             <th>Score</th>
                             <th>Risk</th>
-                            <th>Matched party</th>
+                            <th>Matched item</th>
                             <th>Role/context</th>
+                            <th>Clearance</th>
                             <th>Why</th>
                             <th>AI assessment</th>
                         </tr>
@@ -135,6 +136,39 @@ else
                                         </small>
                                     }
                                 </td>
+                                <td style="min-width: 260px;">
+                                    <span class="badge @DecisionClass(result.ClearanceStatus)">@result.ClearanceStatus</span>
+                                    @if (result.ClearedAt.HasValue)
+                                    {
+                                        <small class="d-block text-muted">
+                                            By @(result.ClearedByUser?.DisplayName ?? "System") on @UserDates.Format(result.ClearedAt.Value, "g")
+                                        </small>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(result.ClearanceNotes))
+                                    {
+                                        <small class="d-block mt-1">@result.ClearanceNotes</small>
+                                    }
+                                    @if (Model.CanReview)
+                                    {
+                                        <form method="post" class="mt-2" asp-page-handler="ResultReview" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id">
+                                            <select name="resultStatus" class="form-select form-select-sm mb-2" aria-label="Result clearance status">
+                                                @foreach (var option in Model.ResultStatusOptions)
+                                                {
+                                                    if (option == result.ClearanceStatus)
+                                                    {
+                                                        <option value="@option" selected>@option</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="@option">@option</option>
+                                                    }
+                                                }
+                                            </select>
+                                            <textarea name="resultNotes" class="form-control form-control-sm" rows="2" placeholder="Result-level clearance notes">@result.ClearanceNotes</textarea>
+                                            <button class="btn btn-sm btn-primary mt-2">Save row</button>
+                                        </form>
+                                    }
+                                </td>
                                 <td>
                                     <strong>@result.MatchType</strong>
                                     <small class="d-block text-muted">@result.Explanation</small>
@@ -157,6 +191,18 @@ else
             MatterForge.Models.ConflictRiskLevels.Critical => "text-bg-danger",
             MatterForge.Models.ConflictRiskLevels.High => "text-bg-warning",
             MatterForge.Models.ConflictRiskLevels.Medium => "text-bg-info",
+            _ => "text-bg-secondary"
+        };
+    }
+
+    private static string DecisionClass(string decision)
+    {
+        return decision switch
+        {
+            MatterForge.Models.ConflictSearchDecisions.Clear => "text-bg-success",
+            MatterForge.Models.ConflictSearchDecisions.Conflict => "text-bg-danger",
+            MatterForge.Models.ConflictSearchDecisions.PotentialConflict => "text-bg-warning",
+            MatterForge.Models.ConflictSearchDecisions.NeedsInfo => "text-bg-info",
             _ => "text-bg-secondary"
         };
     }

@@ -20,6 +20,8 @@ public class DetailsModel(
 
     public SelectList DecisionOptions { get; } = new(ConflictSearchDecisions.All);
 
+    public IReadOnlyList<string> ResultStatusOptions { get; } = ConflictSearchDecisions.All;
+
     [BindProperty]
     public string Decision { get; set; } = ConflictSearchDecisions.Pending;
 
@@ -46,6 +48,18 @@ public class DetailsModel(
 
         var currentUser = await currentUserService.GetCurrentUserAsync();
         await conflictSearchService.ApplyReviewDecisionAsync(id, Decision, ReviewNotes, currentUser?.Id);
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostResultReviewAsync(Guid id, Guid resultId, string resultStatus, string resultNotes)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.ConflictsReview))
+        {
+            return Forbid();
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        await conflictSearchService.ApplyResultClearanceAsync(resultId, resultStatus, resultNotes, currentUser?.Id);
         return RedirectToPage(new { id });
     }
 
@@ -85,6 +99,8 @@ public class DetailsModel(
                 .ThenInclude(x => x.Matter)
             .Include(x => x.Results)
                 .ThenInclude(x => x.Client)
+            .Include(x => x.Results)
+                .ThenInclude(x => x.ClearedByUser)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (Search is not null)

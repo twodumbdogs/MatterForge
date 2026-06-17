@@ -1,0 +1,22 @@
+@page
+@model MatterForge.Pages.System.DemoBlockedModel
+@{
+    ViewData["Title"] = "Demo Action Blocked";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Demo Mode</p>
+        <h1>Action blocked</h1>
+        <p class="text-muted">@Model.Message</p>
+    </div>
+    <div class="mf-hero-actions">
+        <a class="btn btn-primary" asp-page="/System/Demo">Demo controls</a>
+        <a class="btn btn-outline-secondary" asp-page="/Index">Dashboard</a>
+    </div>
+</div>
+
+<div class="mf-panel">
+    <h2>Why this happens</h2>
+    <p class="mb-0">The live demo is intentionally fenced so everyone gets a clean tour. You can still explore intake, entities, submissions, conflicts, time, and reporting, but actions that would make the demo messy or expose administration are blocked.</p>
+</div>
