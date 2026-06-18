@@ -16,6 +16,7 @@
         <h2>Contents</h2>
         <nav class="nav flex-column mt-3">
             <a class="nav-link" href="#big-picture">Big Picture</a>
+            <a class="nav-link" href="#dashboard">Dashboard</a>
             <a class="nav-link" href="#forms">Forms</a>
             <a class="nav-link" href="#submissions">Submissions</a>
             <a class="nav-link" href="#attachments">Attachments</a>
@@ -47,6 +48,18 @@
                 <li>Approved submissions can be converted into client and matter records.</li>
                 <li>Time can be recorded against matters, then reviewed in operational reports.</li>
             </ol>
+        </section>
+
+        <section id="dashboard" class="mf-panel">
+            <h2>Dashboard</h2>
+            <p>The dashboard is the operational landing page for each tenant. It now combines quick counts with chart-style views so a reviewer can see the intake pulse without opening five separate lists.</p>
+            <ul>
+                <li>Top cards show active forms, submissions, published versions, and recorded time.</li>
+                <li>Submission and conflict donuts show the current status mix.</li>
+                <li>Open-work bars show where workflow tasks are waiting.</li>
+                <li>The recent-submission trend shows the last 14 days of intake activity.</li>
+                <li>Plan limit meters show current users, matters, and clients against the active plan limits.</li>
+            </ul>
         </section>
 
         <section id="forms" class="mf-panel">
@@ -92,13 +105,17 @@
 
         <section id="workflows" class="mf-panel">
             <h2>Workflows</h2>
-            <p>Workflows define approval steps. A workflow can be scoped to a form or used as a fallback, and a published form version can point to a workflow definition.</p>
+            <p>Workflows define approval and notification steps. A workflow can be scoped to a form or used as a fallback, and a published form version can point to a workflow definition.</p>
             <ul>
                 <li>Workflow steps are ordered by step number.</li>
+                <li>Step type can be <code>Approval</code> or <code>Notification</code>.</li>
                 <li>Steps can be assigned to a user, a team, or both.</li>
                 <li>Workflow queues include personal, team, and all-open views based on permissions.</li>
                 <li>Outcomes can advance, complete, or return a workflow.</li>
                 <li>Answer-based routing can run steps only when a submitted field matches a condition.</li>
+                <li>Notification steps resolve recipients from <code>assigned</code>, <code>submitter</code>, or literal email addresses, then continue automatically to the next matching step.</li>
+                <li>Notification templates support <code>{{SubmissionNumber}}</code>, <code>{{SubmissionStatus}}</code>, <code>{{SubmitterName}}</code>, <code>{{WorkflowName}}</code>, and <code>{{StepName}}</code>.</li>
+                <li>If outbound email is disabled or incomplete, notification steps write a workflow event instead of blocking the request.</li>
             </ul>
             <p class="mb-0"><strong>Outcome format:</strong> use <code>Label|Action|Status|Next step</code>, separated by semicolons. Example: <code>Approve|Advance|In Review; Return|Return|Returned</code>.</p>
         </section>
@@ -113,6 +130,8 @@
                 <li><strong>Contacts</strong> are address-book records that can link to clients and matters without becoming login users or conflict parties.</li>
                 <li><strong>Users</strong> are application data users with system IDs, name parts, email, title, activity status, teams, and roles.</li>
                 <li>Matter details show related contacts, parties, conflict searches, and recent time entries.</li>
+                <li>Clients, matters, parties, and users can be archived from the front end so inactive records stop cluttering the main lists while remaining searchable and restorable.</li>
+                <li>Client, matter, and party detail pages include conversation-style notes so users can leave follow-up comments directly on the record.</li>
             </ul>
         </section>
 
@@ -124,6 +143,7 @@
                 <li>Results show score, risk, matched item, matter/client context, explanation, AI assist assessment, and row-level clearance state.</li>
                 <li>Reviewer decisions can be recorded at the overall search level or on individual result rows.</li>
                 <li>Previous conflict search names, terms, review notes, AI summaries, and result clearance notes are included as searchable history.</li>
+                <li>Submission forms can show a floating live conflict preview while a user types client and matter names, giving early warnings before the form is submitted.</li>
             </ul>
             <p class="mb-0"><strong>Current review behavior:</strong> use row-level clearance to document how each hit was resolved. Result decisions roll up into the overall search status when they collectively indicate clear, needs-info, potential-conflict, or conflict outcomes.</p>
         </section>
@@ -138,6 +158,7 @@
                 <li>Clients upsert by <code>ClientNumber</code>.</li>
                 <li>Matters upsert by <code>MatterNumber</code> and require an existing <code>ClientNumber</code>.</li>
                 <li>Parties link to matters by <code>MatterNumber</code> and reuse existing parties by normalized name.</li>
+                <li>Client photo OCR can read a client image or scan, show the extracted text for review, and draft the client fields before creation.</li>
             </ul>
         </section>
 
@@ -224,7 +245,7 @@
             <p>Plans are currently hardcoded product gates, not billing. They help test the product shape before payment infrastructure exists.</p>
             <ul>
                 <li><strong>Community</strong>: free, 3 users, 50 matters, 50 clients, all features, and community support.</li>
-                <li><strong>Professional</strong>: $99/month, includes 10 users, 500 matters, 500 clients, all features, email support, and additional users at $10/user/month.</li>
+                <li><strong>Professional</strong>: $149/month, includes 10 users, 500 matters, 500 clients, all features, and email support.</li>
                 <li><strong>Enterprise</strong>: coming soon.</li>
             </ul>
             <p class="mb-0">The development and live demo build is currently hardcoded to Professional so development work and evaluation are not blocked by feature gates.</p>
@@ -236,6 +257,7 @@
                 <li>Conflict result clearance now supports row-level status, notes, reviewer, and timestamp fields; richer clearance workflow templates are still a future slice.</li>
                 <li>Conflict searches now search prior search text and previous result clearance notes; deeper full-text indexing is still a future scaling slice.</li>
                 <li>Submission attachments now support small PDF, Word, Excel, and hyperlink records. Richer attachment workflows are still a future slice.</li>
+                <li>Workflow notification steps are wired for SMTP-backed email and workflow-event logging. Tenant email delivery still depends on completed SMTP/secret configuration.</li>
                 <li>Time recording is not yet billing, invoice generation, rate management, or accounting sync.</li>
                 <li>Reporting now has built-in reports and a basic builder. Rich grouping, charts, scheduled delivery, and saved report definitions are future slices.</li>
                 <li>Workflow versioning is not fully separated from workflow editing yet, so careful admin control matters.</li>

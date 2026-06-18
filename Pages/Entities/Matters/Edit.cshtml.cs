@@ -114,12 +114,13 @@ public class EditModel(
     private async Task LoadOptionsAsync()
     {
         ClientOptions = await db.Clients
+            .Where(x => !x.IsArchived)
             .OrderBy(x => x.Name)
             .Select(x => new SelectListItem($"{x.ClientNumber:D8} - {x.Name}", x.Id.ToString()))
             .ToListAsync();
 
         UserOptions = await db.Users
-            .Where(x => x.IsActive)
+            .Where(x => x.IsActive && !x.IsArchived)
             .OrderBy(x => x.DisplayName)
             .Select(x => new SelectListItem(x.DisplayName, x.Id.ToString()))
             .ToListAsync();

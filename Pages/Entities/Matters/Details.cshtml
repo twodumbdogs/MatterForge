@@ -15,12 +15,21 @@ else
         <div>
             <p class="mf-eyebrow">Matter <span>@Model.Matter.MatterNumber.ToString("D8")</span></p>
             <h1>@Model.Matter.Name</h1>
-            <p class="text-muted">@Model.Matter.Client?.Name</p>
+            <p class="text-muted">
+                @Model.Matter.Client?.Name
+                @if (Model.Matter.IsArchived)
+                {
+                    <span class="badge text-bg-secondary ms-2">Archived</span>
+                }
+            </p>
         </div>
         <div class="mf-hero-actions">
             @if (Model.CanEditEntities)
             {
                 <a class="btn btn-primary" asp-page="./Edit" asp-route-id="@Model.Matter.Id">Submit Change</a>
+                <form method="post" asp-page-handler="Archive" asp-route-id="@Model.Matter.Id" class="d-inline">
+                    <button class="btn btn-outline-secondary" type="submit">@(Model.Matter.IsArchived ? "Restore" : "Archive")</button>
+                </form>
             }
             @if (Model.CanRunConflicts)
             {
@@ -226,4 +235,6 @@ else
             </div>
         }
     </div>
+
+    <partial name="/Pages/Entities/_EntityNotes.cshtml" model="Model.Notes" />
 }

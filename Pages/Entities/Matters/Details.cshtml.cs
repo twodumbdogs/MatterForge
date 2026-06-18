@@ -1,6 +1,7 @@
 using MatterForge.Data;
 using MatterForge.Models;
 using MatterForge.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,9 +10,12 @@ namespace MatterForge.Pages.Entities.Matters;
 public class DetailsModel(
     MatterForgeDbContext db,
     PermissionService permissionService,
-    CurrentUserService currentUserService) : PageModel
+    CurrentUserService currentUserService,
+    EntityNoteService entityNoteService) : PageModel
 {
     public Matter? Matter { get; private set; }
+
+    public List<EntityNote> Notes { get; private set; } = [];
 
     public List<EntityChangeRequest> PendingChanges { get; private set; } = [];
 
@@ -27,7 +31,47 @@ public class DetailsModel(
 
     public decimal TotalTimeHours { get; private set; }
 
+    [BindProperty]
+    public string NewNote { get; set; } = string.Empty;
+
     public async Task OnGetAsync(Guid id)
+    {
+        await LoadPageAsync(id);
+    }
+
+    public async Task<IActionResult> OnPostNoteAsync(Guid id)
+    {
+        var matterExists = await db.Matters.AnyAsync(x => x.Id == id);
+        if (!matterExists)
+        {
+            return NotFound();
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        await entityNoteService.AddAsync(EntityNoteService.MatterEntityType, id, NewNote, currentUser?.Id);
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostArchiveAsync(Guid id)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.EntitiesEdit))
+        {
+            return Forbid();
+        }
+
+        var matter = await db.Matters.FirstOrDefaultAsync(x => x.Id == id);
+        if (matter is null)
+        {
+            return NotFound();
+        }
+
+        matter.IsArchived = !matter.IsArchived;
+        matter.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        return RedirectToPage(new { id });
+    }
+
+    private async Task LoadPageAsync(Guid id)
     {
         CanRunConflicts = await permissionService.HasAsync(PermissionKeys.ConflictsRun);
         CanEditEntities = await permissionService.HasAsync(PermissionKeys.EntitiesEdit);
@@ -65,5 +109,9 @@ public class DetailsModel(
                 x.Status == EntityChangeRequestStatuses.Pending)
             .OrderBy(x => x.RequestedAt)
             .ToListAsync();
+
+        Notes = Matter is null
+            ? []
+            : await entityNoteService.ListAsync(EntityNoteService.MatterEntityType, id);
     }
 }

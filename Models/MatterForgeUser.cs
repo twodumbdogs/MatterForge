@@ -26,6 +26,8 @@ public class MatterForgeUser
 
     public bool IsActive { get; set; } = true;
 
+    public bool IsArchived { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

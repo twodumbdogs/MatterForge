@@ -6,7 +6,7 @@ namespace MatterForge.Services;
 public static class ProductInfo
 {
     public const string Name = "CMIForge";
-    public const string Version = "20260617.2";
+    public const string Version = "20260618.1";
 }
 
 public static class ProductFeatureKeys
@@ -98,12 +98,12 @@ public class ProductPlanService(MatterForgeDbContext db)
     private static readonly ProductPlan Professional = new(
         "professional",
         "Professional",
-        "$99/month",
+        "$149/month",
         UserLimit: 10,
         MatterLimit: 500,
         ClientLimit: 500,
         FeatureKeys: AllFeatureKeys,
-        Note: "Email support. Additional users are $10/user/month.");
+        Note: "Email support and room for the core intake team.");
 
     private static readonly ProductPlan Enterprise = new(
         "enterprise",

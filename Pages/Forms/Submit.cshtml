@@ -38,10 +38,10 @@ else
                 @switch (field.Type)
                 {
                     case MatterForge.Services.FieldType.TextArea:
-                        <textarea class="form-control" id="@field.Key" name="Fields[@field.Key]" rows="4">@Model.PostedValues.GetValueOrDefault(field.Key)</textarea>
+                        <textarea class="form-control" id="@field.Key" name="Fields[@field.Key]" rows="4" data-conflict-source>@Model.PostedValues.GetValueOrDefault(field.Key)</textarea>
                         break;
                     case MatterForge.Services.FieldType.Client:
-                        <input class="form-control" id="@field.Key" name="Fields[@field.Key]" list="client-options-@field.Key" value="@Model.PostedValues.GetValueOrDefault(field.Key)" placeholder="Pick an existing client or type a new name" />
+                        <input class="form-control" id="@field.Key" name="Fields[@field.Key]" list="client-options-@field.Key" value="@Model.PostedValues.GetValueOrDefault(field.Key)" placeholder="Pick an existing client or type a new name" data-conflict-source />
                         <datalist id="client-options-@field.Key">
                             @foreach (var client in Model.ClientSuggestions)
                             {
@@ -73,7 +73,7 @@ else
                         <input class="form-control" id="@field.Key" name="Fields[@field.Key]" type="number" step="0.01" value="@Model.PostedValues.GetValueOrDefault(field.Key)" />
                         break;
                     default:
-                        <input class="form-control" id="@field.Key" name="Fields[@field.Key]" value="@Model.PostedValues.GetValueOrDefault(field.Key)" />
+                        <input class="form-control" id="@field.Key" name="Fields[@field.Key]" value="@Model.PostedValues.GetValueOrDefault(field.Key)" data-conflict-source />
                         break;
                 }
             </div>
@@ -84,8 +84,29 @@ else
             <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
         </div>
     </form>
+
+    <div class="mf-conflict-preview mf-conflict-radar"
+         data-conflict-preview
+         data-conflict-popover
+         data-preview-url="@Url.Page("./Submit", "ConflictPreview", new { id = Model.Id })">
+        <div class="d-flex justify-content-between gap-3">
+            <div>
+                <p class="mf-eyebrow">Live Conflicts</p>
+                <h2>Conflict Radar</h2>
+            </div>
+            <span class="mf-conflict-preview-status" data-conflict-status>Watching</span>
+        </div>
+        <p class="text-muted mt-2 mb-3">Watching the names, not judging your typing.</p>
+        <div class="mf-conflict-preview-summary" data-conflict-summary>
+            Focus a client, matter, contact, or party field to start the radar.
+        </div>
+        <div class="mf-conflict-preview-stats" data-conflict-stats hidden></div>
+        <div class="mf-conflict-preview-results" data-conflict-results></div>
+        <p class="text-muted small mt-3 mb-0">Early heads-up only. Submit the intake first, then run the formal conflict search from the saved submission.</p>
+    </div>
 }
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="/js/conflict-preview.js"></script>
 }

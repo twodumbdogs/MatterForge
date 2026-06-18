@@ -19,6 +19,7 @@ builder.Services.AddRazorPages(options =>
     if (entraOptions.Enabled && !demoModeEnabled)
     {
         options.Conventions.AuthorizeFolder("/");
+        options.Conventions.AllowAnonymousToPage("/Account/AccessDenied");
         options.Conventions.AllowAnonymousToPage("/Signup");
     }
 
@@ -28,13 +29,16 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ProductPlanService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<DemoModeService>();
+builder.Services.AddScoped<TenantBrandingService>();
 builder.Services.AddScoped<ContentModerationService>();
 builder.Services.AddScoped<DemoModePageFilter>();
 builder.Services.AddScoped<DemoResetService>();
 builder.Services.AddHostedService<DemoResetHostedService>();
 builder.Services.AddScoped<PermissionService>();
+builder.Services.AddScoped<WorkflowNotificationService>();
 builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddScoped<ConflictSearchService>();
+builder.Services.AddScoped<EntityNoteService>();
 builder.Services.AddScoped<CsvImportService>();
 builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddScoped<UserDateTimeService>();

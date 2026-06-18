@@ -7,7 +7,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MatterForge.Pages.Entities.Users;
 
-public class DetailsModel(MatterForgeDbContext db, DemoModeService demoModeService) : PageModel
+public class DetailsModel(
+    MatterForgeDbContext db,
+    DemoModeService demoModeService,
+    PermissionService permissionService) : PageModel
 {
     public MatterForgeUser? UserRecord { get; private set; }
 
@@ -31,5 +34,29 @@ public class DetailsModel(MatterForgeDbContext db, DemoModeService demoModeServi
             .Include(x => x.Roles)
                 .ThenInclude(x => x.SecurityRole)
             .FirstOrDefaultAsync(x => x.Id == id);
+    }
+
+    public async Task<IActionResult> OnPostArchiveAsync(Guid id)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.SecurityManage))
+        {
+            return Forbid();
+        }
+
+        var user = await db.Users.FirstOrDefaultAsync(x => x.Id == id);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        if (demoModeService.IsProtectedSystemUser(user.SystemId))
+        {
+            return RedirectToPage(new { id });
+        }
+
+        user.IsArchived = !user.IsArchived;
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        return RedirectToPage(new { id });
     }
 }

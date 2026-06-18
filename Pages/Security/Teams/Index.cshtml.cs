@@ -175,7 +175,7 @@ public partial class IndexModel(
             .ToListAsync();
 
         UserOptions = await db.Users
-            .Where(x => x.IsActive)
+            .Where(x => x.IsActive && !x.IsArchived)
             .OrderBy(x => x.DisplayName)
             .Select(x => new SelectListItem($"{x.DisplayName} ({x.SystemId:D8})", x.Id.ToString()))
             .ToListAsync();

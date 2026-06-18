@@ -2,7 +2,7 @@
 
 CMIForge is a C# / ASP.NET Core prototype for configurable legal intake, workflow approvals, operational entity management, and conflict searches.
 
-Current version: `20260617.2`.
+Current version: `20260618.1`.
 
 The product currently has two public-facing surfaces:
 
@@ -30,11 +30,16 @@ The repo also now includes a Customer 0 deployment slice for a real, non-demo te
 - Submission queue and detail view
 - Clients, matters, contacts, users, parties, aliases, and relationships
 - Native conflicts search with deterministic AI-style explanations
+- Floating live conflict preview on submission forms
 - Workflow definitions, approval queues, outcomes, and answer-based routing
+- Workflow notification steps with recipient/template configuration
 - CSV import center for clients, matters, and parties
+- Client photo OCR import drafting
 - Private submission attachments
 - Time recording, built-in operational reports, and a basic report builder
 - Team, role, permission, and audit-log foundation
+- Conversation-style notes on clients, matters, and parties
+- Archive/unarchive support for clients, matters, parties, and users
 - Admin-editable system settings for operational configuration
 - Optional Microsoft Entra ID sign-in and first-pass Entra user provisioning
 - Anonymous workspace request form for prospective/customer setup
@@ -149,7 +154,7 @@ Submission attachments in the dev App Service use private Azure Blob Storage thr
 
 1. Dynamic form definitions + submissions
 2. Workflow steps + approval queues
-3. Rules-based routing + notifications
+3. Rules-based routing + workflow notifications
 4. Matter/client record creation
 5. Reporting, permissions, integrations
 6. Fancy admin designer UX
@@ -163,6 +168,19 @@ The app currently runs as `Professional`:
 - 500 clients
 - All features
 - Email support
-- Additional users priced at `$10/user/month`
+- Price: `$149/month`
 
 Community and Enterprise tiers are visible in the app on `/Billing`, but payment handling is intentionally deferred.
+
+## Customer 0 Volume Test Data
+
+Customer 0 has been loaded with recognizable volume-test data for early performance testing:
+
+- 400 clients named `Volume Test Client ###`
+- 400 matters named `Volume Test Matter ###`
+- 400 parties named `Volume Test Party ###`
+- 10 active users total
+- 1,000 volume-test submissions marked in submission JSON with `"volumeTest": true`
+- 300 open volume workflow tasks for queue testing
+
+The generated records are intentionally labeled so they can be filtered, measured, or removed later without confusing them with real customer data.

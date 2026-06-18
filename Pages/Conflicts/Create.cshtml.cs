@@ -99,7 +99,7 @@ public class CreateModel(
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                Input.SearchName = $"Submission {SourceSubmission.SubmissionNumber:D8} conflict search";
+                Input.SearchName = $"Submission {RecordNumbers.Submission(SourceSubmission.SubmissionNumber)} conflict search";
                 Input.SearchTerms = string.Join(Environment.NewLine, terms);
             }
         }

@@ -27,6 +27,10 @@ public partial class EditModel(
 
     public List<SelectListItem> TeamOptions { get; private set; } = [];
 
+    public List<SelectListItem> StepTypeOptions { get; } = WorkflowStepTypes.All
+        .Select(x => new SelectListItem(x, x))
+        .ToList();
+
     public List<SelectListItem> CompletionStatusOptions { get; } = SubmissionStatuses.All
         .Where(x => x != SubmissionStatuses.Converted)
         .Select(x => new SelectListItem(x, x))
@@ -72,6 +76,7 @@ public partial class EditModel(
                     StepNumber = x.StepNumber,
                     Name = x.Name,
                     Instructions = x.Instructions,
+                    StepType = x.StepType,
                     AssignedUserId = x.AssignedUserId,
                     AssignedTeamId = x.AssignedTeamId,
                     ApprovalLabel = x.ApprovalLabel,
@@ -79,7 +84,10 @@ public partial class EditModel(
                     Outcomes = WorkflowOutcomeParser.ToDesignerText(x),
                     ConditionFieldKey = x.ConditionFieldKey,
                     ConditionOperator = x.ConditionOperator,
-                    ConditionValue = x.ConditionValue
+                    ConditionValue = x.ConditionValue,
+                    NotificationSubject = x.NotificationSubject,
+                    NotificationBody = x.NotificationBody,
+                    NotificationRecipients = x.NotificationRecipients
                 })
                 .ToList()
         };
@@ -160,21 +168,27 @@ public partial class EditModel(
             step.StepNumber = stepInput.StepNumber;
             step.Name = stepInput.Name!.Trim();
             step.Instructions = stepInput.Instructions?.Trim() ?? string.Empty;
+            step.StepType = NormalizeStepType(stepInput.StepType);
             step.AssignedUserId = stepInput.AssignedUserId;
             step.AssignedTeamId = stepInput.AssignedTeamId;
             step.ApprovalLabel = string.IsNullOrWhiteSpace(stepInput.ApprovalLabel) ? "Approve" : stepInput.ApprovalLabel.Trim();
             step.CompletionSubmissionStatus = string.IsNullOrWhiteSpace(stepInput.CompletionSubmissionStatus)
                 ? SubmissionStatuses.InReview
                 : stepInput.CompletionSubmissionStatus;
-            step.OutcomesJson = WorkflowOutcomeParser.Serialize(WorkflowOutcomeParser.FromDesignerText(
-                stepInput.Outcomes,
-                stepInput.ApprovalLabel,
-                stepInput.CompletionSubmissionStatus));
+            step.OutcomesJson = IsNotificationStep(stepInput)
+                ? "[]"
+                : WorkflowOutcomeParser.Serialize(WorkflowOutcomeParser.FromDesignerText(
+                    stepInput.Outcomes,
+                    stepInput.ApprovalLabel,
+                    stepInput.CompletionSubmissionStatus));
             step.ConditionFieldKey = stepInput.ConditionFieldKey?.Trim() ?? string.Empty;
             step.ConditionOperator = string.IsNullOrWhiteSpace(stepInput.ConditionOperator)
                 ? WorkflowStepConditionOperators.Always
                 : stepInput.ConditionOperator;
             step.ConditionValue = stepInput.ConditionValue?.Trim() ?? string.Empty;
+            step.NotificationSubject = stepInput.NotificationSubject?.Trim() ?? string.Empty;
+            step.NotificationBody = stepInput.NotificationBody?.Trim() ?? string.Empty;
+            step.NotificationRecipients = stepInput.NotificationRecipients?.Trim() ?? string.Empty;
             step.UpdatedAt = DateTimeOffset.UtcNow;
         }
 
@@ -224,6 +238,11 @@ public partial class EditModel(
                 ModelState.AddModelError(string.Empty, "Every used workflow step needs a name.");
             }
 
+            if (!WorkflowStepTypes.IsValid(step.StepType))
+            {
+                ModelState.AddModelError(string.Empty, $"Invalid step type for step {step.StepNumber}.");
+            }
+
             if (!SubmissionStatuses.IsValid(step.CompletionSubmissionStatus))
             {
                 ModelState.AddModelError(string.Empty, $"Invalid completion status for step {step.StepNumber}.");
@@ -234,10 +253,13 @@ public partial class EditModel(
                 ModelState.AddModelError(string.Empty, $"Invalid routing condition for step {step.StepNumber}.");
             }
 
-            var outcomes = WorkflowOutcomeParser.FromDesignerText(step.Outcomes, step.ApprovalLabel, step.CompletionSubmissionStatus);
-            if (outcomes.Count == 0)
+            if (!IsNotificationStep(step))
             {
-                ModelState.AddModelError(string.Empty, $"Add at least one outcome for step {step.StepNumber}.");
+                var outcomes = WorkflowOutcomeParser.FromDesignerText(step.Outcomes, step.ApprovalLabel, step.CompletionSubmissionStatus);
+                if (outcomes.Count == 0)
+                {
+                    ModelState.AddModelError(string.Empty, $"Add at least one outcome for step {step.StepNumber}.");
+                }
             }
         }
 
@@ -256,6 +278,16 @@ public partial class EditModel(
     private IEnumerable<WorkflowStepInput> UsedSteps()
     {
         return Input.Steps.Where(x => x.Id.HasValue || !string.IsNullOrWhiteSpace(x.Name));
+    }
+
+    private static bool IsNotificationStep(WorkflowStepInput step)
+    {
+        return NormalizeStepType(step.StepType).Equals(WorkflowStepTypes.Notification, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeStepType(string? stepType)
+    {
+        return WorkflowStepTypes.IsValid(stepType) ? stepType! : WorkflowStepTypes.Approval;
     }
 
     private async Task LoadOptionsAsync()

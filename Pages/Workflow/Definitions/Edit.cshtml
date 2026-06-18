@@ -47,16 +47,18 @@
     <hr />
 
     <h2 class="h5">Steps</h2>
-    <p class="text-muted">Existing step rows are edited in place. Add a named blank row to create another step.</p>
+    <p class="text-muted">Existing step rows are edited in place. Add a named blank row to create another step. Notification steps send or log an email notification, then continue to the next matching step.</p>
 
     <div class="table-responsive mf-designer-table">
         <table class="table align-middle">
             <thead>
                 <tr>
                     <th style="width: 90px;">Order</th>
+                    <th>Type</th>
                     <th>Name</th>
                     <th>User</th>
                     <th>Team</th>
+                    <th>Notification</th>
                     <th>Primary label</th>
                     <th>Status</th>
                     <th>Outcomes</th>
@@ -74,6 +76,7 @@
                             <input type="hidden" asp-for="Input.Steps[i].Id" />
                             <input class="form-control" asp-for="Input.Steps[i].StepNumber" />
                         </td>
+                        <td><select class="form-select" asp-for="Input.Steps[i].StepType" asp-items="Model.StepTypeOptions"></select></td>
                         <td><input class="form-control" asp-for="Input.Steps[i].Name" /></td>
                         <td>
                             <select class="form-select" asp-for="Input.Steps[i].AssignedUserId" asp-items="Model.UserOptions">
@@ -84,6 +87,11 @@
                             <select class="form-select" asp-for="Input.Steps[i].AssignedTeamId" asp-items="Model.TeamOptions">
                                 <option value="">No team</option>
                             </select>
+                        </td>
+                        <td class="mf-workflow-notification-cell">
+                            <input class="form-control mb-2" asp-for="Input.Steps[i].NotificationRecipients" placeholder="assigned; submitter; user@firm.com" />
+                            <input class="form-control mb-2" asp-for="Input.Steps[i].NotificationSubject" placeholder="Subject" />
+                            <input class="form-control" asp-for="Input.Steps[i].NotificationBody" placeholder="Body with {{SubmissionNumber}}, {{WorkflowName}}, {{StepName}}" />
                         </td>
                         <td><input class="form-control" asp-for="Input.Steps[i].ApprovalLabel" /></td>
                         <td><select class="form-select" asp-for="Input.Steps[i].CompletionSubmissionStatus" asp-items="Model.CompletionStatusOptions"></select></td>

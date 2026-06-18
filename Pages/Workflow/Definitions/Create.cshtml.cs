@@ -25,6 +25,10 @@ public partial class CreateModel(
 
     public List<SelectListItem> TeamOptions { get; private set; } = [];
 
+    public List<SelectListItem> StepTypeOptions { get; } = WorkflowStepTypes.All
+        .Select(x => new SelectListItem(x, x))
+        .ToList();
+
     public List<SelectListItem> CompletionStatusOptions { get; } = SubmissionStatuses.All
         .Where(x => x != SubmissionStatuses.Converted)
         .Select(x => new SelectListItem(x, x))
@@ -86,21 +90,27 @@ public partial class CreateModel(
                 StepNumber = step.StepNumber,
                 Name = step.Name!.Trim(),
                 Instructions = step.Instructions?.Trim() ?? string.Empty,
+                StepType = NormalizeStepType(step.StepType),
                 AssignedUserId = step.AssignedUserId,
                 AssignedTeamId = step.AssignedTeamId,
                 ApprovalLabel = string.IsNullOrWhiteSpace(step.ApprovalLabel) ? "Approve" : step.ApprovalLabel.Trim(),
                 CompletionSubmissionStatus = string.IsNullOrWhiteSpace(step.CompletionSubmissionStatus)
                     ? SubmissionStatuses.InReview
                     : step.CompletionSubmissionStatus,
-                OutcomesJson = WorkflowOutcomeParser.Serialize(WorkflowOutcomeParser.FromDesignerText(
-                    step.Outcomes,
-                    step.ApprovalLabel,
-                    step.CompletionSubmissionStatus)),
+                OutcomesJson = IsNotificationStep(step)
+                    ? "[]"
+                    : WorkflowOutcomeParser.Serialize(WorkflowOutcomeParser.FromDesignerText(
+                        step.Outcomes,
+                        step.ApprovalLabel,
+                        step.CompletionSubmissionStatus)),
                 ConditionFieldKey = step.ConditionFieldKey?.Trim() ?? string.Empty,
                 ConditionOperator = string.IsNullOrWhiteSpace(step.ConditionOperator)
                     ? WorkflowStepConditionOperators.Always
                     : step.ConditionOperator,
-                ConditionValue = step.ConditionValue?.Trim() ?? string.Empty
+                ConditionValue = step.ConditionValue?.Trim() ?? string.Empty,
+                NotificationSubject = step.NotificationSubject?.Trim() ?? string.Empty,
+                NotificationBody = step.NotificationBody?.Trim() ?? string.Empty,
+                NotificationRecipients = step.NotificationRecipients?.Trim() ?? string.Empty
             });
         }
 
@@ -151,6 +161,11 @@ public partial class CreateModel(
                 ModelState.AddModelError(string.Empty, "Every used workflow step needs a name.");
             }
 
+            if (!WorkflowStepTypes.IsValid(step.StepType))
+            {
+                ModelState.AddModelError(string.Empty, $"Invalid step type for step {step.StepNumber}.");
+            }
+
             if (!SubmissionStatuses.IsValid(step.CompletionSubmissionStatus))
             {
                 ModelState.AddModelError(string.Empty, $"Invalid completion status for step {step.StepNumber}.");
@@ -161,10 +176,13 @@ public partial class CreateModel(
                 ModelState.AddModelError(string.Empty, $"Invalid routing condition for step {step.StepNumber}.");
             }
 
-            var outcomes = WorkflowOutcomeParser.FromDesignerText(step.Outcomes, step.ApprovalLabel, step.CompletionSubmissionStatus);
-            if (outcomes.Count == 0)
+            if (!IsNotificationStep(step))
             {
-                ModelState.AddModelError(string.Empty, $"Add at least one outcome for step {step.StepNumber}.");
+                var outcomes = WorkflowOutcomeParser.FromDesignerText(step.Outcomes, step.ApprovalLabel, step.CompletionSubmissionStatus);
+                if (outcomes.Count == 0)
+                {
+                    ModelState.AddModelError(string.Empty, $"Add at least one outcome for step {step.StepNumber}.");
+                }
             }
         }
 
@@ -183,6 +201,16 @@ public partial class CreateModel(
     private IEnumerable<WorkflowStepInput> UsedSteps()
     {
         return Input.Steps.Where(x => x.Id.HasValue || !string.IsNullOrWhiteSpace(x.Name));
+    }
+
+    private static bool IsNotificationStep(WorkflowStepInput step)
+    {
+        return NormalizeStepType(step.StepType).Equals(WorkflowStepTypes.Notification, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeStepType(string? stepType)
+    {
+        return WorkflowStepTypes.IsValid(stepType) ? stepType! : WorkflowStepTypes.Approval;
     }
 
     private async Task LoadOptionsAsync()
@@ -235,8 +263,9 @@ public class WorkflowDefinitionInput
             Steps =
             [
                 new() { StepNumber = 1, Name = "Review", ApprovalLabel = "Approve", CompletionSubmissionStatus = SubmissionStatuses.InReview },
-                new() { StepNumber = 2, Name = "Final Approval", ApprovalLabel = "Approve", CompletionSubmissionStatus = SubmissionStatuses.Approved, Outcomes = "Approve|Complete|Approved; Return|Return|Returned" },
-                new() { StepNumber = 3, ApprovalLabel = "Approve", CompletionSubmissionStatus = SubmissionStatuses.InReview }
+                new() { StepNumber = 2, Name = "Notify Intake Team", StepType = WorkflowStepTypes.Notification, NotificationRecipients = "assigned; submitter", NotificationSubject = "Submission {{SubmissionNumber}} is moving", NotificationBody = "{{WorkflowName}} reached {{StepName}} for {{SubmissionNumber}}." },
+                new() { StepNumber = 3, Name = "Final Approval", ApprovalLabel = "Approve", CompletionSubmissionStatus = SubmissionStatuses.Approved, Outcomes = "Approve|Complete|Approved; Return|Return|Returned" },
+                new() { StepNumber = 4, ApprovalLabel = "Approve", CompletionSubmissionStatus = SubmissionStatuses.InReview }
             ]
         };
     }
@@ -251,6 +280,8 @@ public class WorkflowStepInput
     public string? Name { get; set; }
 
     public string? Instructions { get; set; }
+
+    public string? StepType { get; set; } = WorkflowStepTypes.Approval;
 
     public Guid? AssignedUserId { get; set; }
 
@@ -267,4 +298,10 @@ public class WorkflowStepInput
     public string? ConditionOperator { get; set; } = WorkflowStepConditionOperators.Always;
 
     public string? ConditionValue { get; set; }
+
+    public string? NotificationSubject { get; set; }
+
+    public string? NotificationBody { get; set; }
+
+    public string? NotificationRecipients { get; set; }
 }

@@ -18,6 +18,8 @@ public class DetailsModel(
 
     public bool CanReview { get; private set; }
 
+    public bool CanRun { get; private set; }
+
     public SelectList DecisionOptions { get; } = new(ConflictSearchDecisions.All);
 
     public IReadOnlyList<string> ResultStatusOptions { get; } = ConflictSearchDecisions.All;
@@ -27,6 +29,9 @@ public class DetailsModel(
 
     [BindProperty]
     public string ReviewNotes { get; set; } = string.Empty;
+
+    [BindProperty]
+    public string AdditionalSearchTerms { get; set; } = string.Empty;
 
     public async Task<IActionResult> OnGetAsync(Guid id)
     {
@@ -63,6 +68,25 @@ public class DetailsModel(
         return RedirectToPage(new { id });
     }
 
+    public async Task<IActionResult> OnPostBulkResultReviewAsync(Guid id, List<Guid> selectedResultIds, string bulkResultStatus, string bulkResultNotes)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.ConflictsReview))
+        {
+            return Forbid();
+        }
+
+        if (selectedResultIds.Count == 0)
+        {
+            ModelState.AddModelError(string.Empty, "Select at least one result to update.");
+            await LoadSearchAsync(id);
+            return Page();
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        await conflictSearchService.ApplyResultClearanceAsync(selectedResultIds, bulkResultStatus, bulkResultNotes, currentUser?.Id);
+        return RedirectToPage(new { id });
+    }
+
     public async Task<IActionResult> OnPostRerunAsync(Guid id)
     {
         if (!await permissionService.HasAsync(PermissionKeys.ConflictsRun))
@@ -78,7 +102,7 @@ public class DetailsModel(
             return NotFound();
         }
 
-        await conflictSearchService.RunSearchAsync(search);
+        await conflictSearchService.RerunSearchAsync(search, AdditionalSearchTerms);
         await db.SaveChangesAsync();
         return RedirectToPage(new { id });
     }
@@ -86,6 +110,7 @@ public class DetailsModel(
     private async Task LoadSearchAsync(Guid id)
     {
         CanReview = await permissionService.HasAsync(PermissionKeys.ConflictsReview);
+        CanRun = await permissionService.HasAsync(PermissionKeys.ConflictsRun);
         Search = await db.ConflictSearches
             .Include(x => x.FormSubmission)
                 .ThenInclude(x => x!.FormDefinition)

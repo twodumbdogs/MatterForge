@@ -9,6 +9,29 @@
         <p class="mf-eyebrow">Intake queue</p>
         <h1>Submissions</h1>
     </div>
+    @if (Model.CanSubmitForms && Model.PublishedForms.Count == 1)
+    {
+        <a class="btn btn-primary" asp-page="/Forms/Submit" asp-route-id="@Model.PublishedForms[0].Id">New</a>
+    }
+    else if (Model.CanSubmitForms && Model.PublishedForms.Count > 1)
+    {
+        <div class="dropdown">
+            <button class="btn btn-primary dropdown-toggle" type="button" id="newSubmissionDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                New
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="newSubmissionDropdown">
+                @foreach (var form in Model.PublishedForms)
+                {
+                    <li>
+                        <a class="dropdown-item" asp-page="/Forms/Submit" asp-route-id="@form.Id">
+                            @form.Name
+                            <small class="d-block text-muted">v@form.VersionNumber</small>
+                        </a>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
 </div>
 
 <div class="mf-panel">
@@ -35,7 +58,8 @@
                 <thead>
                     <tr>
                         <th>Number</th>
-                        <th>Form</th>
+                        <th>Client</th>
+                        <th>Matter</th>
                         <th>Submitted by</th>
                         <th>Status</th>
                         <th>Submitted</th>
@@ -45,12 +69,26 @@
                     @foreach (var submission in Model.Submissions)
                     {
                         <tr>
-                            <td><a asp-page="./Details" asp-route-id="@submission.Id"><code>@submission.SubmissionNumber.ToString("D8")</code></a></td>
+                            <td><a asp-page="./Details" asp-route-id="@submission.Id"><code>@MatterForge.Services.RecordNumbers.Submission(submission.SubmissionNumber)</code></a></td>
                             <td>
-                                <a class="mf-record-link" asp-page="./Details" asp-route-id="@submission.Id">
-                                    <strong>@submission.FormDefinition?.Name</strong>
-                                    <small class="d-block text-muted">v@(submission.FormVersion?.VersionNumber)</small>
-                                </a>
+                                @if (submission.Client is not null)
+                                {
+                                    <a asp-page="/Entities/Clients/Details" asp-route-id="@submission.Client.Id">@submission.Client.Name</a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Not linked</span>
+                                }
+                            </td>
+                            <td>
+                                @if (submission.Matter is not null)
+                                {
+                                    <a asp-page="/Entities/Matters/Details" asp-route-id="@submission.Matter.Id">@submission.Matter.Name</a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Not linked</span>
+                                }
                             </td>
                             <td>
                                 @if (submission.SubmitterUser is not null)

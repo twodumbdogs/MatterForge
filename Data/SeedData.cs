@@ -273,6 +273,7 @@ public static class SeedData
         {
             new SettingSeed("General.SupportEmail", "General", "Support email", "Primary support address shown to users and used in outbound support-related messages.", "support@cmiforge.com", SystemSettingValueTypes.Email),
             new SettingSeed("General.DefaultTimeZone", "General", "Default timezone", "Fallback timezone used when the browser has not provided a local timezone cookie.", "Central Standard Time", SystemSettingValueTypes.Text),
+            new SettingSeed(TenantBrandingService.FirmNameSettingKey, "Branding", "Firm name", "Display name shown in the upper-left navigation for this customer or firm.", ProductInfo.Name, SystemSettingValueTypes.Text),
             new SettingSeed("Email.NotificationsEnabled", "Email", "Enable email notifications", "Turns outbound workflow and system email notifications on or off once notification sending is wired.", "false", SystemSettingValueTypes.Boolean),
             new SettingSeed("Email.SmtpHost", "Email", "SMTP host", "Hostname for the SMTP server used for outbound notifications.", string.Empty, SystemSettingValueTypes.Text),
             new SettingSeed("Email.SmtpPort", "Email", "SMTP port", "Port for the SMTP server. Common values are 25, 465, and 587.", "587", SystemSettingValueTypes.Integer),
@@ -1204,10 +1205,14 @@ public static class SeedData
 
         step.Name = name;
         step.Instructions = instructions;
+        step.StepType = WorkflowStepTypes.Approval;
         step.AssignedUserId = assignedUserId;
         step.AssignedTeamId = assignedTeamId;
         step.ApprovalLabel = approvalLabel;
         step.CompletionSubmissionStatus = completionSubmissionStatus;
+        step.NotificationSubject = string.Empty;
+        step.NotificationBody = string.Empty;
+        step.NotificationRecipients = string.Empty;
         if (string.IsNullOrWhiteSpace(step.OutcomesJson) || step.OutcomesJson == "[]")
         {
             step.OutcomesJson = WorkflowOutcomeParser.Serialize(WorkflowOutcomeParser.FromDesignerText(

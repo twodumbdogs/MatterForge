@@ -73,6 +73,8 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
 
     public DbSet<EntityChangeRequest> EntityChangeRequests => Set<EntityChangeRequest>();
 
+    public DbSet<EntityNote> EntityNotes => Set<EntityNote>();
+
     public DbSet<TenantProvisioningRequest> TenantProvisioningRequests => Set<TenantProvisioningRequest>();
 
     public DbSet<DemoResetRun> DemoResetRuns => Set<DemoResetRun>();
@@ -268,6 +270,7 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
             entity.Property(x => x.Country).HasMaxLength(120);
             entity.Property(x => x.Notes).HasMaxLength(2000);
             entity.HasIndex(x => x.ClientNumber).IsUnique();
+            entity.HasIndex(x => new { x.IsArchived, x.ClientNumber });
         });
 
         modelBuilder.Entity<Contact>(entity =>
@@ -354,6 +357,18 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
+        modelBuilder.Entity<EntityNote>(entity =>
+        {
+            entity.Property(x => x.EntityType).HasMaxLength(80);
+            entity.Property(x => x.Body).HasMaxLength(2000);
+            entity.HasIndex(x => new { x.EntityType, x.EntityId, x.CreatedAt });
+            entity
+                .HasOne(x => x.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
         modelBuilder.Entity<Matter>(entity =>
         {
             entity.Property(x => x.Name).HasMaxLength(200);
@@ -361,6 +376,7 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
             entity.Property(x => x.Status).HasMaxLength(60);
             entity.Property(x => x.Notes).HasMaxLength(2000);
             entity.HasIndex(x => x.MatterNumber).IsUnique();
+            entity.HasIndex(x => new { x.IsArchived, x.MatterNumber });
             entity
                 .HasOne(x => x.Client)
                 .WithMany(x => x.Matters)
@@ -382,6 +398,7 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
             entity.Property(x => x.Notes).HasMaxLength(2000);
             entity.HasIndex(x => x.PartyNumber).IsUnique();
             entity.HasIndex(x => x.NormalizedName);
+            entity.HasIndex(x => new { x.IsArchived, x.PartyNumber });
         });
 
         modelBuilder.Entity<PartyAlias>(entity =>
@@ -523,6 +540,7 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
             entity.HasIndex(x => x.LastLoginAt);
             entity.HasIndex(x => x.SystemId).IsUnique();
             entity.HasIndex(x => x.Email).IsUnique();
+            entity.HasIndex(x => new { x.IsArchived, x.SystemId });
             entity
                 .HasIndex(x => new { x.EntraTenantId, x.EntraObjectId })
                 .IsUnique()
@@ -662,12 +680,16 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
         {
             entity.Property(x => x.Name).HasMaxLength(160);
             entity.Property(x => x.Instructions).HasMaxLength(1000);
+            entity.Property(x => x.StepType).HasMaxLength(40);
             entity.Property(x => x.ApprovalLabel).HasMaxLength(60);
             entity.Property(x => x.CompletionSubmissionStatus).HasMaxLength(60);
             entity.Property(x => x.OutcomesJson).HasColumnType("nvarchar(max)");
             entity.Property(x => x.ConditionFieldKey).HasMaxLength(80);
             entity.Property(x => x.ConditionOperator).HasMaxLength(40);
             entity.Property(x => x.ConditionValue).HasMaxLength(200);
+            entity.Property(x => x.NotificationSubject).HasMaxLength(200);
+            entity.Property(x => x.NotificationBody).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.NotificationRecipients).HasMaxLength(1000);
             entity.HasIndex(x => new { x.WorkflowDefinitionId, x.StepNumber }).IsUnique();
             entity
                 .HasOne(x => x.WorkflowDefinition)

@@ -60,6 +60,25 @@ public class ConvertModel(
         return Page();
     }
 
+    public async Task<IActionResult> OnGetConflictPreviewAsync(Guid id, string? terms)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.SubmissionsConvert) &&
+            !await permissionService.HasAsync(PermissionKeys.ConflictsView))
+        {
+            return Forbid();
+        }
+
+        var submissionId = id == Guid.Empty ? Id : id;
+        var submissionExists = await db.FormSubmissions.AnyAsync(x => x.Id == submissionId);
+        if (!submissionExists)
+        {
+            return NotFound();
+        }
+
+        var preview = await conflictSearchService.PreviewAsync(terms ?? string.Empty);
+        return new JsonResult(preview, FormJson.Options);
+    }
+
     public async Task<IActionResult> OnPostAsync()
     {
         await LoadPageAsync();
@@ -163,7 +182,7 @@ public class ConvertModel(
             "Submission.Converted",
             "Submission",
             Submission.Id,
-            Submission.SubmissionNumber.ToString("D8"),
+            RecordNumbers.Submission(Submission.SubmissionNumber),
             $"Converted submission to client {client.ClientNumber:D8} and matter {matter.MatterNumber:D8}.",
             new
             {
@@ -187,7 +206,7 @@ public class ConvertModel(
             .FirstOrDefaultAsync(x => x.Id == Id);
 
         UserOptions = await db.Users
-            .Where(x => x.IsActive)
+            .Where(x => x.IsActive && !x.IsArchived)
             .OrderBy(x => x.DisplayName)
             .Select(x => new SelectListItem(x.DisplayName, x.Id.ToString()))
             .ToListAsync();
@@ -223,7 +242,7 @@ public class ConvertModel(
         var responsibleUserId = string.IsNullOrWhiteSpace(assignedUser)
             ? null
             : await db.Users
-                .Where(x => x.IsActive && x.DisplayName == assignedUser)
+                .Where(x => x.IsActive && !x.IsArchived && x.DisplayName == assignedUser)
                 .Select(x => (Guid?)x.Id)
                 .FirstOrDefaultAsync();
 
@@ -259,6 +278,7 @@ public class ConvertModel(
 
         var clients = await db.Clients
             .AsNoTracking()
+            .Where(x => !x.IsArchived)
             .OrderBy(x => x.ClientNumber)
             .Select(x => new ExistingClientMatch(x.Id, x.ClientNumber, x.Name, x.Status))
             .ToListAsync();

@@ -21,7 +21,7 @@
     {
         <div class="alert alert-info">
             Source submission:
-            <a asp-page="/Submissions/Details" asp-route-id="@Model.SourceSubmission.Id">@Model.SourceSubmission.SubmissionNumber.ToString("D8") - @Model.SourceSubmission.FormDefinition?.Name</a>
+            <a asp-page="/Submissions/Details" asp-route-id="@Model.SourceSubmission.Id">@MatterForge.Services.RecordNumbers.Submission(Model.SourceSubmission.SubmissionNumber) - @Model.SourceSubmission.FormDefinition?.Name</a>
         </div>
     }
 

@@ -9,9 +9,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MatterForge.Pages.Entities.Parties;
 
-public class DetailsModel(MatterForgeDbContext db) : PageModel
+public class DetailsModel(
+    MatterForgeDbContext db,
+    EntityNoteService entityNoteService,
+    CurrentUserService currentUserService,
+    PermissionService permissionService) : PageModel
 {
     public Party? Party { get; private set; }
+
+    public List<EntityNote> Notes { get; private set; } = [];
 
     public List<SelectListItem> PartyOptions { get; private set; } = [];
 
@@ -29,6 +35,9 @@ public class DetailsModel(MatterForgeDbContext db) : PageModel
 
     [BindProperty]
     public AddMatterPartyInput MatterPartyInput { get; set; } = new();
+
+    [BindProperty]
+    public string NewNote { get; set; } = string.Empty;
 
     public async Task<IActionResult> OnGetAsync(Guid id)
     {
@@ -132,6 +141,38 @@ public class DetailsModel(MatterForgeDbContext db) : PageModel
         return RedirectToPage(new { id });
     }
 
+    public async Task<IActionResult> OnPostNoteAsync(Guid id)
+    {
+        var partyExists = await db.Parties.AnyAsync(x => x.Id == id);
+        if (!partyExists)
+        {
+            return NotFound();
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        await entityNoteService.AddAsync(EntityNoteService.PartyEntityType, id, NewNote, currentUser?.Id);
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostArchiveAsync(Guid id)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.EntitiesEdit))
+        {
+            return Forbid();
+        }
+
+        var party = await db.Parties.FirstOrDefaultAsync(x => x.Id == id);
+        if (party is null)
+        {
+            return NotFound();
+        }
+
+        party.IsArchived = !party.IsArchived;
+        party.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        return RedirectToPage(new { id });
+    }
+
     private async Task LoadPageAsync(Guid id)
     {
         Party = await db.Parties
@@ -147,15 +188,21 @@ public class DetailsModel(MatterForgeDbContext db) : PageModel
 
         PartyOptions = await db.Parties
             .Where(x => x.Id != id)
+            .Where(x => !x.IsArchived)
             .OrderBy(x => x.Name)
             .Select(x => new SelectListItem($"{x.Name} ({x.PartyNumber:D8})", x.Id.ToString()))
             .ToListAsync();
 
         MatterOptions = await db.Matters
             .Include(x => x.Client)
+            .Where(x => !x.IsArchived)
             .OrderBy(x => x.MatterNumber)
             .Select(x => new SelectListItem($"{x.MatterNumber:D8} - {x.Name} / {x.Client!.Name}", x.Id.ToString()))
             .ToListAsync();
+
+        Notes = Party is null
+            ? []
+            : await entityNoteService.ListAsync(EntityNoteService.PartyEntityType, id);
     }
 }
 

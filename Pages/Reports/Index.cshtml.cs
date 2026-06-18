@@ -264,7 +264,7 @@ public class IndexModel(
 
         return submissions.Select(x => new ReportRow(new(StringComparer.OrdinalIgnoreCase)
         {
-            ["SubmissionNumber"] = x.SubmissionNumber.ToString("D8"),
+            ["SubmissionNumber"] = RecordNumbers.Submission(x.SubmissionNumber),
             ["Form"] = x.FormDefinition?.Name ?? string.Empty,
             ["Status"] = x.Status,
             ["SubmittedBy"] = x.SubmitterUser?.DisplayName ?? x.SubmitterName,
@@ -291,7 +291,7 @@ public class IndexModel(
 
         return tasks.Select(x => new ReportRow(new(StringComparer.OrdinalIgnoreCase)
         {
-            ["SubmissionNumber"] = x.FormSubmission?.SubmissionNumber.ToString("D8") ?? string.Empty,
+            ["SubmissionNumber"] = x.FormSubmission is null ? string.Empty : RecordNumbers.Submission(x.FormSubmission.SubmissionNumber),
             ["Form"] = x.FormSubmission?.FormDefinition?.Name ?? string.Empty,
             ["Workflow"] = x.SubmissionWorkflowInstance?.WorkflowDefinition?.Name ?? string.Empty,
             ["Step"] = x.WorkflowStep?.Name ?? string.Empty,
@@ -316,7 +316,7 @@ public class IndexModel(
 
         return searches.Select(x => new ReportRow(new(StringComparer.OrdinalIgnoreCase)
         {
-            ["SearchNumber"] = x.SearchNumber.ToString("D8"),
+            ["SearchNumber"] = RecordNumbers.ConflictSearch(x.SearchNumber),
             ["SearchName"] = x.SearchName,
             ["SearchTerms"] = x.SearchTerms,
             ["Status"] = x.Status,

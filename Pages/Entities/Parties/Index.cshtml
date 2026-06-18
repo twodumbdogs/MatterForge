@@ -17,9 +17,20 @@
 <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
 <div class="mf-panel">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <strong>@(Model.Archived ? "Archived parties" : "Active parties")</strong>
+            <small class="d-block text-muted">Archived parties stay in conflict searches and can be restored from their detail page.</small>
+        </div>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Party archive filter">
+            <a class="btn @(Model.Archived ? "btn-outline-secondary" : "btn-primary")" asp-page="./Index">Active</a>
+            <a class="btn @(Model.Archived ? "btn-primary" : "btn-outline-secondary")" asp-page="./Index" asp-route-archived="true">Archived</a>
+        </div>
+    </div>
+
     @if (Model.Parties.Count == 0)
     {
-        <p class="text-muted mb-0">No parties yet. Parties are created directly here and synced from clients during startup/conversion.</p>
+        <p class="text-muted mb-0">No @(Model.Archived ? "archived" : "active") parties found.</p>
     }
     else
     {

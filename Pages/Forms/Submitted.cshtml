@@ -1,0 +1,25 @@
+@page "{submissionNumber:int}"
+@model MatterForge.Pages.Forms.SubmittedModel
+@{
+    ViewData["Title"] = "Submission received";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Submitted</p>
+        <h1>Your intake was submitted.</h1>
+        <p class="text-muted">CMIForge saved the request and sent it into the configured intake workflow.</p>
+    </div>
+</div>
+
+<div class="mf-panel">
+    <p class="mb-2">Submission number</p>
+    <p class="display-6 mb-3"><code>@MatterForge.Services.RecordNumbers.Submission(Model.SubmissionNumber)</code></p>
+    <p class="text-muted mb-0">If you need to add files or check status, ask a CMIForge user with submission access to open this request.</p>
+
+    @if (Model.CanViewSubmissions)
+    {
+        <hr />
+        <a class="btn btn-primary" asp-page="/Submissions/Index">View submissions</a>
+    }
+</div>

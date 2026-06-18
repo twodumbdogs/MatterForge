@@ -16,9 +16,20 @@
 <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
 <div class="mf-panel">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <strong>@(Model.Archived ? "Archived matters" : "Active matters")</strong>
+            <small class="d-block text-muted">Archived records stay available for conflicts and can be restored from their detail page.</small>
+        </div>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Matter archive filter">
+            <a class="btn @(Model.Archived ? "btn-outline-secondary" : "btn-primary")" asp-page="./Index">Active</a>
+            <a class="btn @(Model.Archived ? "btn-primary" : "btn-outline-secondary")" asp-page="./Index" asp-route-archived="true">Archived</a>
+        </div>
+    </div>
+
     @if (Model.Matters.Count == 0)
     {
-        <p class="text-muted mb-0">No matters yet. Create a client first, then create the first matter record.</p>
+        <p class="text-muted mb-0">No @(Model.Archived ? "archived" : "active") matters found.</p>
     }
     else
     {

@@ -61,7 +61,7 @@
                         <tr>
                             <td>
                                 <a asp-page="/Submissions/Details" asp-route-id="@task.FormSubmissionId">
-                                    <code>@task.FormSubmission?.SubmissionNumber.ToString("D8")</code>
+                                    <code>@(task.FormSubmission is null ? string.Empty : MatterForge.Services.RecordNumbers.Submission(task.FormSubmission.SubmissionNumber))</code>
                                 </a>
                                 <strong class="d-block">@task.FormSubmission?.FormDefinition?.Name</strong>
                                 <small class="d-block text-muted">@task.FormSubmission?.SubmitterName</small>
@@ -142,7 +142,7 @@
                             <td>@UserDates.Format(workflowEvent.CreatedAt)</td>
                             <td>
                                 <a asp-page="/Submissions/Details" asp-route-id="@workflowEvent.FormSubmissionId">
-                                    <code>@workflowEvent.FormSubmission?.SubmissionNumber.ToString("D8")</code>
+                                    <code>@(workflowEvent.FormSubmission is null ? string.Empty : MatterForge.Services.RecordNumbers.Submission(workflowEvent.FormSubmission.SubmissionNumber))</code>
                                 </a>
                                 <small class="d-block text-muted">@workflowEvent.FormSubmission?.FormDefinition?.Name</small>
                             </td>

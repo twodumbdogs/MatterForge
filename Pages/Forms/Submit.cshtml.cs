@@ -12,6 +12,8 @@ namespace MatterForge.Pages.Forms;
 
 public class SubmitModel(
     MatterForgeDbContext db,
+    PermissionService permissionService,
+    ConflictSearchService conflictSearchService,
     WorkflowService workflowService,
     ProductPlanService productPlanService) : PageModel
 {
@@ -37,12 +39,45 @@ public class SubmitModel(
 
     public async Task<IActionResult> OnGetAsync()
     {
+        if (!await permissionService.HasAsync(PermissionKeys.FormsSubmit))
+        {
+            return Forbid();
+        }
+
         await LoadFormAsync();
         return Page();
     }
 
+    public async Task<IActionResult> OnGetConflictPreviewAsync(Guid id, string? terms)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.FormsSubmit) &&
+            !await permissionService.HasAsync(PermissionKeys.ConflictsView))
+        {
+            return Forbid();
+        }
+
+        var formId = id == Guid.Empty ? Id : id;
+        var formExists = await db.FormDefinitions.AnyAsync(x =>
+            x.Id == formId &&
+            x.IsActive &&
+            x.Versions.Any(v => v.IsPublished));
+
+        if (!formExists)
+        {
+            return NotFound();
+        }
+
+        var preview = await conflictSearchService.PreviewAsync(terms ?? string.Empty);
+        return new JsonResult(preview, FormJson.Options);
+    }
+
     public async Task<IActionResult> OnPostAsync()
     {
+        if (!await permissionService.HasAsync(PermissionKeys.FormsSubmit))
+        {
+            return Forbid();
+        }
+
         await LoadFormAsync();
         if (Form is null || Schema is null)
         {
@@ -50,7 +85,7 @@ public class SubmitModel(
         }
 
         var submitter = SubmitterUserId.HasValue
-            ? await db.Users.FirstOrDefaultAsync(x => x.Id == SubmitterUserId.Value && x.IsActive)
+            ? await db.Users.FirstOrDefaultAsync(x => x.Id == SubmitterUserId.Value && x.IsActive && !x.IsArchived)
             : null;
 
         if (submitter is null)
@@ -108,12 +143,19 @@ public class SubmitModel(
             await workflowService.EnsureStartedAsync(submission);
         }
 
+        if (!await permissionService.HasAsync(PermissionKeys.SubmissionsViewOwn) &&
+            !await permissionService.HasAsync(PermissionKeys.SubmissionsViewAll))
+        {
+            return RedirectToPage("./Submitted", new { submissionNumber = submission.SubmissionNumber });
+        }
+
         return RedirectToPage("/Submissions/Index");
     }
 
     private async Task LoadFormAsync()
     {
         ClientSuggestions = await db.Clients
+            .Where(x => !x.IsArchived)
             .OrderBy(x => x.Name)
             .Select(x => new ClientSuggestion(
                 x.Name,
@@ -121,7 +163,7 @@ public class SubmitModel(
             .ToListAsync();
 
         SubmitterOptions = await db.Users
-            .Where(x => x.IsActive)
+            .Where(x => x.IsActive && !x.IsArchived)
             .OrderBy(x => x.DisplayName)
             .Select(x => new SelectListItem($"{x.DisplayName} ({x.SystemId:D8})", x.Id.ToString()))
             .ToListAsync();

@@ -15,7 +15,13 @@ else
         <div>
             <p class="mf-eyebrow">User <span>@Model.UserRecord.SystemId.ToString("D8")</span></p>
             <h1>@Model.UserRecord.DisplayName</h1>
-            <p class="text-muted">@Model.UserRecord.Title</p>
+            <p class="text-muted">
+                @Model.UserRecord.Title
+                @if (Model.UserRecord.IsArchived)
+                {
+                    <span class="badge text-bg-secondary ms-2">Archived</span>
+                }
+            </p>
         </div>
         <div class="mf-hero-actions">
             @if (Model.IsEditLocked)
@@ -25,6 +31,9 @@ else
             else
             {
                 <a class="btn btn-primary" asp-page="./Edit" asp-route-id="@Model.UserRecord.Id">Edit user</a>
+                <form method="post" asp-page-handler="Archive" asp-route-id="@Model.UserRecord.Id" class="d-inline">
+                    <button class="btn btn-outline-secondary" type="submit">@(Model.UserRecord.IsArchived ? "Restore" : "Archive")</button>
+                </form>
             }
             <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
         </div>

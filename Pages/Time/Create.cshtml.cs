@@ -111,13 +111,14 @@ public class CreateModel(
             await permissionService.HasAsync(PermissionKeys.TimeEdit);
 
         UserOptions = await db.Users
-            .Where(x => x.IsActive)
+            .Where(x => x.IsActive && !x.IsArchived)
             .OrderBy(x => x.DisplayName)
             .Select(x => new SelectListItem($"{x.DisplayName} ({x.SystemId:D8})", x.Id.ToString()))
             .ToListAsync();
 
         MatterOptions = await db.Matters
             .Include(x => x.Client)
+            .Where(x => !x.IsArchived)
             .OrderBy(x => x.MatterNumber)
             .Select(x => new SelectListItem($"{x.MatterNumber:D8} - {x.Client!.Name} / {x.Name}", x.Id.ToString()))
             .ToListAsync();

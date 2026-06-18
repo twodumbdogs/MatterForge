@@ -2,7 +2,7 @@
 
 CMIForge is a homegrown ASP.NET Core Razor Pages prototype for configurable legal intake, entity management, workflow automation, and conflict searches. The long-term idea is a law-firm intake/workflow platform in the spirit of tools like Intapp Open, but built in focused slices so the data model and user experience can grow together.
 
-Current version: `20260617.2`.
+Current version: `20260618.1`.
 
 ## Original Direction
 
@@ -249,13 +249,12 @@ Current plan tiers:
   - All features
   - Community support
 - `Professional`
-  - `$99/month`
+  - `$149/month`
   - Includes 10 users
   - 500 matters
   - 500 clients
   - All features
   - Email support
-  - Additional users at `$10/user/month`
 - `Enterprise`
   - Coming soon
 
@@ -378,6 +377,10 @@ CMIForge now has a first-class `Entities` area with sub-tabs for:
 - Users
 
 Entity creation is separate from form submission until a submission is intentionally converted.
+
+Clients, matters, parties, and users now support archive/unarchive behavior from the front end. Archived records are hidden from the default operational lists but remain available for search/history and can be restored.
+
+Clients, matters, and parties now include conversation-style note threads on their detail pages, so reviewers can leave follow-up context directly on the operational record.
 
 ### Clients
 
@@ -704,7 +707,7 @@ Also verified in the running app:
 - Clients, matters, contacts, and users list/detail pages load.
 - User edit saves successfully.
 - Users show first/last name columns.
-- Dashboard shows version `20260617.2`.
+- Dashboard shows tenant branding, counts, charts, workflow load, conflict mix, and plan usage meters.
 - Plan page shows Community, Professional, and Enterprise tiers.
 - Parties show seeded conflict-test records.
 - A rich conflict search against `Stark Stone`, `Globex Bio Systems`, and `Mina Caldera` produced multiple Critical/Medium hits with AI assist and relationship expansion.
@@ -723,9 +726,23 @@ Also verified in the running app:
 - The public marketing site was deployed to Azure Static Web Apps and verified at `https://cmiforge.com`.
 - The public site now presents the current Community/Professional/Enterprise packaging, live demo link, support contact, and pain-focused platform messaging.
 
+## Dashboard Slice
+
+The dashboard now acts as a quick operational cockpit rather than a plain counter page.
+
+Current dashboard capabilities:
+
+- Tenant-branded header using the configured firm/customer display name.
+- Top-level counts for forms, submissions, published versions, and recorded hours.
+- Submission-status donut chart.
+- Conflict-status donut chart.
+- Open workflow task bars grouped by workflow step.
+- Last-14-days submission trend bars.
+- Plan usage meters for users, matters, and clients.
+
 ## Workflow Slice
 
-CMIForge now has the first native workflow and approval queue slice.
+CMIForge now has the first native workflow, notification, and approval queue slice.
 
 Current workflow capabilities:
 
@@ -734,6 +751,7 @@ Current workflow capabilities:
 - Workflow definitions can be attached directly to published form versions.
 - Workflow definitions have ordered workflow steps.
 - Workflow steps can be created and edited in the app.
+- Workflow steps can be typed as `Approval` or `Notification`.
 - Workflow steps can be assigned to a CMIForge user.
 - Workflow steps can be assigned to a team queue.
 - Form submissions automatically start the workflow attached to their form version.
@@ -749,12 +767,17 @@ Current workflow capabilities:
 - Returned outcomes mark the submission returned.
 - Workflow steps can include routing conditions based on submitted form answers.
 - Routing conditions support always, equals, not equals, contains, present, and blank checks.
+- Notification steps resolve recipients from `assigned`, `submitter`, or literal email addresses.
+- Notification steps support subject/body templates with submission and workflow tokens.
+- Notification steps continue automatically to the next matching step after sending or logging the notification event.
+- If SMTP is disabled or incomplete, the notification step records a skipped/failed workflow event instead of blocking workflow progress.
 - Workflow events preserve history on the submission.
 - New submissions for the starter intake form automatically start the seeded workflow.
 - Older unconverted submissions can still start workflow from the submission detail page when no instance exists.
 - Existing open workflow tasks are refreshed from their step assignment during startup seeding.
 - Form and workflow designers now share a cleaner table style.
 - Workflow designer rows include outcomes and answer-based routing fields.
+- Workflow designer rows include notification fields for recipients, subject, and body.
 - Workflow create/edit designer rows now treat optional step cells as optional, so blank extra rows do not block saving.
 
 Seeded starter workflow:

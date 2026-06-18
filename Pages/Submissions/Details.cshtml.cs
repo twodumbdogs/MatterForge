@@ -21,6 +21,10 @@ public class DetailsModel(
 
     public List<SubmissionAnswer> Answers { get; private set; } = [];
 
+    public FormSchema? Schema { get; private set; }
+
+    public Dictionary<string, string> EditValues { get; private set; } = [];
+
     public List<SubmissionAttachment> Attachments { get; private set; } = [];
 
     public List<SubmissionWorkflowInstance> WorkflowInstances { get; private set; } = [];
@@ -36,6 +40,13 @@ public class DetailsModel(
     public bool CanRunConflicts { get; private set; }
 
     public bool CanManageAttachments { get; private set; }
+
+    public bool CanEditReturned { get; private set; }
+
+    public bool CanStartWorkflow { get; private set; }
+
+    [BindProperty]
+    public Dictionary<string, string> Fields { get; set; } = [];
 
     [BindProperty]
     public string Notes { get; set; } = string.Empty;
@@ -94,7 +105,7 @@ public class DetailsModel(
             "Submission.StatusChanged",
             "Submission",
             submission.Id,
-            submission.SubmissionNumber.ToString("D8"),
+            RecordNumbers.Submission(submission.SubmissionNumber),
             $"Changed submission status from {oldStatus} to {status}.",
             new { OldStatus = oldStatus, NewStatus = status });
 
@@ -108,6 +119,94 @@ public class DetailsModel(
         {
             return NotFound();
         }
+
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostEditReturnedAsync(Guid id)
+    {
+        var submission = await db.FormSubmissions
+            .Include(x => x.FormVersion)
+            .FirstOrDefaultAsync(x => x.Id == id);
+        if (submission?.FormVersion is null)
+        {
+            return NotFound();
+        }
+
+        if (!await CanAccessSubmissionAsync(submission) ||
+            submission.Status != SubmissionStatuses.Returned ||
+            submission.ClientId.HasValue ||
+            submission.MatterId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var schema = FormJson.DeserializeSchema(submission.FormVersion.SchemaJson);
+        Fields = Request.Form
+            .Where(x => x.Key.StartsWith("Fields[", StringComparison.Ordinal))
+            .ToDictionary(
+                x => x.Key["Fields[".Length..^1],
+                x => x.Value.LastOrDefault() ?? string.Empty);
+
+        foreach (var required in schema.Fields.Where(x => x.Required))
+        {
+            if (!Fields.TryGetValue(required.Key, out var value) || string.IsNullOrWhiteSpace(value))
+            {
+                ModelState.AddModelError(string.Empty, $"{required.Label} is required.");
+            }
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await LoadSubmissionAsync(id);
+            EditValues = Fields;
+            return Page();
+        }
+
+        var answers = schema.Fields.ToDictionary<FormField, string, object?>(
+            field => field.Key,
+            field => field.Type == FieldType.Checkbox
+                ? Fields.TryGetValue(field.Key, out var checkboxValue) && checkboxValue.Equals("true", StringComparison.OrdinalIgnoreCase)
+                : Fields.GetValueOrDefault(field.Key));
+
+        submission.DataJson = JsonSerializer.Serialize(answers, FormJson.Options);
+        var oldStatus = submission.Status;
+        submission.Status = SubmissionStatuses.Submitted;
+
+        var returnedInstances = await db.SubmissionWorkflowInstances
+            .Where(x => x.FormSubmissionId == submission.Id && x.Status == WorkflowStatuses.Returned)
+            .ToListAsync();
+        foreach (var instance in returnedInstances)
+        {
+            instance.Status = WorkflowStatuses.Active;
+            instance.CompletedAt = null;
+        }
+
+        var returnedTasks = await db.SubmissionWorkflowTasks
+            .Where(x => x.FormSubmissionId == submission.Id && x.Status == WorkflowStatuses.TaskReturned)
+            .ToListAsync();
+        foreach (var task in returnedTasks)
+        {
+            task.Status = WorkflowStatuses.TaskOpen;
+            task.Outcome = string.Empty;
+            task.CompletedAt = null;
+            task.CompletedByUserId = null;
+        }
+
+        db.SubmissionWorkflowEvents.Add(new SubmissionWorkflowEvent
+        {
+            FormSubmissionId = submission.Id,
+            EventType = "Resubmitted",
+            Message = "Returned submission edited and resubmitted."
+        });
+
+        await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "Submission.ReturnedEdited",
+            "Submission",
+            submission.Id,
+            RecordNumbers.Submission(submission.SubmissionNumber),
+            $"Edited returned submission and changed status from {oldStatus} to {submission.Status}.");
 
         return RedirectToPage(new { id });
     }
@@ -169,7 +268,7 @@ public class DetailsModel(
                     "Attachment.Uploaded",
                     "Submission",
                     submission.Id,
-                    submission.SubmissionNumber.ToString("D8"),
+                    RecordNumbers.Submission(submission.SubmissionNumber),
                     $"Uploaded attachment {attachment.DisplayName}.",
                     new { attachment.OriginalFileName, attachment.SizeBytes, attachment.ContentType });
             }
@@ -213,7 +312,7 @@ public class DetailsModel(
                 "AttachmentLink.Added",
                 "Submission",
                 submission.Id,
-                submission.SubmissionNumber.ToString("D8"),
+                RecordNumbers.Submission(submission.SubmissionNumber),
                 $"Added attachment link {attachment.DisplayName}.",
                 new { attachment.Url });
         }
@@ -255,7 +354,7 @@ public class DetailsModel(
                 "AttachmentLink.Opened",
                 "Submission",
                 submission.Id,
-                submission.SubmissionNumber.ToString("D8"),
+                RecordNumbers.Submission(submission.SubmissionNumber),
                 $"Opened attachment link {attachment.DisplayName}.");
             return Redirect(attachment.Url);
         }
@@ -267,7 +366,7 @@ public class DetailsModel(
                 "Attachment.Downloaded",
                 "Submission",
                 submission.Id,
-                submission.SubmissionNumber.ToString("D8"),
+                RecordNumbers.Submission(submission.SubmissionNumber),
                 $"Downloaded attachment {attachment.DisplayName}.",
                 new { attachment.OriginalFileName, attachment.SizeBytes, attachment.ContentType });
             return File(stream, attachment.ContentType, attachment.OriginalFileName);
@@ -311,7 +410,7 @@ public class DetailsModel(
             "Attachment.Deleted",
             "Submission",
             submission.Id,
-            submission.SubmissionNumber.ToString("D8"),
+            RecordNumbers.Submission(submission.SubmissionNumber),
             $"Deleted attachment {attachment.DisplayName}.",
             new { attachment.OriginalFileName, attachment.AttachmentType, attachment.SizeBytes });
 
@@ -374,14 +473,25 @@ public class DetailsModel(
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
-        var schema = FormJson.DeserializeSchema(Submission.FormVersion.SchemaJson);
+        Schema = FormJson.DeserializeSchema(Submission.FormVersion.SchemaJson);
         var values = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(Submission.DataJson, FormJson.Options) ?? [];
+        EditValues = values.ToDictionary(x => x.Key, x => SubmissionAnswerReader.FormatValue(x.Value));
 
-        Answers = schema.Fields
+        Answers = Schema.Fields
             .Select(field => new SubmissionAnswer(
                 field.Label,
                 values.TryGetValue(field.Key, out var value) ? SubmissionAnswerReader.FormatValue(value) : string.Empty))
             .ToList();
+
+        CanEditReturned =
+            Submission.Status == SubmissionStatuses.Returned &&
+            !Submission.ClientId.HasValue &&
+            !Submission.MatterId.HasValue &&
+            await CanAccessSubmissionAsync(Submission);
+
+        CanStartWorkflow =
+            WorkflowInstances.Count == 0 &&
+            Submission.Status != SubmissionStatuses.Converted;
     }
 
     private async Task<bool> CanAccessSubmissionAsync(FormSubmission submission)

@@ -40,6 +40,7 @@ else
         <a class="btn btn-outline-secondary" asp-page="./Details" asp-route-id="@Model.Submission.Id">Back</a>
     </div>
 
+    <div class="mf-convert-grid">
     <form method="post" class="mf-panel">
         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
         <input type="hidden" asp-for="Id" />
@@ -81,7 +82,7 @@ else
         <div class="row g-3 mb-4">
             <div class="col-md-8">
                 <label asp-for="Input.ClientName" class="form-label"></label>
-                <input asp-for="Input.ClientName" class="form-control" />
+                <input asp-for="Input.ClientName" class="form-control" data-conflict-source />
                 <span asp-validation-for="Input.ClientName" class="text-danger"></span>
             </div>
             <div class="col-md-4">
@@ -94,7 +95,7 @@ else
             </div>
             <div class="col-md-4">
                 <label asp-for="Input.PrimaryContact" class="form-label"></label>
-                <input asp-for="Input.PrimaryContact" class="form-control" />
+                <input asp-for="Input.PrimaryContact" class="form-control" data-conflict-source />
             </div>
             <div class="col-md-4">
                 <label asp-for="Input.Email" class="form-label"></label>
@@ -107,7 +108,7 @@ else
             </div>
             <div class="col-12">
                 <label asp-for="Input.ClientNotes" class="form-label"></label>
-                <textarea asp-for="Input.ClientNotes" class="form-control" rows="2"></textarea>
+                <textarea asp-for="Input.ClientNotes" class="form-control" rows="2" data-conflict-source></textarea>
             </div>
         </div>
 
@@ -115,7 +116,7 @@ else
         <div class="row g-3">
             <div class="col-md-8">
                 <label asp-for="Input.MatterName" class="form-label"></label>
-                <input asp-for="Input.MatterName" class="form-control" />
+                <input asp-for="Input.MatterName" class="form-control" data-conflict-source />
                 <span asp-validation-for="Input.MatterName" class="text-danger"></span>
             </div>
             <div class="col-md-4">
@@ -129,7 +130,7 @@ else
             </div>
             <div class="col-md-4">
                 <label asp-for="Input.PracticeArea" class="form-label"></label>
-                <input asp-for="Input.PracticeArea" class="form-control" />
+                <input asp-for="Input.PracticeArea" class="form-control" data-conflict-source />
             </div>
             <div class="col-md-4">
                 <label asp-for="Input.OpenedDate" class="form-label"></label>
@@ -143,7 +144,7 @@ else
             </div>
             <div class="col-12">
                 <label asp-for="Input.MatterNotes" class="form-label"></label>
-                <textarea asp-for="Input.MatterNotes" class="form-control" rows="3"></textarea>
+                <textarea asp-for="Input.MatterNotes" class="form-control" rows="3" data-conflict-source></textarea>
             </div>
         </div>
 
@@ -152,6 +153,28 @@ else
             <a class="btn btn-outline-secondary" asp-page="./Details" asp-route-id="@Model.Submission.Id">Cancel</a>
         </div>
     </form>
+
+    <aside class="mf-panel mf-conflict-preview"
+           data-conflict-preview
+           data-preview-url="@Url.Page("./Convert", "ConflictPreview", new { id = Model.Id })">
+        <div class="d-flex justify-content-between gap-3">
+            <div>
+                <p class="mf-eyebrow">Live Conflicts</p>
+                <h2>Conflict Preview</h2>
+            </div>
+            <span class="mf-conflict-preview-status" data-conflict-status>Watching</span>
+        </div>
+        <p class="text-muted mt-2 mb-3">CMIForge checks likely client, matter, contact, and party terms while you type.</p>
+        <div class="mf-conflict-preview-summary" data-conflict-summary>
+            Start typing a client, party, parent company, or opposing counsel name.
+        </div>
+        <div class="mf-conflict-preview-stats" data-conflict-stats hidden></div>
+        <div class="mf-conflict-preview-results" data-conflict-results></div>
+        <a class="btn btn-outline-primary w-100 mt-3"
+           asp-page="/Conflicts/Create"
+           asp-route-submissionId="@Model.Submission.Id">Run formal conflict search</a>
+    </aside>
+    </div>
 
     <div class="mf-panel mt-3">
         <h2 class="h5">Source Answers</h2>
@@ -167,4 +190,5 @@ else
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="/js/conflict-preview.js"></script>
 }

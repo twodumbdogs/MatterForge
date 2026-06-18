@@ -60,7 +60,7 @@ public class ConflictSearchService(MatterForgeDbContext db)
         var search = new ConflictSearch
         {
             SearchNumber = nextSearchNumber,
-            SearchName = string.IsNullOrWhiteSpace(searchName) ? $"Conflict Search {nextSearchNumber:D8}" : searchName.Trim(),
+            SearchName = string.IsNullOrWhiteSpace(searchName) ? $"Conflict Search {RecordNumbers.ConflictSearch(nextSearchNumber)}" : searchName.Trim(),
             SearchTerms = searchTerms.Trim(),
             FormSubmissionId = formSubmissionId,
             MatterId = matterId,
@@ -165,6 +165,101 @@ public class ConflictSearchService(MatterForgeDbContext db)
         search.AiSummary = BuildAiSummary(search, terms);
     }
 
+    public async Task<ConflictPreview> PreviewAsync(string searchTerms, int maxResults = 8)
+    {
+        var previewSearch = new ConflictSearch
+        {
+            SearchName = "Live conflict preview",
+            SearchTerms = searchTerms?.Trim() ?? string.Empty
+        };
+
+        var terms = SplitSearchTerms(previewSearch.SearchTerms);
+        if (terms.Count == 0)
+        {
+            return new ConflictPreview(
+                [],
+                "Start typing a client, party, parent company, or opposing counsel name.",
+                [],
+                0,
+                0,
+                0,
+                0,
+                0);
+        }
+
+        await RunSearchAsync(previewSearch);
+
+        var results = previewSearch.Results
+            .OrderByDescending(x => Array.IndexOf(ConflictRiskLevels.All, x.RiskLevel))
+            .ThenByDescending(x => x.Score)
+            .ThenBy(x => x.MatchedName)
+            .Take(maxResults)
+            .ToList();
+
+        var matterIds = results
+            .Where(x => x.MatterId.HasValue)
+            .Select(x => x.MatterId!.Value)
+            .Distinct()
+            .ToList();
+        var clientIds = results
+            .Where(x => x.ClientId.HasValue)
+            .Select(x => x.ClientId!.Value)
+            .Distinct()
+            .ToList();
+
+        var matters = await db.Matters
+            .AsNoTracking()
+            .Include(x => x.Client)
+            .Where(x => matterIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id);
+        var clients = await db.Clients
+            .AsNoTracking()
+            .Where(x => clientIds.Contains(x.Id))
+            .ToDictionaryAsync(x => x.Id);
+
+        var items = results.Select(result =>
+        {
+            matters.TryGetValue(result.MatterId ?? Guid.Empty, out var matter);
+            clients.TryGetValue(result.ClientId ?? Guid.Empty, out var client);
+
+            return new ConflictPreviewItem(
+                result.SearchTerm,
+                result.MatchedName,
+                result.MatchedOn,
+                result.MatchType,
+                result.PartyRole,
+                result.Score,
+                result.RiskLevel,
+                result.Explanation,
+                result.AiAssessment,
+                result.PartyId,
+                result.MatterId,
+                matter?.MatterNumber,
+                matter?.Name ?? string.Empty,
+                result.ClientId,
+                client?.ClientNumber ?? matter?.Client?.ClientNumber,
+                client?.Name ?? matter?.Client?.Name ?? string.Empty);
+        }).ToList();
+
+        var criticalCount = previewSearch.Results.Count(x => x.RiskLevel == ConflictRiskLevels.Critical);
+        var highCount = previewSearch.Results.Count(x => x.RiskLevel == ConflictRiskLevels.High);
+        var relationshipCount = previewSearch.Results.Count(x =>
+            x.MatchType.Contains("Relationship", StringComparison.OrdinalIgnoreCase) ||
+            x.MatchedOn.Contains("relationship", StringComparison.OrdinalIgnoreCase));
+        var priorSearchCount = previewSearch.Results.Count(x =>
+            x.PartyRole.StartsWith("Prior ", StringComparison.OrdinalIgnoreCase));
+
+        return new ConflictPreview(
+            terms,
+            BuildAiSummary(previewSearch, terms),
+            items,
+            previewSearch.Results.Count,
+            criticalCount,
+            highCount,
+            relationshipCount,
+            priorSearchCount);
+    }
+
     public async Task ApplyReviewDecisionAsync(Guid searchId, string decision, string notes, Guid? reviewedByUserId)
     {
         var search = await db.ConflictSearches.FirstOrDefaultAsync(x => x.Id == searchId);
@@ -201,6 +296,58 @@ public class ConflictSearchService(MatterForgeDbContext db)
 
         await RefreshSearchFromResultClearancesAsync(result.ConflictSearchId, reviewedByUserId);
         await db.SaveChangesAsync();
+    }
+
+    public async Task ApplyResultClearanceAsync(IEnumerable<Guid> resultIds, string status, string notes, Guid? reviewedByUserId)
+    {
+        var ids = resultIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return;
+        }
+
+        var results = await db.ConflictSearchResults
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync();
+        if (results.Count == 0)
+        {
+            return;
+        }
+
+        var clearanceStatus = ConflictSearchDecisions.All.Contains(status) ? status : ConflictSearchDecisions.Pending;
+        foreach (var result in results)
+        {
+            result.ClearanceStatus = clearanceStatus;
+            result.ClearanceNotes = notes?.Trim() ?? string.Empty;
+            result.ClearedByUserId = reviewedByUserId;
+            result.ClearedAt = clearanceStatus == ConflictSearchDecisions.Pending && string.IsNullOrWhiteSpace(result.ClearanceNotes)
+                ? null
+                : DateTimeOffset.UtcNow;
+        }
+
+        foreach (var searchId in results.Select(x => x.ConflictSearchId).Distinct())
+        {
+            await RefreshSearchFromResultClearancesAsync(searchId, reviewedByUserId);
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    public async Task RerunSearchAsync(ConflictSearch search, string? additionalTerms)
+    {
+        var existingTerms = SplitSearchTerms(search.SearchTerms);
+        var newTerms = SplitSearchTerms(additionalTerms ?? string.Empty);
+        var combinedTerms = existingTerms
+            .Concat(newTerms)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (combinedTerms.Count > 0)
+        {
+            search.SearchTerms = string.Join(Environment.NewLine, combinedTerms);
+        }
+
+        await RunSearchAsync(search);
     }
 
     private async Task RefreshSearchFromResultClearancesAsync(Guid searchId, Guid? reviewedByUserId)
@@ -386,7 +533,7 @@ public class ConflictSearchService(MatterForgeDbContext db)
                 new HistoricalConflictText(
                     row.MatterId,
                     row.ClientId,
-                    $"Search {row.SearchNumber:D8}: {row.SearchName}",
+                    $"Search {RecordNumbers.ConflictSearch(row.SearchNumber)}: {row.SearchName}",
                     "Prior conflict search",
                     "Prior search text match",
                     "Prior search history",
@@ -432,7 +579,7 @@ public class ConflictSearchService(MatterForgeDbContext db)
                 new HistoricalConflictText(
                     row.MatterId,
                     row.ClientId,
-                    $"Search {row.SearchNumber:D8} result: {row.MatchedName}",
+                    $"Search {RecordNumbers.ConflictSearch(row.SearchNumber)} result: {row.MatchedName}",
                     "Prior result clearance notes",
                     "Prior result notes match",
                     "Prior result history",
@@ -734,3 +881,31 @@ public class ConflictSearchService(MatterForgeDbContext db)
         string MatchType,
         int Score);
 }
+
+public sealed record ConflictPreview(
+    IReadOnlyList<string> Terms,
+    string Summary,
+    IReadOnlyList<ConflictPreviewItem> Results,
+    int TotalResults,
+    int CriticalCount,
+    int HighCount,
+    int RelationshipCount,
+    int PriorSearchCount);
+
+public sealed record ConflictPreviewItem(
+    string SearchTerm,
+    string MatchedName,
+    string MatchedOn,
+    string MatchType,
+    string PartyRole,
+    int Score,
+    string RiskLevel,
+    string Explanation,
+    string AiAssessment,
+    Guid? PartyId,
+    Guid? MatterId,
+    int? MatterNumber,
+    string MatterName,
+    Guid? ClientId,
+    int? ClientNumber,
+    string ClientName);

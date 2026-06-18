@@ -1,26 +1,23 @@
 @page
 @model IndexModel
+@inject MatterForge.Services.TenantBrandingService TenantBranding
 @{
     ViewData["Title"] = "Dashboard";
+    var tenantDisplayName = await TenantBranding.GetDisplayNameAsync();
 }
 
 <section class="mf-hero">
     <div>
-        <p class="mf-eyebrow">@MatterForge.Services.ProductInfo.Version</p>
-        <h1>CMIForge</h1>
-        <p class="lead">Dynamic intake, workflow approvals, operational entities, and conflict searches for law-firm CMI workflows.</p>
-        <p class="mb-0">Current plan: <strong>@Model.CurrentPlan.Name</strong></p>
+        <h1>@tenantDisplayName</h1>
+        <p class="lead">Manage intake, approvals, conflicts, clients, matters, and handoff in one place.</p>
     </div>
-    <div class="mf-hero-actions">
-        <a class="btn btn-light btn-lg" asp-page="/Forms/Index">Fill form</a>
-        <a class="btn btn-outline-light btn-lg" asp-page="/Time/Create">Record time</a>
-        <a class="btn btn-outline-light btn-lg" asp-page="/Reports/Index">Reports</a>
-        <a class="btn btn-outline-light btn-lg" asp-page="/Forms/Create">Design forms</a>
-        <a class="btn btn-outline-light btn-lg" asp-page="/Billing/Index">View plan</a>
+    <div class="mf-hero-metrics" aria-label="Dashboard highlights">
+        <span><strong>@Model.OpenWorkflowTaskCount</strong> open workflow tasks</span>
+        <span><strong>@Model.ConflictSearchCount</strong> conflict searches</span>
     </div>
 </section>
 
-<section class="mf-stat-grid" aria-label="CMIForge counts">
+<section class="mf-stat-grid" aria-label="@tenantDisplayName counts">
     <div class="mf-stat">
         <span>@Model.FormCount</span>
         <strong>Active forms</strong>
@@ -39,26 +36,139 @@
     </div>
 </section>
 
-<section class="mf-panel mb-4">
-    <h2>Current Limits</h2>
-    <div class="row g-3 mt-1">
-        <div class="col-md-4">
-            <strong>@Model.Usage.UserCount / @(Model.CurrentPlan.UserLimit?.ToString("N0") ?? "Unlimited")</strong>
-            <small class="d-block text-muted">Users</small>
+<section class="mf-dashboard-grid mb-4">
+    <article class="mf-panel mf-chart-card">
+        <div class="mf-chart-heading">
+            <div>
+                <p class="mf-eyebrow">Intake pulse</p>
+                <h2>Submission Status</h2>
+            </div>
+            <strong>@Model.SubmissionCount.ToString("N0") total</strong>
         </div>
-        <div class="col-md-4">
-            <strong>@Model.Usage.MatterCount / @(Model.CurrentPlan.MatterLimit?.ToString("N0") ?? "Unlimited")</strong>
-            <small class="d-block text-muted">Matters</small>
+        <div class="mf-donut-wrap">
+            <div class="mf-donut" style="--mf-donut: @Model.SubmissionStatusGradient">
+                <span>@Model.SubmissionCount.ToString("N0")</span>
+            </div>
+            <ul class="mf-chart-legend">
+                @if (Model.SubmissionStatusSlices.Count == 0)
+                {
+                    <li><span style="--slice-color: #e5ebf2"></span>No submissions yet</li>
+                }
+                else
+                {
+                    @foreach (var slice in Model.SubmissionStatusSlices)
+                    {
+                        <li><span style="--slice-color: @slice.Color"></span><strong>@slice.Label</strong> @slice.Count.ToString("N0")</li>
+                    }
+                }
+            </ul>
         </div>
-        <div class="col-md-4">
-            <strong>@Model.Usage.ClientCount / @(Model.CurrentPlan.ClientLimit?.ToString("N0") ?? "Unlimited")</strong>
-            <small class="d-block text-muted">Clients</small>
+    </article>
+
+    <article class="mf-panel mf-chart-card">
+        <div class="mf-chart-heading">
+            <div>
+                <p class="mf-eyebrow">Risk desk</p>
+                <h2>Conflict Mix</h2>
+            </div>
+            <strong>@Model.ConflictSearchCount.ToString("N0") total</strong>
         </div>
-    </div>
+        <div class="mf-donut-wrap">
+            <div class="mf-donut mf-donut-small" style="--mf-donut: @Model.ConflictStatusGradient">
+                <span>@Model.ConflictSearchCount.ToString("N0")</span>
+            </div>
+            <ul class="mf-chart-legend">
+                @if (Model.ConflictStatusSlices.Count == 0)
+                {
+                    <li><span style="--slice-color: #e5ebf2"></span>No conflict searches yet</li>
+                }
+                else
+                {
+                    @foreach (var slice in Model.ConflictStatusSlices)
+                    {
+                        <li><span style="--slice-color: @slice.Color"></span><strong>@slice.Label</strong> @slice.Count.ToString("N0")</li>
+                    }
+                }
+            </ul>
+        </div>
+    </article>
+
+    <article class="mf-panel mf-chart-card">
+        <div class="mf-chart-heading">
+            <div>
+                <p class="mf-eyebrow">Queue heat</p>
+                <h2>Open Work</h2>
+            </div>
+            <strong>@Model.OpenWorkflowTaskCount.ToString("N0") open</strong>
+        </div>
+        <div class="mf-bar-stack">
+            @if (Model.WorkflowTaskBars.Count == 0)
+            {
+                <p class="text-muted mb-0">Nothing waiting in workflow right now.</p>
+            }
+            else
+            {
+                @foreach (var bar in Model.WorkflowTaskBars)
+                {
+                    <div class="mf-bar-row">
+                        <div>
+                            <strong>@bar.Label</strong>
+                            <span>@bar.Count.ToString("N0")</span>
+                        </div>
+                        <div class="mf-bar"><span style="width: @Model.FormatPercent(bar.Percent)%"></span></div>
+                    </div>
+                }
+            }
+        </div>
+    </article>
+
+    <article class="mf-panel mf-chart-card">
+        <div class="mf-chart-heading">
+            <div>
+                <p class="mf-eyebrow">Last 14 days</p>
+                <h2>Submission Trend</h2>
+            </div>
+        </div>
+        <div class="mf-spark-bars" aria-label="Recent submissions by day">
+            @foreach (var bar in Model.RecentSubmissionBars)
+            {
+                var height = Math.Max(8m, bar.Percent);
+                <span style="height: @Model.FormatPercent(height)%" title="@bar.Label: @bar.Count.ToString("N0")"></span>
+            }
+        </div>
+    </article>
 </section>
 
 <section class="row g-4 mt-1">
-    <div class="col-12">
+    <div class="col-lg-5">
+        <div class="mf-panel">
+            <h2>Current Limits</h2>
+            <div class="mf-limit-list">
+                <div class="mf-limit-row">
+                    <div>
+                        <strong>Users</strong>
+                        <span>@Model.Usage.UserCount / @(Model.CurrentPlan.UserLimit?.ToString("N0") ?? "Unlimited")</span>
+                    </div>
+                    <div class="mf-meter"><span style="width: @Model.FormatPercent(Model.GetUsagePercent(Model.Usage.UserCount, Model.CurrentPlan.UserLimit))%"></span></div>
+                </div>
+                <div class="mf-limit-row">
+                    <div>
+                        <strong>Matters</strong>
+                        <span>@Model.Usage.MatterCount / @(Model.CurrentPlan.MatterLimit?.ToString("N0") ?? "Unlimited")</span>
+                    </div>
+                    <div class="mf-meter"><span style="width: @Model.FormatPercent(Model.GetUsagePercent(Model.Usage.MatterCount, Model.CurrentPlan.MatterLimit))%"></span></div>
+                </div>
+                <div class="mf-limit-row">
+                    <div>
+                        <strong>Clients</strong>
+                        <span>@Model.Usage.ClientCount / @(Model.CurrentPlan.ClientLimit?.ToString("N0") ?? "Unlimited")</span>
+                    </div>
+                    <div class="mf-meter"><span style="width: @Model.FormatPercent(Model.GetUsagePercent(Model.Usage.ClientCount, Model.CurrentPlan.ClientLimit))%"></span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
         <div class="mf-panel">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h2>Latest Forms</h2>

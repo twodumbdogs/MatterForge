@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MatterForge.Services;
 
-public class WorkflowService(MatterForgeDbContext db)
+public class WorkflowService(MatterForgeDbContext db, WorkflowNotificationService? notificationService = null)
 {
     public async Task<SubmissionWorkflowInstance?> EnsureStartedAsync(Guid formSubmissionId)
     {
@@ -51,7 +51,6 @@ public class WorkflowService(MatterForgeDbContext db)
             CurrentStepNumber = firstStep.StepNumber
         };
 
-        instance.Tasks.Add(CreateTask(submission.Id, firstStep));
         instance.Events.Add(new SubmissionWorkflowEvent
         {
             FormSubmissionId = submission.Id,
@@ -62,6 +61,7 @@ public class WorkflowService(MatterForgeDbContext db)
         submission.Status = SubmissionStatuses.InReview;
 
         db.SubmissionWorkflowInstances.Add(instance);
+        await AddNextWorkflowWorkAsync(instance, submission, workflow, firstStep);
         await db.SaveChangesAsync();
 
         return instance;
@@ -125,28 +125,61 @@ public class WorkflowService(MatterForgeDbContext db)
             ? null
             : GetNextMatchingStep(workflow.Steps, task.FormSubmission, currentStep.StepNumber, outcome.NextStepNumber);
 
-        if (nextStep is null)
-        {
-            instance.Status = WorkflowStatuses.Completed;
-            instance.CompletedAt = DateTimeOffset.UtcNow;
-            db.SubmissionWorkflowEvents.Add(new SubmissionWorkflowEvent
-            {
-                SubmissionWorkflowInstanceId = instance.Id,
-                FormSubmissionId = task.FormSubmissionId,
-                EventType = WorkflowStatuses.EventCompleted,
-                Message = $"{workflow.Name} completed",
-                ActorUserId = actorUserId
-            });
-        }
-        else
-        {
-            instance.CurrentStepNumber = nextStep.StepNumber;
-            var nextTask = CreateTask(task.FormSubmissionId, nextStep);
-            nextTask.SubmissionWorkflowInstanceId = instance.Id;
-            db.SubmissionWorkflowTasks.Add(nextTask);
-        }
+        await AddNextWorkflowWorkAsync(instance, task.FormSubmission, workflow, nextStep, actorUserId);
 
         await db.SaveChangesAsync();
+    }
+
+    private async Task AddNextWorkflowWorkAsync(
+        SubmissionWorkflowInstance instance,
+        FormSubmission submission,
+        WorkflowDefinition workflow,
+        WorkflowStep? nextStep,
+        Guid? actorUserId = null)
+    {
+        var step = nextStep;
+        while (step is not null)
+        {
+            instance.CurrentStepNumber = step.StepNumber;
+
+            if (IsNotificationStep(step))
+            {
+                if (notificationService is null)
+                {
+                    db.SubmissionWorkflowEvents.Add(new SubmissionWorkflowEvent
+                    {
+                        SubmissionWorkflowInstanceId = instance.Id,
+                        FormSubmissionId = submission.Id,
+                        EventType = WorkflowStatuses.EventNotificationSkipped,
+                        Message = $"Notification step '{step.Name}' skipped because notification service is unavailable.",
+                        ActorUserId = actorUserId
+                    });
+                }
+                else
+                {
+                    await notificationService.ProcessAsync(instance, submission, workflow, step, actorUserId);
+                }
+
+                step = GetNextMatchingStep(workflow.Steps, submission, step.StepNumber);
+                continue;
+            }
+
+            var task = CreateTask(submission.Id, step);
+            task.SubmissionWorkflowInstanceId = instance.Id;
+            db.SubmissionWorkflowTasks.Add(task);
+            return;
+        }
+
+        instance.Status = WorkflowStatuses.Completed;
+        instance.CompletedAt = DateTimeOffset.UtcNow;
+        db.SubmissionWorkflowEvents.Add(new SubmissionWorkflowEvent
+        {
+            SubmissionWorkflowInstanceId = instance.Id,
+            FormSubmissionId = submission.Id,
+            EventType = WorkflowStatuses.EventCompleted,
+            Message = $"{workflow.Name} completed",
+            ActorUserId = actorUserId
+        });
     }
 
     private async Task<WorkflowDefinition?> GetWorkflowDefinitionAsync(Guid formVersionId, Guid formDefinitionId)
@@ -192,6 +225,11 @@ public class WorkflowService(MatterForgeDbContext db)
             AssignedTeamId = step.AssignedTeamId,
             Status = WorkflowStatuses.TaskOpen
         };
+    }
+
+    private static bool IsNotificationStep(WorkflowStep step)
+    {
+        return step.StepType.Equals(WorkflowStepTypes.Notification, StringComparison.OrdinalIgnoreCase);
     }
 
     private static WorkflowStep? GetNextMatchingStep(

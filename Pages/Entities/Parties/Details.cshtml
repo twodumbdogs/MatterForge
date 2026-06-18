@@ -15,9 +15,20 @@ else
         <div>
             <p class="mf-eyebrow">Party <span>@Model.Party.PartyNumber.ToString("D8")</span></p>
             <h1>@Model.Party.Name</h1>
-            <p class="text-muted">@Model.Party.PartyType · @Model.Party.Status</p>
+            <p class="text-muted">
+                @Model.Party.PartyType · @Model.Party.Status
+                @if (Model.Party.IsArchived)
+                {
+                    <span class="badge text-bg-secondary ms-2">Archived</span>
+                }
+            </p>
         </div>
-        <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+        <div class="mf-hero-actions">
+            <form method="post" asp-page-handler="Archive" asp-route-id="@Model.Party.Id" class="d-inline">
+                <button class="btn btn-outline-secondary" type="submit">@(Model.Party.IsArchived ? "Restore" : "Archive")</button>
+            </form>
+            <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+        </div>
     </div>
 
     <partial name="/Pages/Entities/_EntityTabs.cshtml" />
@@ -196,6 +207,8 @@ else
             </div>
         </div>
     </div>
+
+    <partial name="/Pages/Entities/_EntityNotes.cshtml" model="Model.Notes" />
 }
 
 @section Scripts {

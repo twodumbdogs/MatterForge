@@ -16,9 +16,20 @@
 <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
 <div class="mf-panel">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <strong>@(Model.Archived ? "Archived clients" : "Active clients")</strong>
+            <small class="d-block text-muted">Archived records stay searchable and can be restored from their detail page.</small>
+        </div>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Client archive filter">
+            <a class="btn @(Model.Archived ? "btn-outline-secondary" : "btn-primary")" asp-page="./Index">Active</a>
+            <a class="btn @(Model.Archived ? "btn-primary" : "btn-outline-secondary")" asp-page="./Index" asp-route-archived="true">Archived</a>
+        </div>
+    </div>
+
     @if (Model.Clients.Count == 0)
     {
-        <p class="text-muted mb-0">No clients yet. Create the first client record to start building the operational side of CMIForge.</p>
+        <p class="text-muted mb-0">No @(Model.Archived ? "archived" : "active") clients found.</p>
     }
     else
     {

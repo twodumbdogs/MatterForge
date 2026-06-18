@@ -14,4 +14,7 @@ public static class WorkflowStatuses
     public const string EventStepCompleted = "Step Completed";
     public const string EventReturned = "Returned";
     public const string EventCompleted = "Completed";
+    public const string EventNotificationSkipped = "Notification Skipped";
+    public const string EventNotificationSent = "Notification Sent";
+    public const string EventNotificationFailed = "Notification Failed";
 }

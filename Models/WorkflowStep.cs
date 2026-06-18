@@ -14,6 +14,8 @@ public class WorkflowStep
 
     public string Instructions { get; set; } = string.Empty;
 
+    public string StepType { get; set; } = WorkflowStepTypes.Approval;
+
     public Guid? AssignedUserId { get; set; }
 
     public MatterForgeUser? AssignedUser { get; set; }
@@ -34,9 +36,28 @@ public class WorkflowStep
 
     public string ConditionValue { get; set; } = string.Empty;
 
+    public string NotificationSubject { get; set; } = string.Empty;
+
+    public string NotificationBody { get; set; } = string.Empty;
+
+    public string NotificationRecipients { get; set; } = string.Empty;
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public List<SubmissionWorkflowTask> Tasks { get; set; } = [];
+}
+
+public static class WorkflowStepTypes
+{
+    public const string Approval = "Approval";
+    public const string Notification = "Notification";
+
+    public static readonly string[] All = [Approval, Notification];
+
+    public static bool IsValid(string? value)
+    {
+        return All.Contains(value, StringComparer.OrdinalIgnoreCase);
+    }
 }

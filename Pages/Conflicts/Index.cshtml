@@ -12,7 +12,7 @@
     </div>
     @if (Model.CanRunSearches)
     {
-        <a class="btn btn-primary" asp-page="./Create">Run search</a>
+        <a class="btn btn-primary" asp-page="./Create">New</a>
     }
 </div>
 
@@ -44,13 +44,13 @@
                             .ThenByDescending(x => x.Score)
                             .FirstOrDefault();
                         <tr>
-                            <td><a asp-page="./Details" asp-route-id="@search.Id"><code>@search.SearchNumber.ToString("D8")</code></a></td>
+                            <td><a asp-page="./Details" asp-route-id="@search.Id"><code>@MatterForge.Services.RecordNumbers.ConflictSearch(search.SearchNumber)</code></a></td>
                             <td>
                                 <a class="mf-record-link" asp-page="./Details" asp-route-id="@search.Id">
                                     <strong>@search.SearchName</strong>
                                     @if (search.FormSubmission is not null)
                                     {
-                                        <small class="d-block text-muted">Submission @search.FormSubmission.SubmissionNumber.ToString("D8") · @search.FormSubmission.FormDefinition?.Name</small>
+                                        <small class="d-block text-muted">Submission @MatterForge.Services.RecordNumbers.Submission(search.FormSubmission.SubmissionNumber) · @search.FormSubmission.FormDefinition?.Name</small>
                                     }
                                     @if (search.Matter is not null)
                                     {

@@ -1,0 +1,35 @@
+@page
+@model MatterForge.Pages.Account.AccessDeniedModel
+@{
+    ViewData["Title"] = "Access denied";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Access</p>
+        <h1>You are signed in, but this area is not open to your account yet.</h1>
+        <p class="text-muted">CMIForge found your Microsoft sign-in, but your CMIForge user needs a role before this page can be used.</p>
+    </div>
+</div>
+
+<div class="mf-panel">
+    <p class="mb-2">
+        Ask a CMIForge administrator to add
+        <strong>@Model.DisplayName</strong>
+        @if (!string.IsNullOrWhiteSpace(Model.Email))
+        {
+            <span>(@Model.Email)</span>
+        }
+        to the right role or team.
+    </p>
+    <p class="text-muted mb-0">
+        For intake-only access, the usual role is <strong>Submitter</strong>.
+        For reviewing intake or conflicts, use an intake reviewer, entity manager, or administrator role.
+    </p>
+
+    @if (!string.IsNullOrWhiteSpace(Model.ReturnUrl))
+    {
+        <hr />
+        <p class="text-muted small mb-0">Requested page: <code>@Model.ReturnUrl</code></p>
+    }
+</div>

@@ -22,6 +22,10 @@ public class IndexModel(
 
     public int AllSubmissionCount { get; private set; }
 
+    public bool CanSubmitForms { get; private set; }
+
+    public List<SubmissionFormOption> PublishedForms { get; private set; } = [];
+
     [BindProperty(SupportsGet = true)]
     public string View { get; set; } = "mine";
 
@@ -35,6 +39,7 @@ public class IndexModel(
 
         CurrentUser = await currentUserService.GetCurrentUserAsync();
         CanViewAll = await permissionService.HasAsync(PermissionKeys.SubmissionsViewAll);
+        CanSubmitForms = await permissionService.HasAsync(PermissionKeys.FormsSubmit);
         var currentUserId = CurrentUser?.Id;
 
         if (View is not ("mine" or "all"))
@@ -52,6 +57,21 @@ public class IndexModel(
             : 0;
         AllSubmissionCount = await db.FormSubmissions.CountAsync();
 
+        if (CanSubmitForms)
+        {
+            PublishedForms = await db.FormDefinitions
+                .AsNoTracking()
+                .Where(x => x.IsActive && x.Versions.Any(version => version.IsPublished))
+                .OrderBy(x => x.Name)
+                .Select(x => new SubmissionFormOption(
+                    x.Id,
+                    x.Name,
+                    x.Versions
+                        .Where(version => version.IsPublished)
+                        .Max(version => version.VersionNumber)))
+                .ToListAsync();
+        }
+
         var submissionsQuery = db.FormSubmissions.AsQueryable();
         if (View == "mine")
         {
@@ -61,8 +81,8 @@ public class IndexModel(
         }
 
         Submissions = await submissionsQuery
-            .Include(x => x.FormDefinition)
-            .Include(x => x.FormVersion)
+            .Include(x => x.Client)
+            .Include(x => x.Matter)
             .Include(x => x.SubmitterUser)
             .OrderByDescending(x => x.SubmissionNumber)
             .ToListAsync();
@@ -70,3 +90,5 @@ public class IndexModel(
         return Page();
     }
 }
+
+public sealed record SubmissionFormOption(Guid Id, string Name, int VersionNumber);

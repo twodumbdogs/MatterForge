@@ -16,6 +16,8 @@ public class Party
 
     public string Notes { get; set; } = string.Empty;
 
+    public bool IsArchived { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
