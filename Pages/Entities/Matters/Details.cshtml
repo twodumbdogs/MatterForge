@@ -18,6 +18,10 @@ else
             <p class="text-muted">@Model.Matter.Client?.Name</p>
         </div>
         <div class="mf-hero-actions">
+            @if (Model.CanEditEntities)
+            {
+                <a class="btn btn-primary" asp-page="./Edit" asp-route-id="@Model.Matter.Id">Submit Change</a>
+            }
             @if (Model.CanRunConflicts)
             {
                 <a class="btn btn-outline-primary" asp-page="/Conflicts/Create" asp-route-matterId="@Model.Matter.Id">Run Conflict Search</a>
@@ -55,6 +59,42 @@ else
             <dd class="col-sm-9">@Model.Matter.Notes</dd>
         </dl>
     </div>
+
+    @if (Model.PendingChanges.Count > 0)
+    {
+        <div class="mf-panel mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>Pending Changes</h2>
+                    <p class="text-muted mb-0">These updates have not been applied to the matter yet.</p>
+                </div>
+                <a class="btn btn-outline-primary" asp-page="/Entities/Approvals/Index">Review approvals</a>
+            </div>
+            <div class="table-responsive mt-3">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Requested</th>
+                            <th>Requested by</th>
+                            <th>Summary</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var change in Model.PendingChanges)
+                        {
+                            <tr>
+                                <td>@change.RequestedAt.ToString("MMM d, yyyy h:mm tt")</td>
+                                <td>@change.RequestedByUser?.DisplayName</td>
+                                <td>@change.Summary</td>
+                                <td>@change.RequestNotes</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 
     @if (Model.CanViewTime)
     {
@@ -135,6 +175,50 @@ else
                                 </td>
                                 <td>@matterParty.Role</td>
                                 <td>@matterParty.Notes</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="mf-panel mt-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>Contacts</h2>
+            <a class="btn btn-sm btn-outline-primary" asp-page="/Entities/Contacts/Index">Open address book</a>
+        </div>
+        @if (Model.Matter.Contacts.Count == 0)
+        {
+            <p class="text-muted mt-3 mb-0">No contacts are linked to this matter yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive mt-3">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Contact</th>
+                            <th>Role</th>
+                            <th>Primary</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var link in Model.Matter.Contacts.OrderByDescending(x => x.IsPrimary).ThenBy(x => x.Contact?.DisplayName))
+                        {
+                            <tr>
+                                <td>
+                                    @if (link.Contact is not null)
+                                    {
+                                        <a asp-page="/Entities/Contacts/Details" asp-route-id="@link.Contact.Id">@link.Contact.DisplayName</a>
+                                    }
+                                </td>
+                                <td>@link.Role</td>
+                                <td>@(link.IsPrimary ? "Yes" : "No")</td>
+                                <td>@link.Contact?.Email</td>
+                                <td>@link.Contact?.Phone</td>
                             </tr>
                         }
                     </tbody>

@@ -1,13 +1,27 @@
+using MatterForge.Data;
+using MatterForge.Models;
 using MatterForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace MatterForge.Pages.System;
 
 public class DemoModel(
     DemoModeService demoModeService,
-    DemoResetService demoResetService) : PageModel
+    DemoResetService demoResetService,
+    MatterForgeDbContext db) : PageModel
 {
+    public List<DemoResetRun> RecentRuns { get; private set; } = [];
+
+    public DemoResetRun? LastCompletedRun => RecentRuns
+        .Where(x => x.CompletedAt.HasValue)
+        .OrderByDescending(x => x.CompletedAt)
+        .FirstOrDefault();
+
+    public DateTimeOffset? NextEstimatedResetAt =>
+        LastCompletedRun?.CompletedAt?.AddHours(ResetIntervalHours);
+
     [TempData]
     public string? ResetMessage { get; set; }
 
@@ -15,9 +29,15 @@ public class DemoModel(
 
     public double ResetIntervalHours => demoModeService.ResetIntervalHours;
 
-    public IActionResult OnGet()
+    public async Task<IActionResult> OnGetAsync()
     {
-        return IsDemoMode ? Page() : NotFound();
+        if (!IsDemoMode)
+        {
+            return NotFound();
+        }
+
+        await LoadRunsAsync();
+        return Page();
     }
 
     public async Task<IActionResult> OnPostResetAsync()
@@ -33,5 +53,13 @@ public class DemoModel(
             : result.Message;
 
         return RedirectToPage();
+    }
+
+    private async Task LoadRunsAsync()
+    {
+        RecentRuns = await db.DemoResetRuns
+            .OrderByDescending(x => x.StartedAt)
+            .Take(20)
+            .ToListAsync();
     }
 }

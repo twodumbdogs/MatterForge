@@ -100,8 +100,28 @@ namespace MatterForge.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AddressLine1")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("AddressLine2")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
                     b.Property<int>("ClientNumber")
                         .HasColumnType("int");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -126,10 +146,20 @@ namespace MatterForge.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
 
+                    b.Property<string>("PostalCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
                     b.Property<string>("PrimaryContact")
                         .IsRequired()
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -145,6 +175,44 @@ namespace MatterForge.Migrations
                         .IsUnique();
 
                     b.ToTable("Clients");
+                });
+
+            modelBuilder.Entity("MatterForge.Models.ClientContact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactId", "ClientId");
+
+                    b.HasIndex("ClientId", "ContactId", "Role")
+                        .IsUnique();
+
+                    b.ToTable("ClientContacts");
                 });
 
             modelBuilder.Entity("MatterForge.Models.ConflictSearch", b =>
@@ -325,6 +393,234 @@ namespace MatterForge.Migrations
                     b.HasIndex("ConflictSearchId", "Score");
 
                     b.ToTable("ConflictsResults", (string)null);
+                });
+
+            modelBuilder.Entity("MatterForge.Models.Contact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AddressLine1")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("AddressLine2")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("ContactNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("MiddleName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("MobilePhone")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Organization")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("PostalCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactNumber")
+                        .IsUnique();
+
+                    b.HasIndex("DisplayName");
+
+                    b.HasIndex("Email");
+
+                    b.ToTable("Contacts");
+                });
+
+            modelBuilder.Entity("MatterForge.Models.DemoResetRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DeletedRows")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Error")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Trigger")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartedAt");
+
+                    b.HasIndex("Status", "StartedAt");
+
+                    b.ToTable("DemoResetRuns");
+                });
+
+            modelBuilder.Entity("MatterForge.Models.EntityChangeRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CurrentValuesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityName")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("EntityNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ProposedValuesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequestNotes")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("RequestedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReviewNotes")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("Status", "RequestedAt");
+
+                    b.HasIndex("EntityType", "EntityId", "Status");
+
+                    b.ToTable("EntityChangeRequests");
                 });
 
             modelBuilder.Entity("MatterForge.Models.FormDefinition", b =>
@@ -611,6 +907,44 @@ namespace MatterForge.Migrations
                     b.ToTable("Matters");
                 });
 
+            modelBuilder.Entity("MatterForge.Models.MatterContact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContactId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("MatterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContactId", "MatterId");
+
+                    b.HasIndex("MatterId", "ContactId", "Role")
+                        .IsUnique();
+
+                    b.ToTable("MatterContacts");
+                });
+
             modelBuilder.Entity("MatterForge.Models.MatterForgeUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -653,6 +987,9 @@ namespace MatterForge.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<DateTimeOffset?>("LastLoginAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -682,6 +1019,8 @@ namespace MatterForge.Migrations
                     b.HasIndex("EntraUserPrincipalName")
                         .IsUnique()
                         .HasFilter("[EntraUserPrincipalName] <> ''");
+
+                    b.HasIndex("LastLoginAt");
 
                     b.HasIndex("SystemId")
                         .IsUnique();
@@ -1305,6 +1644,82 @@ namespace MatterForge.Migrations
                     b.ToTable("TeamRoles");
                 });
 
+            modelBuilder.Entity("MatterForge.Models.TenantProvisioningRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AdminEmail")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<string>("AdminFirstName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("AdminLastName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DesiredDomain")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("DesiredSubdomain")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("FirmName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("InternalNotes")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Plan")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdminEmail");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("TenantProvisioningRequests");
+                });
+
             modelBuilder.Entity("MatterForge.Models.TimeEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1517,6 +1932,25 @@ namespace MatterForge.Migrations
                     b.Navigation("ActorUser");
                 });
 
+            modelBuilder.Entity("MatterForge.Models.ClientContact", b =>
+                {
+                    b.HasOne("MatterForge.Models.Client", "Client")
+                        .WithMany("Contacts")
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MatterForge.Models.Contact", "Contact")
+                        .WithMany("ClientLinks")
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+
+                    b.Navigation("Contact");
+                });
+
             modelBuilder.Entity("MatterForge.Models.ConflictSearch", b =>
                 {
                     b.HasOne("MatterForge.Models.FormSubmission", "FormSubmission")
@@ -1585,6 +2019,23 @@ namespace MatterForge.Migrations
                     b.Navigation("Matter");
 
                     b.Navigation("Party");
+                });
+
+            modelBuilder.Entity("MatterForge.Models.EntityChangeRequest", b =>
+                {
+                    b.HasOne("MatterForge.Models.MatterForgeUser", "RequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("MatterForge.Models.MatterForgeUser", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("RequestedByUser");
+
+                    b.Navigation("ReviewedByUser");
                 });
 
             modelBuilder.Entity("MatterForge.Models.FormSubmission", b =>
@@ -1682,6 +2133,25 @@ namespace MatterForge.Migrations
                     b.Navigation("Client");
 
                     b.Navigation("ResponsibleUser");
+                });
+
+            modelBuilder.Entity("MatterForge.Models.MatterContact", b =>
+                {
+                    b.HasOne("MatterForge.Models.Contact", "Contact")
+                        .WithMany("MatterLinks")
+                        .HasForeignKey("ContactId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MatterForge.Models.Matter", "Matter")
+                        .WithMany("Contacts")
+                        .HasForeignKey("MatterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Contact");
+
+                    b.Navigation("Matter");
                 });
 
             modelBuilder.Entity("MatterForge.Models.MatterParty", b =>
@@ -1911,6 +2381,16 @@ namespace MatterForge.Migrations
                     b.Navigation("Team");
                 });
 
+            modelBuilder.Entity("MatterForge.Models.TenantProvisioningRequest", b =>
+                {
+                    b.HasOne("MatterForge.Models.MatterForgeUser", "UpdatedByUser")
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("UpdatedByUser");
+                });
+
             modelBuilder.Entity("MatterForge.Models.TimeEntry", b =>
                 {
                     b.HasOne("MatterForge.Models.Client", "Client")
@@ -1994,6 +2474,8 @@ namespace MatterForge.Migrations
 
             modelBuilder.Entity("MatterForge.Models.Client", b =>
                 {
+                    b.Navigation("Contacts");
+
                     b.Navigation("Matters");
 
                     b.Navigation("TimeEntries");
@@ -2002,6 +2484,13 @@ namespace MatterForge.Migrations
             modelBuilder.Entity("MatterForge.Models.ConflictSearch", b =>
                 {
                     b.Navigation("Results");
+                });
+
+            modelBuilder.Entity("MatterForge.Models.Contact", b =>
+                {
+                    b.Navigation("ClientLinks");
+
+                    b.Navigation("MatterLinks");
                 });
 
             modelBuilder.Entity("MatterForge.Models.FormDefinition", b =>
@@ -2030,6 +2519,8 @@ namespace MatterForge.Migrations
 
             modelBuilder.Entity("MatterForge.Models.Matter", b =>
                 {
+                    b.Navigation("Contacts");
+
                     b.Navigation("Parties");
 
                     b.Navigation("TimeEntries");

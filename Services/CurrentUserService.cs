@@ -16,6 +16,7 @@ public class CurrentUserService(
     private const string AdministratorRoleKey = "administrator";
     private const string DefaultCurrentUserEmail = "imauser@twodumbdogs.com";
     private const string DefaultCurrentUserDisplayName = "Ima User";
+    private static readonly TimeSpan LastLoginUpdateInterval = TimeSpan.FromMinutes(5);
 
     public async Task<MatterForgeUser?> GetCurrentUserAsync()
     {
@@ -39,6 +40,7 @@ public class CurrentUserService(
             .FirstOrDefaultAsync(x => x.IsActive && x.Email == email);
         if (configuredUser is not null)
         {
+            await StampLastLoginAsync(configuredUser);
             return configuredUser;
         }
 
@@ -47,12 +49,18 @@ public class CurrentUserService(
             ? DefaultCurrentUserDisplayName
             : configuredDisplayName.Trim();
 
-        return await db.Users
+        var fallbackUser = await db.Users
             .FirstOrDefaultAsync(x => x.IsActive && x.DisplayName == displayName)
             ?? await db.Users
                 .Where(x => x.IsActive)
                 .OrderBy(x => x.SystemId)
                 .FirstOrDefaultAsync();
+        if (fallbackUser is not null)
+        {
+            await StampLastLoginAsync(fallbackUser);
+        }
+
+        return fallbackUser;
     }
 
     public async Task<List<Guid>> GetCurrentUserTeamIdsAsync()
@@ -156,6 +164,7 @@ public class CurrentUserService(
             }
 
             ApplyEntraIdentity(existingUser, identity);
+            existingUser.LastLoginAt = DateTimeOffset.UtcNow;
             existingUser.UpdatedAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
             return existingUser;
@@ -184,7 +193,8 @@ public class CurrentUserService(
             DisplayName = nameParts.DisplayName,
             Email = email ?? userPrincipalName ?? string.Empty,
             Title = string.Empty,
-            IsActive = true
+            IsActive = true,
+            LastLoginAt = DateTimeOffset.UtcNow
         };
         ApplyEntraIdentity(user, identity);
 
@@ -196,6 +206,20 @@ public class CurrentUserService(
 
         await db.SaveChangesAsync();
         return user;
+    }
+
+    private async Task StampLastLoginAsync(MatterForgeUser user)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (user.LastLoginAt.HasValue && now - user.LastLoginAt.Value < LastLoginUpdateInterval)
+        {
+            return;
+        }
+
+        await db.Users
+            .Where(x => x.Id == user.Id)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.LastLoginAt, now));
+        user.LastLoginAt = now;
     }
 
     private async Task<MatterForgeUser?> FindExistingAuthenticatedUserAsync(AuthenticatedIdentity identity)

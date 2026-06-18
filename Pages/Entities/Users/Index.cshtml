@@ -33,6 +33,7 @@
                         <th>Email</th>
                         <th>Title / role</th>
                         <th>Status</th>
+                        <th>Last login</th>
                         <th>Responsible matters</th>
                     </tr>
                 </thead>
@@ -47,6 +48,7 @@
                             <td>@user.Email</td>
                             <td>@user.Title</td>
                             <td><span class="badge @(user.IsActive ? "text-bg-success" : "text-bg-secondary")">@(user.IsActive ? "Active" : "Inactive")</span></td>
+                            <td>@(user.LastLoginAt.HasValue ? UserDates.Format(user.LastLoginAt.Value) : "Never")</td>
                             <td>@user.ResponsibleMatters.Count</td>
                         </tr>
                     }

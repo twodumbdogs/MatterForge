@@ -30,5 +30,7 @@ public class Matter
 
     public List<MatterParty> Parties { get; set; } = [];
 
+    public List<MatterContact> Contacts { get; set; } = [];
+
     public List<TimeEntry> TimeEntries { get; set; } = [];
 }

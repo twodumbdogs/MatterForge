@@ -29,8 +29,75 @@
     </ul>
 </div>
 
+<div class="row g-3 mt-1">
+    <div class="col-md-4">
+        <div class="mf-panel h-100">
+            <h2>Last reset</h2>
+            <p class="mb-0">@(Model.LastCompletedRun is null ? "No reset runs recorded yet." : UserDates.Format(Model.LastCompletedRun.CompletedAt!.Value))</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="mf-panel h-100">
+            <h2>Next estimated reset</h2>
+            <p class="mb-0">@(Model.NextEstimatedResetAt is null ? "Waiting for first recorded reset." : UserDates.Format(Model.NextEstimatedResetAt.Value))</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="mf-panel h-100">
+            <h2>Reset interval</h2>
+            <p class="mb-0">Every @Model.ResetIntervalHours.ToString("g") hours while the app process is running.</p>
+        </div>
+    </div>
+</div>
+
 <form method="post" class="mf-panel mt-3">
     <h2>Reset Demo Data</h2>
     <p class="text-muted mt-3">This removes demo-created records, clears uploaded attachment records, and recreates the starter clients, matters, parties, users, forms, workflows, settings, conflicts data, and sample time entries.</p>
     <button class="btn btn-danger" asp-page-handler="Reset" type="submit">Reset demo now</button>
 </form>
+
+<section class="mf-panel mt-3">
+    <h2>Recent Reset Runs</h2>
+    @if (Model.RecentRuns.Count == 0)
+    {
+        <p class="text-muted mb-0 mt-3">No reset runs have been recorded yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Started</th>
+                        <th>Completed</th>
+                        <th>Trigger</th>
+                        <th>Status</th>
+                        <th>Deleted rows</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var run in Model.RecentRuns)
+                    {
+                        <tr>
+                            <td>@UserDates.Format(run.StartedAt)</td>
+                            <td>@UserDates.FormatNullable(run.CompletedAt, fallback: "Running")</td>
+                            <td>@run.Trigger</td>
+                            <td>
+                                <span class="badge @(run.Status == MatterForge.Models.DemoResetRunStatuses.Succeeded ? "text-bg-success" : run.Status == MatterForge.Models.DemoResetRunStatuses.Failed ? "text-bg-danger" : run.Status == MatterForge.Models.DemoResetRunStatuses.Skipped ? "text-bg-secondary" : "text-bg-primary")">@run.Status</span>
+                            </td>
+                            <td>@run.DeletedRows.ToString("N0")</td>
+                            <td>
+                                @run.Message
+                                @if (!string.IsNullOrWhiteSpace(run.Error))
+                                {
+                                    <small class="d-block text-danger">@run.Error</small>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

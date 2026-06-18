@@ -30,6 +30,8 @@ public class MatterForgeUser
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    public DateTimeOffset? LastLoginAt { get; set; }
+
     public List<Matter> ResponsibleMatters { get; set; } = [];
 
     public List<TimeEntry> TimeEntries { get; set; } = [];

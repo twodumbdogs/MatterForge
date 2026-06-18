@@ -44,6 +44,12 @@ public class CreateModel(MatterForgeDbContext db, ProductPlanService productPlan
             PrimaryContact = Input.PrimaryContact?.Trim() ?? string.Empty,
             Email = Input.Email?.Trim() ?? string.Empty,
             Phone = Input.Phone?.Trim() ?? string.Empty,
+            AddressLine1 = Input.AddressLine1?.Trim() ?? string.Empty,
+            AddressLine2 = Input.AddressLine2?.Trim() ?? string.Empty,
+            City = Input.City?.Trim() ?? string.Empty,
+            State = Input.State?.Trim() ?? string.Empty,
+            PostalCode = Input.PostalCode?.Trim() ?? string.Empty,
+            Country = Input.Country?.Trim() ?? string.Empty,
             Notes = Input.Notes?.Trim() ?? string.Empty
         });
 
@@ -66,6 +72,21 @@ public class ClientInput
     public string? Email { get; set; }
 
     public string? Phone { get; set; }
+
+    [Display(Name = "Address line 1")]
+    public string? AddressLine1 { get; set; }
+
+    [Display(Name = "Address line 2")]
+    public string? AddressLine2 { get; set; }
+
+    public string? City { get; set; }
+
+    public string? State { get; set; }
+
+    [Display(Name = "Postal code")]
+    public string? PostalCode { get; set; }
+
+    public string? Country { get; set; }
 
     public string? Notes { get; set; }
 }

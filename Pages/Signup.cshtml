@@ -1,0 +1,103 @@
+@page
+@model MatterForge.Pages.SignupModel
+@{
+    ViewData["Title"] = "Request CMIForge";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Get started</p>
+        <h1>Request a CMIForge workspace</h1>
+        <p class="text-muted">Tell us who should own the first admin account and what kind of workspace you want to start with.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="https://cmiforge.com/">Back to site</a>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.SignupMessage))
+{
+    <div class="alert alert-success">@Model.SignupMessage</div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <form method="post" class="mf-panel">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="row g-3">
+                <div class="col-12">
+                    <label asp-for="Input.FirmName" class="form-label"></label>
+                    <input asp-for="Input.FirmName" class="form-control" autocomplete="organization" />
+                    <span asp-validation-for="Input.FirmName" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Input.AdminFirstName" class="form-label"></label>
+                    <input asp-for="Input.AdminFirstName" class="form-control" autocomplete="given-name" />
+                    <span asp-validation-for="Input.AdminFirstName" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Input.AdminLastName" class="form-label"></label>
+                    <input asp-for="Input.AdminLastName" class="form-control" autocomplete="family-name" />
+                    <span asp-validation-for="Input.AdminLastName" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Input.AdminEmail" class="form-label"></label>
+                    <input asp-for="Input.AdminEmail" class="form-control" autocomplete="email" />
+                    <span asp-validation-for="Input.AdminEmail" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Input.Plan" class="form-label"></label>
+                    <select asp-for="Input.Plan" class="form-select">
+                        <option value="@MatterForge.Models.TenantProvisioningPlans.Community">Community</option>
+                        <option value="@MatterForge.Models.TenantProvisioningPlans.Professional">Professional</option>
+                        <option value="@MatterForge.Models.TenantProvisioningPlans.Enterprise">Enterprise</option>
+                    </select>
+                    <span asp-validation-for="Input.Plan" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Input.DesiredDomain" class="form-label"></label>
+                    <input asp-for="Input.DesiredDomain" class="form-control" placeholder="examplefirm.com" />
+                    <span asp-validation-for="Input.DesiredDomain" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Input.DesiredSubdomain" class="form-label"></label>
+                    <div class="input-group">
+                        <input asp-for="Input.DesiredSubdomain" class="form-control" placeholder="examplefirm" />
+                        <span class="input-group-text">.cmiforge.app</span>
+                    </div>
+                    <span asp-validation-for="Input.DesiredSubdomain" class="text-danger"></span>
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="Input.Notes" class="form-label">Anything we should know?</label>
+                    <textarea asp-for="Input.Notes" class="form-control" rows="4" placeholder="Current intake pain, expected users, or setup goals."></textarea>
+                    <span asp-validation-for="Input.Notes" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-4">
+                <button class="btn btn-primary" type="submit">Send request</button>
+                <a class="btn btn-outline-secondary" href="https://cmiforge-dev-web-06161223.azurewebsites.net/">Try live demo</a>
+            </div>
+        </form>
+    </div>
+    <div class="col-lg-4">
+        <aside class="mf-panel h-100">
+            <h2>What happens next?</h2>
+            <ol class="mb-0 mt-3">
+                <li>We review the request and confirm the right starting plan.</li>
+                <li>Your first tenant gets provisioned with Entra-ready settings.</li>
+                <li>The first admin signs in and walks through the onboarding checklist.</li>
+            </ol>
+        </aside>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

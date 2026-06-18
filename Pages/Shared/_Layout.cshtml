@@ -10,6 +10,8 @@
         || await Permissions.HasAsync(MatterForge.Services.PermissionKeys.SubmissionsViewOwn);
     var canViewWorkflowQueue = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.WorkflowsViewQueue)
         && ProductPlans.AllowsFeature(MatterForge.Services.ProductFeatureKeys.Workflow);
+    var canDesignWorkflows = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.WorkflowsDesign)
+        && ProductPlans.AllowsFeature(MatterForge.Services.ProductFeatureKeys.Workflow);
     var canViewConflicts = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.ConflictsView);
     var canViewTime = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.TimeViewAll)
         || await Permissions.HasAsync(MatterForge.Services.PermissionKeys.TimeViewOwn);
@@ -19,8 +21,10 @@
     var canViewEntities = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.EntitiesView);
     var canManageSecurity = await Permissions.HasAsync(MatterForge.Services.PermissionKeys.SecurityManage);
     var showSystemMenu = true;
+    var isSubmissionSection = path.StartsWithSegments("/Submissions")
+        || path.StartsWithSegments("/Workflow/Queue");
     var isSystemSection = path.StartsWithSegments("/Forms")
-        || path.StartsWithSegments("/Workflow")
+        || path.StartsWithSegments("/Workflow/Definitions")
         || path.StartsWithSegments("/Imports")
         || path.StartsWithSegments("/Security")
         || path.StartsWithSegments("/System");
@@ -46,10 +50,31 @@
                 </button>
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
-                        @if (canViewSubmissions)
+                        @if (canViewSubmissions || canViewWorkflowQueue)
                         {
-                            <li class="nav-item">
-                                <a class="nav-link @(path.StartsWithSegments("/Submissions") ? "active" : null)" asp-area="" asp-page="/Submissions/Index">Submissions</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle @(isSubmissionSection ? "active" : null)"
+                                   href="#"
+                                   id="submissionsNavDropdown"
+                                   role="button"
+                                   data-bs-toggle="dropdown"
+                                   aria-expanded="false">
+                                    Submissions
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="submissionsNavDropdown">
+                                    @if (canViewSubmissions)
+                                    {
+                                        <li>
+                                            <a class="dropdown-item @(path.StartsWithSegments("/Submissions") ? "active" : null)" asp-area="" asp-page="/Submissions/Index">Submissions</a>
+                                        </li>
+                                    }
+                                    @if (canViewWorkflowQueue)
+                                    {
+                                        <li>
+                                            <a class="dropdown-item @(path.StartsWithSegments("/Workflow/Queue") ? "active" : null)" asp-area="" asp-page="/Workflow/Queue">Workflow Queue</a>
+                                        </li>
+                                    }
+                                </ul>
                             </li>
                         }
                         @if (canViewEntities)
@@ -94,10 +119,10 @@
                                             <a class="dropdown-item @(path.StartsWithSegments("/Forms") ? "active" : null)" asp-area="" asp-page="/Forms/Index">Forms</a>
                                         </li>
                                     }
-                                    @if (canViewWorkflowQueue)
+                                    @if (canDesignWorkflows)
                                     {
                                         <li>
-                                            <a class="dropdown-item @(path.StartsWithSegments("/Workflow") ? "active" : null)" asp-area="" asp-page="/Workflow/Queue">Workflows</a>
+                                            <a class="dropdown-item @(path.StartsWithSegments("/Workflow/Definitions") ? "active" : null)" asp-area="" asp-page="/Workflow/Definitions/Index">Workflows</a>
                                         </li>
                                     }
                                     @if (canViewImports)
@@ -116,6 +141,12 @@
                                     {
                                         <li>
                                             <a class="dropdown-item @(path.StartsWithSegments("/System/Settings") ? "active" : null)" asp-area="" asp-page="/System/Settings">Settings</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item @(path.StartsWithSegments("/System/SignupRequests") ? "active" : null)" asp-area="" asp-page="/System/SignupRequests">Signup Requests</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item @(path.StartsWithSegments("/System/Onboarding") ? "active" : null)" asp-area="" asp-page="/System/Onboarding">Onboarding</a>
                                         </li>
                                     }
                                     @if (DemoMode.IsEnabled)

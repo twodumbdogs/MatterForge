@@ -1,6 +1,6 @@
 # CMIForge Feature Walkthrough Test Plan
 
-Current version: `20260616.1`
+Current version: `20260617.2`
 
 This is a practical manual test plan for getting familiar with CMIForge while also smoke-testing the major product slices. It is written as a guided tour, not just a bug-hunt checklist.
 
@@ -14,13 +14,14 @@ By the end of this walkthrough, you should have personally exercised:
 - Dynamic forms and form versioning
 - Submissions and submission statuses
 - Workflow definitions and approval queues
-- Clients, matters, parties, and users
+- Clients, matters, contacts, parties, and users
 - Submission conversion into operational records
 - Conflict searches and review notes
 - CSV import templates, validation, and import flows
 - Security/team/role pages
 - System settings and demo-mode protection
 - Attachments and external links
+- Built-in reports and the basic report builder
 - Plan page and in-app help
 
 ## Assumptions
@@ -171,6 +172,23 @@ Expected results:
 
 - Parties feel distinct from clients and matters.
 - The seeded demo data looks intentionally designed for conflict-match richness.
+
+### 3D. Contacts
+
+Steps:
+
+1. Open `/Entities/Contacts`.
+2. Create a new contact, such as `Riley Contact` at `Northwind Harbor Holdings`.
+3. Open the contact detail page.
+4. Link the contact to a client with the role `Primary Contact`.
+5. Link the contact to a matter with the role `Matter Contact`.
+6. Open the linked client and matter details.
+
+Expected results:
+
+- Contact numbers are zero-padded and linked.
+- Contacts feel like address-book records, not login users and not conflict parties.
+- Client and matter detail pages show the linked contact.
 
 ## 4. Forms and Form Versioning
 
@@ -365,7 +383,7 @@ Expected results:
 Checks:
 
 - Confirm previous searches remain available as history.
-- Remember that current matching does **not** search prior search text or prior result notes.
+- Confirm conflict searching can surface prior search text and previous result clearance notes.
 
 ## 10. Import Center
 
@@ -429,6 +447,32 @@ Expected results:
 - Billing is presented as product gating, not real payment plumbing.
 - The current build is feature-unlocked for development, while still showing Professional user and matter limits.
 
+## 12A. Reports
+
+Purpose: confirm reporting feels like separate useful reports, not just one dashboard page.
+
+Steps:
+
+1. Open `/Reports`.
+2. Run each built-in report:
+   - `Intake Pipeline`
+   - `Approval Queue Aging`
+   - `Conflicts Review`
+   - `Matter Roster`
+   - `Time Detail`
+3. Export one built-in report to CSV.
+4. In the basic report builder, choose the `Matters` dataset.
+5. Select fields such as `Matter #`, `Matter`, `Client`, `Status`, and `Responsible user`.
+6. Add a light filter, such as `Status is not blank`.
+7. Run the custom report.
+8. Export the custom report to CSV.
+
+Expected results:
+
+- Each built-in report opens as an individual report with its own rows and columns.
+- The basic report builder can produce a simple filtered list without needing a saved report definition.
+- CSV export downloads for both built-in and custom reports.
+
 ## 13. System Settings
 
 Purpose: confirm operational settings exist, are grouped clearly, and are protected in demo mode.
@@ -489,7 +533,32 @@ Expected results:
 
 - Authentication and authorization are separate concepts in the platform design.
 
-## 16. Suggested Smoke Regression Pass
+## 16. Signup, Demo Reset, and Onboarding
+
+Purpose: verify the public-to-admin provisioning path and the safer public demo reset path.
+
+Steps:
+
+1. Open `/Signup` without signing in.
+2. Submit a workspace request with a firm name, first admin, admin email, plan, and optional domain/subdomain.
+3. In a non-demo admin environment, open `System -> Signup Requests`.
+4. Confirm the request appears with firm, admin, plan, notes, and status.
+5. Change the request status to `Contacted` or `Provisioning`, add internal notes, and save.
+6. Open `System -> Onboarding`.
+7. Review the checklist and open several linked setup pages.
+8. In the public demo environment, open `System -> Demo Mode`.
+9. Run `Reset demo now`.
+10. Confirm the recent reset runs table records the manual reset attempt.
+
+Expected results:
+
+- `/Signup` is available anonymously even when the customer app uses Entra login.
+- Signup requests are stored for admin triage outside the public marketing site.
+- Signup status changes are audited.
+- The onboarding checklist gives a clear first-customer setup path.
+- Demo reset attempts persist in reset history with status, timing, deleted row count, and message.
+
+## 17. Suggested Smoke Regression Pass
 
 Use this as the short “did we break anything obvious?” sweep after future changes:
 
@@ -507,6 +576,7 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] Approved submission converts to client/matter
 - [ ] Client detail loads
 - [ ] Matter detail loads
+- [ ] Contact create/detail loads and links to a client or matter
 - [ ] User detail/edit loads
 - [ ] Conflict search runs
 - [ ] Conflict review saves
@@ -518,9 +588,10 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] System settings page loads in non-demo or is read-only in demo
 - [ ] Attachment upload/download still works after storage key rotation
 - [ ] Visible timestamps match the browser's local timezone
+- [ ] Reports built-in catalog and basic builder load
 - [ ] Plan page loads
 
-## 17. What To Notice While Testing
+## 18. What To Notice While Testing
 
 This is the “buyer brain” part of the walkthrough. As you test, pay attention to:
 
@@ -530,7 +601,7 @@ This is the “buyer brain” part of the walkthrough. As you test, pay attentio
 - Does the platform feel more like firm software than a demo CRUD app?
 - Which screens feel “beta but useful” versus “next obvious polish target”?
 
-## 18. Notes Template
+## 19. Notes Template
 
 Use this if you want to jot reactions as you go:
 

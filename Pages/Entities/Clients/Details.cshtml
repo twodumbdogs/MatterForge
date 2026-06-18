@@ -17,7 +17,13 @@ else
             <h1>@Model.Client.Name</h1>
             <p class="text-muted">@Model.Client.Status</p>
         </div>
-        <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+        <div class="mf-hero-actions">
+            @if (Model.CanEditEntities)
+            {
+                <a class="btn btn-primary" asp-page="./Edit" asp-route-id="@Model.Client.Id">Submit Change</a>
+            }
+            <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+        </div>
     </div>
 
     <partial name="/Pages/Entities/_EntityTabs.cshtml" />
@@ -35,6 +41,25 @@ else
                     <dd class="col-sm-7">@Model.Client.Email</dd>
                     <dt class="col-sm-5">Phone</dt>
                     <dd class="col-sm-7">@Model.Client.Phone</dd>
+                    <dt class="col-sm-5">Address</dt>
+                    <dd class="col-sm-7">
+                        @if (string.IsNullOrWhiteSpace(Model.Client.AddressLine1) &&
+                             string.IsNullOrWhiteSpace(Model.Client.City) &&
+                             string.IsNullOrWhiteSpace(Model.Client.State))
+                        {
+                            <span class="text-muted">Not set</span>
+                        }
+                        else
+                        {
+                            <div>@Model.Client.AddressLine1</div>
+                            @if (!string.IsNullOrWhiteSpace(Model.Client.AddressLine2))
+                            {
+                                <div>@Model.Client.AddressLine2</div>
+                            }
+                            <div>@string.Join(", ", new[] { Model.Client.City, Model.Client.State }.Where(x => !string.IsNullOrWhiteSpace(x))) @Model.Client.PostalCode</div>
+                            <div>@Model.Client.Country</div>
+                        }
+                    </dd>
                     <dt class="col-sm-5">Notes</dt>
                     <dd class="col-sm-7">@Model.Client.Notes</dd>
                 </dl>
@@ -74,6 +99,84 @@ else
                     </div>
                 }
             </div>
+
+            <div class="mf-panel mt-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2>Contacts</h2>
+                    <a class="btn btn-sm btn-outline-primary" asp-page="/Entities/Contacts/Index">Open address book</a>
+                </div>
+                @if (Model.Client.Contacts.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No contacts are linked to this client yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Contact</th>
+                                    <th>Role</th>
+                                    <th>Primary</th>
+                                    <th>Email</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var link in Model.Client.Contacts.OrderByDescending(x => x.IsPrimary).ThenBy(x => x.Contact?.DisplayName))
+                                {
+                                    <tr>
+                                        <td>
+                                            @if (link.Contact is not null)
+                                            {
+                                                <a asp-page="/Entities/Contacts/Details" asp-route-id="@link.Contact.Id">@link.Contact.DisplayName</a>
+                                            }
+                                        </td>
+                                        <td>@link.Role</td>
+                                        <td>@(link.IsPrimary ? "Yes" : "No")</td>
+                                        <td>@link.Contact?.Email</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
         </div>
     </div>
+
+    @if (Model.PendingChanges.Count > 0)
+    {
+        <div class="mf-panel mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>Pending Changes</h2>
+                    <p class="text-muted mb-0">These updates have not been applied to the client yet.</p>
+                </div>
+                <a class="btn btn-outline-primary" asp-page="/Entities/Approvals/Index">Review approvals</a>
+            </div>
+            <div class="table-responsive mt-3">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Requested</th>
+                            <th>Requested by</th>
+                            <th>Summary</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var change in Model.PendingChanges)
+                        {
+                            <tr>
+                                <td>@change.RequestedAt.ToString("MMM d, yyyy h:mm tt")</td>
+                                <td>@change.RequestedByUser?.DisplayName</td>
+                                <td>@change.Summary</td>
+                                <td>@change.RequestNotes</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
 }

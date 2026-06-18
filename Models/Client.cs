@@ -16,6 +16,18 @@ public class Client
 
     public string Phone { get; set; } = string.Empty;
 
+    public string AddressLine1 { get; set; } = string.Empty;
+
+    public string AddressLine2 { get; set; } = string.Empty;
+
+    public string City { get; set; } = string.Empty;
+
+    public string State { get; set; } = string.Empty;
+
+    public string PostalCode { get; set; } = string.Empty;
+
+    public string Country { get; set; } = string.Empty;
+
     public string Notes { get; set; } = string.Empty;
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
@@ -23,6 +35,8 @@ public class Client
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public List<Matter> Matters { get; set; } = [];
+
+    public List<ClientContact> Contacts { get; set; } = [];
 
     public List<TimeEntry> TimeEntries { get; set; } = [];
 }

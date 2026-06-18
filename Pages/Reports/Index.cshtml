@@ -2,194 +2,300 @@
 @model MatterForge.Pages.Reports.IndexModel
 @{
     ViewData["Title"] = "Reports";
+
+    static string FieldLabel(IReadOnlyList<ReportField> fields, string? key)
+    {
+        return fields.FirstOrDefault(x => x.Key.Equals(key ?? string.Empty, StringComparison.OrdinalIgnoreCase))?.Label ?? "Field";
+    }
+
+    string FilterSummary(ReportFilter filter)
+    {
+        var field = FieldLabel(Model.SelectedDataset.Fields, filter.FieldKey);
+        return filter.Operator switch
+        {
+            ReportFilterOperators.EqualTo => $"{field} equals {filter.Value}",
+            ReportFilterOperators.NotEquals => $"{field} does not equal {filter.Value}",
+            ReportFilterOperators.StartsWith => $"{field} starts with {filter.Value}",
+            ReportFilterOperators.IsBlank => $"{field} is blank",
+            ReportFilterOperators.IsNotBlank => $"{field} is not blank",
+            _ => $"{field} contains {filter.Value}"
+        };
+    }
 }
 
 <div class="mf-page-heading">
     <div>
         <p class="mf-eyebrow">Reporting</p>
         <h1>Reports</h1>
-        <p class="text-muted">Hardcoded operational reports for intake, conflicts, workflows, matters, and time.</p>
+        <p class="text-muted">Run built-in operational reports or make a simple ad hoc report from the records already in CMIForge.</p>
     </div>
-    <a class="btn btn-outline-secondary" asp-page-handler="TimeCsv"
-       asp-route-from="@Model.From?.ToString("yyyy-MM-dd")"
-       asp-route-to="@Model.To?.ToString("yyyy-MM-dd")">Export time detail</a>
 </div>
 
-<form method="get" class="mf-panel mb-3">
-    <div class="row g-3 align-items-end">
-        <div class="col-md-3">
-            <label asp-for="From" class="form-label">From</label>
-            <input asp-for="From" type="date" class="form-control" />
+<section class="mf-panel mb-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+        <div>
+            <h2 class="mb-1">Built-in reports</h2>
+            <p class="text-muted mb-0">Ready-made reports for the workflows firms ask about first.</p>
         </div>
-        <div class="col-md-3">
-            <label asp-for="To" class="form-label">To</label>
-            <input asp-for="To" type="date" class="form-control" />
-        </div>
-        <div class="col-md-6 d-flex gap-2">
-            <button class="btn btn-primary" type="submit">Run reports</button>
-            <a class="btn btn-outline-secondary" asp-page="./Index">Reset</a>
-        </div>
+        @if (Model.BuiltInResult is not null && Model.SelectedBuiltInReport is not null)
+        {
+            <a class="btn btn-outline-secondary align-self-start"
+               asp-page-handler="Export"
+               asp-route-reportKey="@Model.SelectedBuiltInReport.Key">Export CSV</a>
+        }
     </div>
-</form>
 
-<section class="mf-stat-grid" aria-label="Report highlights">
-    <div class="mf-stat">
-        <span>@Model.TimeEntryCount</span>
-        <strong>Time entries</strong>
-    </div>
-    <div class="mf-stat">
-        <span>@Model.TotalHours.ToString("0.0")</span>
-        <strong>Total hours</strong>
-    </div>
-    <div class="mf-stat">
-        <span>@Model.OpenWorkflowTasks</span>
-        <strong>Open workflow tasks</strong>
+    <div class="row g-3">
+        @foreach (var report in Model.BuiltInReports)
+        {
+            var isSelected = Model.SelectedBuiltInReport?.Key == report.Key;
+            <div class="col-md-6 col-xl-4">
+                <article class="mf-card h-100 @(isSelected ? "border-primary" : string.Empty)">
+                    <div class="d-flex flex-column h-100">
+                        <h3 class="h5">@report.Name</h3>
+                        <p class="text-muted flex-grow-1">@report.Description</p>
+                        <a class="btn @(isSelected ? "btn-primary" : "btn-outline-primary") align-self-start"
+                           asp-page="./Index"
+                           asp-route-reportKey="@report.Key">Run report</a>
+                    </div>
+                </article>
+            </div>
+        }
     </div>
 </section>
 
-<div class="row g-4">
-    <div class="col-lg-6">
-        <section class="mf-panel h-100">
-            <h2>Submission Status</h2>
-            @if (Model.SubmissionStatuses.Count == 0)
-            {
-                <p class="text-muted mt-3 mb-0">No submissions yet.</p>
-            }
-            else
-            {
-                <table class="table table-sm align-middle mt-3">
-                    <thead><tr><th>Status</th><th class="text-end">Count</th></tr></thead>
+@if (Model.BuiltInResult is not null)
+{
+    <section class="mf-panel mb-4">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+            <div>
+                <h2 class="mb-1">@Model.BuiltInResult.Title</h2>
+                <p class="text-muted mb-0">@Model.BuiltInResult.Description</p>
+            </div>
+            <div class="text-muted small align-self-lg-end">
+                @Model.BuiltInResult.TotalRows rows
+                @if (Model.BuiltInResult.IsTruncated)
+                {
+                    <span>(showing first 500)</span>
+                }
+            </div>
+        </div>
+
+        @if (Model.BuiltInResult.Rows.Count == 0)
+        {
+            <p class="text-muted mb-0">No rows found.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            @foreach (var column in Model.BuiltInResult.Columns)
+                            {
+                                <th>@column.Label</th>
+                            }
+                        </tr>
+                    </thead>
                     <tbody>
-                        @foreach (var row in Model.SubmissionStatuses)
-                        {
-                            <tr><td>@row.Label</td><td class="text-end">@row.Count</td></tr>
-                        }
-                    </tbody>
-                </table>
-            }
-        </section>
-    </div>
-    <div class="col-lg-6">
-        <section class="mf-panel h-100">
-            <h2>Workflow Queue Aging</h2>
-            <dl class="row mt-3 mb-0">
-                <dt class="col-sm-6">Open tasks</dt>
-                <dd class="col-sm-6">@Model.OpenWorkflowTasks</dd>
-                <dt class="col-sm-6">Average age</dt>
-                <dd class="col-sm-6">@Model.AverageWorkflowAgeDays.ToString("0.0") days</dd>
-                <dt class="col-sm-6">Oldest task</dt>
-                <dd class="col-sm-6">@Model.OldestWorkflowTask</dd>
-            </dl>
-        </section>
-    </div>
-    <div class="col-lg-6">
-        <section class="mf-panel h-100">
-            <h2>Conflicts</h2>
-            @if (Model.ConflictStatuses.Count == 0)
-            {
-                <p class="text-muted mt-3 mb-0">No conflict searches yet.</p>
-            }
-            else
-            {
-                <table class="table table-sm align-middle mt-3">
-                    <thead><tr><th>Status / decision</th><th class="text-end">Count</th></tr></thead>
-                    <tbody>
-                        @foreach (var row in Model.ConflictStatuses)
-                        {
-                            <tr><td>@row.Label</td><td class="text-end">@row.Count</td></tr>
-                        }
-                    </tbody>
-                </table>
-            }
-        </section>
-    </div>
-    <div class="col-lg-6">
-        <section class="mf-panel h-100">
-            <h2>Matters by Practice Area</h2>
-            @if (Model.MatterPracticeAreas.Count == 0)
-            {
-                <p class="text-muted mt-3 mb-0">No matters yet.</p>
-            }
-            else
-            {
-                <table class="table table-sm align-middle mt-3">
-                    <thead><tr><th>Practice area</th><th class="text-end">Count</th></tr></thead>
-                    <tbody>
-                        @foreach (var row in Model.MatterPracticeAreas)
-                        {
-                            <tr><td>@row.Label</td><td class="text-end">@row.Count</td></tr>
-                        }
-                    </tbody>
-                </table>
-            }
-        </section>
-    </div>
-    <div class="col-lg-6">
-        <section class="mf-panel h-100">
-            <h2>New Matters by Month</h2>
-            <table class="table table-sm align-middle mt-3">
-                <thead><tr><th>Month</th><th class="text-end">Count</th></tr></thead>
-                <tbody>
-                    @foreach (var row in Model.NewMattersByMonth)
-                    {
-                        <tr><td>@row.Month</td><td class="text-end">@row.Count</td></tr>
-                    }
-                </tbody>
-            </table>
-        </section>
-    </div>
-    <div class="col-lg-6">
-        <section class="mf-panel h-100">
-            <h2>Time by User</h2>
-            @if (Model.TimeByUser.Count == 0)
-            {
-                <p class="text-muted mt-3 mb-0">No time in the selected date range.</p>
-            }
-            else
-            {
-                <table class="table table-sm align-middle mt-3">
-                    <thead><tr><th>User</th><th class="text-end">Hours</th><th class="text-end">Billable</th><th class="text-end">Entries</th></tr></thead>
-                    <tbody>
-                        @foreach (var row in Model.TimeByUser)
+                        @foreach (var row in Model.BuiltInResult.Rows)
                         {
                             <tr>
-                                <td>@row.UserName</td>
-                                <td class="text-end">@row.Hours.ToString("0.00")</td>
-                                <td class="text-end">@row.BillableHours.ToString("0.00")</td>
-                                <td class="text-end">@row.EntryCount</td>
+                                @foreach (var column in Model.BuiltInResult.Columns)
+                                {
+                                    <td>@(row.Values.TryGetValue(column.Key, out var value) ? value : string.Empty)</td>
+                                }
                             </tr>
                         }
                     </tbody>
                 </table>
-            }
-        </section>
+            </div>
+        }
+    </section>
+}
+
+<section class="mf-panel mb-4">
+    <div class="mb-3">
+        <h2 class="mb-1">Basic report builder</h2>
+        <p class="text-muted mb-0">Pick a dataset, choose fields, add light filters, then run or export the result.</p>
     </div>
-    <div class="col-12">
-        <section class="mf-panel">
-            <h2>Time by Client and Matter</h2>
-            @if (Model.TimeByMatter.Count == 0)
-            {
-                <p class="text-muted mt-3 mb-0">No time in the selected date range.</p>
-            }
-            else
-            {
-                <div class="table-responsive mt-3">
-                    <table class="table table-sm align-middle">
-                        <thead><tr><th>Client</th><th>Matter</th><th class="text-end">Hours</th><th class="text-end">Billable</th></tr></thead>
-                        <tbody>
-                            @foreach (var row in Model.TimeByMatter)
-                            {
-                                <tr>
-                                    <td>@row.ClientName</td>
-                                    <td>@row.MatterName</td>
-                                    <td class="text-end">@row.Hours.ToString("0.00")</td>
-                                    <td class="text-end">@row.BillableHours.ToString("0.00")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+
+    <form method="get">
+        <div class="row g-3 align-items-end mb-4">
+            <div class="col-md-5">
+                <label asp-for="Dataset" class="form-label">Dataset</label>
+                <select asp-for="Dataset" asp-items="Model.DatasetOptions" class="form-select"></select>
+                <div class="form-text">@Model.SelectedDataset.Description</div>
+            </div>
+            <div class="col-md-7 d-flex flex-wrap gap-2">
+                <button class="btn btn-outline-secondary" type="submit">Apply dataset</button>
+                <button class="btn btn-primary" type="submit" name="RunCustom" value="true">Run custom report</button>
+                <button class="btn btn-outline-secondary" type="submit" name="RunCustom" value="true" asp-page-handler="Export">Export CSV</button>
+                <a class="btn btn-outline-secondary" asp-page="./Index">Reset</a>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-5">
+                <h3 class="h5">Fields</h3>
+                <div class="mf-check-grid">
+                    @foreach (var field in Model.SelectedDataset.Fields)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   id="field-@field.Key"
+                                   name="Fields"
+                                   value="@field.Key"
+                                   checked="@Model.Fields.Contains(field.Key, StringComparer.OrdinalIgnoreCase)" />
+                            <label class="form-check-label" for="field-@field.Key">@field.Label</label>
+                        </div>
+                    }
                 </div>
+            </div>
+            <div class="col-lg-7">
+                <h3 class="h5">Filters</h3>
+                <div class="d-grid gap-2">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <select class="form-select" name="Filter1Field">
+                                <option value="">No filter</option>
+                                @foreach (var field in Model.SelectedDataset.Fields)
+                                {
+                                    <option value="@field.Key" selected="@(field.Key == Model.Filter1Field)">@field.Label</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" name="Filter1Operator">
+                                @foreach (var op in Model.OperatorOptions)
+                                {
+                                    <option value="@op.Value" selected="@(op.Value == Model.Filter1Operator)">@op.Text</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <input class="form-control" name="Filter1Value" value="@Model.Filter1Value" placeholder="Value" />
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <select class="form-select" name="Filter2Field">
+                                <option value="">No filter</option>
+                                @foreach (var field in Model.SelectedDataset.Fields)
+                                {
+                                    <option value="@field.Key" selected="@(field.Key == Model.Filter2Field)">@field.Label</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" name="Filter2Operator">
+                                @foreach (var op in Model.OperatorOptions)
+                                {
+                                    <option value="@op.Value" selected="@(op.Value == Model.Filter2Operator)">@op.Text</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <input class="form-control" name="Filter2Value" value="@Model.Filter2Value" placeholder="Value" />
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <select class="form-select" name="Filter3Field">
+                                <option value="">No filter</option>
+                                @foreach (var field in Model.SelectedDataset.Fields)
+                                {
+                                    <option value="@field.Key" selected="@(field.Key == Model.Filter3Field)">@field.Label</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" name="Filter3Operator">
+                                @foreach (var op in Model.OperatorOptions)
+                                {
+                                    <option value="@op.Value" selected="@(op.Value == Model.Filter3Operator)">@op.Text</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <input class="form-control" name="Filter3Value" value="@Model.Filter3Value" placeholder="Value" />
+                        </div>
+                    </div>
+                </div>
+                <p class="form-text mt-2 mb-0">Blank filters are ignored. Results are capped at 500 visible rows to keep the page snappy.</p>
+            </div>
+        </div>
+    </form>
+</section>
+
+@if (Model.CustomResult is not null)
+{
+    <section class="mf-panel">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+            <div>
+                <h2 class="mb-1">@Model.CustomResult.Title</h2>
+                <p class="text-muted mb-0">@Model.CustomResult.Description</p>
+            </div>
+            <div class="text-muted small align-self-lg-end">
+                @Model.CustomResult.TotalRows rows
+                @if (Model.CustomResult.IsTruncated)
+                {
+                    <span>(showing first 500)</span>
+                }
+            </div>
+        </div>
+
+        @{
+            var activeFilters = new[]
+            {
+                new ReportFilter(Model.Filter1Field ?? string.Empty, Model.Filter1Operator ?? string.Empty, Model.Filter1Value),
+                new ReportFilter(Model.Filter2Field ?? string.Empty, Model.Filter2Operator ?? string.Empty, Model.Filter2Value),
+                new ReportFilter(Model.Filter3Field ?? string.Empty, Model.Filter3Operator ?? string.Empty, Model.Filter3Value)
             }
-        </section>
-    </div>
-</div>
+            .Where(x => !string.IsNullOrWhiteSpace(x.FieldKey) && !string.IsNullOrWhiteSpace(x.Operator))
+            .ToList();
+        }
+
+        @if (activeFilters.Count > 0)
+        {
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                @foreach (var filter in activeFilters)
+                {
+                    <span class="badge text-bg-light border">@FilterSummary(filter)</span>
+                }
+            </div>
+        }
+
+        @if (Model.CustomResult.Rows.Count == 0)
+        {
+            <p class="text-muted mb-0">No rows found.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            @foreach (var column in Model.CustomResult.Columns)
+                            {
+                                <th>@column.Label</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.CustomResult.Rows)
+                        {
+                            <tr>
+                                @foreach (var column in Model.CustomResult.Columns)
+                                {
+                                    <td>@(row.Values.TryGetValue(column.Key, out var value) ? value : string.Empty)</td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}

@@ -20,7 +20,7 @@ else
         <div class="mf-hero-actions">
             @if (Model.IsEditLocked)
             {
-                <span class="badge text-bg-info align-self-center">Protected in live demo</span>
+                <span class="badge text-bg-info align-self-center">Protected system user</span>
             }
             else
             {
@@ -100,6 +100,8 @@ else
                             @(Model.UserRecord.IsActive ? "Active" : "Inactive")
                         </span>
                     </dd>
+                    <dt class="col-sm-5">Last login</dt>
+                    <dd class="col-sm-7">@(Model.UserRecord.LastLoginAt.HasValue ? UserDates.Format(Model.UserRecord.LastLoginAt.Value) : "Never")</dd>
                     <dt class="col-sm-5">Record GUID</dt>
                     <dd class="col-sm-7"><code>@Model.UserRecord.Id</code></dd>
                     <dt class="col-sm-5">Created</dt>

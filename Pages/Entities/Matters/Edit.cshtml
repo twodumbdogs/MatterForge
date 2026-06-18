@@ -1,0 +1,88 @@
+@page "{id:guid}"
+@model MatterForge.Pages.Entities.Matters.EditModel
+@{
+    ViewData["Title"] = Model.Matter is null ? "Edit Matter" : $"Edit Matter {Model.Matter.MatterNumber:D8}";
+    ViewData["ActiveEntityTab"] = "Matters";
+}
+
+@if (Model.Matter is null)
+{
+    <div class="alert alert-warning">That matter could not be found.</div>
+}
+else
+{
+    <div class="mf-page-heading">
+        <div>
+            <p class="mf-eyebrow">Matter <span>@Model.Matter.MatterNumber.ToString("D8")</span></p>
+            <h1>Submit Matter Change</h1>
+            <p class="text-muted">Changes are held for approval before the matter record is updated.</p>
+        </div>
+        <a class="btn btn-outline-secondary" asp-page="./Details" asp-route-id="@Model.Matter.Id">Back</a>
+    </div>
+
+    <partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+    <form method="post" class="mf-panel">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label asp-for="Input.Name" class="form-label"></label>
+                <input asp-for="Input.Name" class="form-control" />
+                <span asp-validation-for="Input.Name" class="text-danger"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.Status" class="form-label"></label>
+                <select asp-for="Input.Status" class="form-select">
+                    <option>Open</option>
+                    <option>Pending</option>
+                    <option>Closed</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.ClientId" class="form-label"></label>
+                <select asp-for="Input.ClientId" asp-items="Model.ClientOptions" class="form-select"></select>
+                <span asp-validation-for="Input.ClientId" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.ResponsibleUserId" class="form-label"></label>
+                <select asp-for="Input.ResponsibleUserId" asp-items="Model.UserOptions" class="form-select">
+                    <option value="">Unassigned</option>
+                </select>
+                <span asp-validation-for="Input.ResponsibleUserId" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.PracticeArea" class="form-label"></label>
+                <select asp-for="Input.PracticeArea" class="form-select">
+                    <option>Corporate</option>
+                    <option>Litigation</option>
+                    <option>Real Estate</option>
+                    <option>Employment</option>
+                    <option>Tax</option>
+                    <option>Other</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.OpenedDate" class="form-label"></label>
+                <input asp-for="Input.OpenedDate" class="form-control" type="date" />
+            </div>
+            <div class="col-12">
+                <label asp-for="Input.Notes" class="form-label"></label>
+                <textarea asp-for="Input.Notes" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="col-12">
+                <label asp-for="Input.RequestNotes" class="form-label"></label>
+                <textarea asp-for="Input.RequestNotes" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+            <button class="btn btn-primary" type="submit">Submit for approval</button>
+            <a class="btn btn-outline-secondary" asp-page="./Details" asp-route-id="@Model.Matter.Id">Cancel</a>
+        </div>
+    </form>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

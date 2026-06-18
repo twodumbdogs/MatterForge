@@ -13,6 +13,12 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
 
     public DbSet<Client> Clients => Set<Client>();
 
+    public DbSet<Contact> Contacts => Set<Contact>();
+
+    public DbSet<ClientContact> ClientContacts => Set<ClientContact>();
+
+    public DbSet<MatterContact> MatterContacts => Set<MatterContact>();
+
     public DbSet<Matter> Matters => Set<Matter>();
 
     public DbSet<MatterForgeUser> Users => Set<MatterForgeUser>();
@@ -64,6 +70,12 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+
+    public DbSet<EntityChangeRequest> EntityChangeRequests => Set<EntityChangeRequest>();
+
+    public DbSet<TenantProvisioningRequest> TenantProvisioningRequests => Set<TenantProvisioningRequest>();
+
+    public DbSet<DemoResetRun> DemoResetRuns => Set<DemoResetRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -210,6 +222,37 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
+        modelBuilder.Entity<TenantProvisioningRequest>(entity =>
+        {
+            entity.Property(x => x.FirmName).HasMaxLength(200);
+            entity.Property(x => x.AdminFirstName).HasMaxLength(120);
+            entity.Property(x => x.AdminLastName).HasMaxLength(120);
+            entity.Property(x => x.AdminEmail).HasMaxLength(254);
+            entity.Property(x => x.DesiredDomain).HasMaxLength(160);
+            entity.Property(x => x.DesiredSubdomain).HasMaxLength(80);
+            entity.Property(x => x.Plan).HasMaxLength(60);
+            entity.Property(x => x.Notes).HasMaxLength(2000);
+            entity.Property(x => x.Status).HasMaxLength(60);
+            entity.Property(x => x.InternalNotes).HasMaxLength(2000);
+            entity.HasIndex(x => new { x.Status, x.CreatedAt });
+            entity.HasIndex(x => x.AdminEmail);
+            entity
+                .HasOne(x => x.UpdatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.UpdatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<DemoResetRun>(entity =>
+        {
+            entity.Property(x => x.Trigger).HasMaxLength(120);
+            entity.Property(x => x.Status).HasMaxLength(60);
+            entity.Property(x => x.Message).HasMaxLength(1000);
+            entity.Property(x => x.Error).HasMaxLength(4000);
+            entity.HasIndex(x => new { x.Status, x.StartedAt });
+            entity.HasIndex(x => x.StartedAt);
+        });
+
         modelBuilder.Entity<Client>(entity =>
         {
             entity.Property(x => x.Name).HasMaxLength(200);
@@ -217,8 +260,98 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
             entity.Property(x => x.PrimaryContact).HasMaxLength(160);
             entity.Property(x => x.Email).HasMaxLength(254);
             entity.Property(x => x.Phone).HasMaxLength(60);
+            entity.Property(x => x.AddressLine1).HasMaxLength(240);
+            entity.Property(x => x.AddressLine2).HasMaxLength(240);
+            entity.Property(x => x.City).HasMaxLength(120);
+            entity.Property(x => x.State).HasMaxLength(80);
+            entity.Property(x => x.PostalCode).HasMaxLength(40);
+            entity.Property(x => x.Country).HasMaxLength(120);
             entity.Property(x => x.Notes).HasMaxLength(2000);
             entity.HasIndex(x => x.ClientNumber).IsUnique();
+        });
+
+        modelBuilder.Entity<Contact>(entity =>
+        {
+            entity.Property(x => x.FirstName).HasMaxLength(80);
+            entity.Property(x => x.MiddleName).HasMaxLength(80);
+            entity.Property(x => x.LastName).HasMaxLength(120);
+            entity.Property(x => x.DisplayName).HasMaxLength(200);
+            entity.Property(x => x.Organization).HasMaxLength(200);
+            entity.Property(x => x.Title).HasMaxLength(120);
+            entity.Property(x => x.Email).HasMaxLength(254);
+            entity.Property(x => x.Phone).HasMaxLength(60);
+            entity.Property(x => x.MobilePhone).HasMaxLength(60);
+            entity.Property(x => x.AddressLine1).HasMaxLength(240);
+            entity.Property(x => x.AddressLine2).HasMaxLength(240);
+            entity.Property(x => x.City).HasMaxLength(120);
+            entity.Property(x => x.State).HasMaxLength(80);
+            entity.Property(x => x.PostalCode).HasMaxLength(40);
+            entity.Property(x => x.Country).HasMaxLength(120);
+            entity.Property(x => x.Notes).HasMaxLength(2000);
+            entity.HasIndex(x => x.ContactNumber).IsUnique();
+            entity.HasIndex(x => x.DisplayName);
+            entity.HasIndex(x => x.Email);
+        });
+
+        modelBuilder.Entity<ClientContact>(entity =>
+        {
+            entity.Property(x => x.Role).HasMaxLength(80);
+            entity.Property(x => x.Notes).HasMaxLength(1000);
+            entity.HasIndex(x => new { x.ClientId, x.ContactId, x.Role }).IsUnique();
+            entity.HasIndex(x => new { x.ContactId, x.ClientId });
+            entity
+                .HasOne(x => x.Client)
+                .WithMany(x => x.Contacts)
+                .HasForeignKey(x => x.ClientId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(x => x.Contact)
+                .WithMany(x => x.ClientLinks)
+                .HasForeignKey(x => x.ContactId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MatterContact>(entity =>
+        {
+            entity.Property(x => x.Role).HasMaxLength(80);
+            entity.Property(x => x.Notes).HasMaxLength(1000);
+            entity.HasIndex(x => new { x.MatterId, x.ContactId, x.Role }).IsUnique();
+            entity.HasIndex(x => new { x.ContactId, x.MatterId });
+            entity
+                .HasOne(x => x.Matter)
+                .WithMany(x => x.Contacts)
+                .HasForeignKey(x => x.MatterId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(x => x.Contact)
+                .WithMany(x => x.MatterLinks)
+                .HasForeignKey(x => x.ContactId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EntityChangeRequest>(entity =>
+        {
+            entity.Property(x => x.EntityType).HasMaxLength(80);
+            entity.Property(x => x.EntityNumber).HasMaxLength(40);
+            entity.Property(x => x.EntityName).HasMaxLength(240);
+            entity.Property(x => x.Status).HasMaxLength(60);
+            entity.Property(x => x.Summary).HasMaxLength(500);
+            entity.Property(x => x.CurrentValuesJson).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.ProposedValuesJson).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.RequestNotes).HasMaxLength(2000);
+            entity.Property(x => x.ReviewNotes).HasMaxLength(2000);
+            entity.HasIndex(x => new { x.EntityType, x.EntityId, x.Status });
+            entity.HasIndex(x => new { x.Status, x.RequestedAt });
+            entity
+                .HasOne(x => x.RequestedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.RequestedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.ReviewedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.ReviewedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<Matter>(entity =>
@@ -387,6 +520,7 @@ public class MatterForgeDbContext(DbContextOptions<MatterForgeDbContext> options
             entity.Property(x => x.EntraObjectId).HasMaxLength(80);
             entity.Property(x => x.EntraUserPrincipalName).HasMaxLength(254);
             entity.Property(x => x.Title).HasMaxLength(120);
+            entity.HasIndex(x => x.LastLoginAt);
             entity.HasIndex(x => x.SystemId).IsUnique();
             entity.HasIndex(x => x.Email).IsUnique();
             entity

@@ -20,6 +20,7 @@ public static class PermissionKeys
     public const string EntitiesView = "Entities.View";
     public const string EntitiesCreate = "Entities.Create";
     public const string EntitiesEdit = "Entities.Edit";
+    public const string EntitiesApprove = "Entities.Approve";
 
     public const string ConflictsView = "Conflicts.View";
     public const string ConflictsRun = "Conflicts.Run";

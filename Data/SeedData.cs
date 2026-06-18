@@ -152,7 +152,8 @@ public static class SeedData
             (PermissionKeys.WorkflowsDesign, "Design workflows", "Workflows", "Create and edit workflow definitions and steps."),
             (PermissionKeys.EntitiesView, "View entities", "Entities", "View clients, matters, and users."),
             (PermissionKeys.EntitiesCreate, "Create entities", "Entities", "Create clients, matters, and users."),
-            (PermissionKeys.EntitiesEdit, "Edit entities", "Entities", "Edit clients, matters, and users."),
+            (PermissionKeys.EntitiesEdit, "Submit entity changes", "Entities", "Submit proposed changes to clients, matters, and users."),
+            (PermissionKeys.EntitiesApprove, "Approve entity changes", "Entities", "Approve or reject proposed changes to clients and matters."),
             (PermissionKeys.ConflictsView, "View conflict searches", "Conflicts", "View conflict search requests and results."),
             (PermissionKeys.ConflictsRun, "Run conflict searches", "Conflicts", "Create party-based conflict search requests."),
             (PermissionKeys.ConflictsReview, "Review conflict searches", "Conflicts", "Record clearance, potential conflict, conflict, or needs-info decisions."),
@@ -211,6 +212,7 @@ public static class SeedData
             PermissionKeys.EntitiesView,
             PermissionKeys.EntitiesCreate,
             PermissionKeys.EntitiesEdit,
+            PermissionKeys.EntitiesApprove,
             PermissionKeys.SubmissionsViewAll,
             PermissionKeys.SubmissionsConvert,
             PermissionKeys.ConflictsView,
@@ -494,7 +496,146 @@ public static class SeedData
         await EnsureRelationshipAsync(db, mina, starkHoldings, PartyRelationshipTypes.Contact, "Demo principal/contact relationship.");
         await EnsureRelationshipAsync(db, jonas, umbrella, PartyRelationshipTypes.Contact, "Demo contact relationship.");
 
+        await EnsureStarterContactsAsync(db, demoMatter);
+
         await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureStarterContactsAsync(MatterForgeDbContext db, Matter demoMatter)
+    {
+        if (demoMatter.Client is null)
+        {
+            await db.Entry(demoMatter).Reference(x => x.Client).LoadAsync();
+        }
+
+        var minaContact = await EnsureContactAsync(
+            db,
+            "Mina",
+            "Quinn",
+            "Caldera",
+            "Arcadia Sample Holdings",
+            "General Counsel",
+            "mina.caldera@arcadiasample.example",
+            "555-0112",
+            "555-0199",
+            "Demo contact linked to the sample client and matter.");
+        var devonContact = await EnsureContactAsync(
+            db,
+            "Devon",
+            string.Empty,
+            "Ledger",
+            "Arcadia Sample Holdings",
+            "Accounts Payable",
+            "devon.ledger@arcadiasample.example",
+            "555-0144",
+            string.Empty,
+            "Billing contact for address-book testing.");
+        var reeseContact = await EnsureContactAsync(
+            db,
+            "Reese",
+            string.Empty,
+            "Kestrel",
+            "Kestrel Risk Adjusting",
+            "Claims Adjuster",
+            "reese.kestrel@kestrelrisk.example",
+            "555-0171",
+            "555-0181",
+            "Matter contact for role/link testing.");
+
+        if (demoMatter.Client is not null)
+        {
+            await EnsureClientContactAsync(db, demoMatter.Client, minaContact, ContactRoles.GeneralCounsel, true, "Seeded primary client contact.");
+            await EnsureClientContactAsync(db, demoMatter.Client, devonContact, ContactRoles.Billing, false, "Seeded billing contact.");
+        }
+
+        await EnsureMatterContactAsync(db, demoMatter, minaContact, ContactRoles.MatterContact, true, "Seeded primary matter contact.");
+        await EnsureMatterContactAsync(db, demoMatter, reeseContact, ContactRoles.Adjuster, false, "Seeded adjuster contact.");
+    }
+
+    private static async Task<Contact> EnsureContactAsync(
+        MatterForgeDbContext db,
+        string firstName,
+        string middleName,
+        string lastName,
+        string organization,
+        string title,
+        string email,
+        string phone,
+        string mobilePhone,
+        string notes)
+    {
+        var contact = await db.Contacts.FirstOrDefaultAsync(x => x.Email == email)
+            ?? db.Contacts.Local.FirstOrDefault(x => x.Email == email);
+        if (contact is null)
+        {
+            var databaseMaxContactNumber = await db.Contacts.MaxAsync(x => (int?)x.ContactNumber) ?? 0;
+            var localMaxContactNumber = db.Contacts.Local.Count == 0 ? 0 : db.Contacts.Local.Max(x => x.ContactNumber);
+            contact = new Contact
+            {
+                ContactNumber = Math.Max(databaseMaxContactNumber, localMaxContactNumber) + 1,
+                Email = email
+            };
+            db.Contacts.Add(contact);
+        }
+
+        contact.FirstName = firstName;
+        contact.MiddleName = middleName;
+        contact.LastName = lastName;
+        contact.DisplayName = string.Join(" ", new[] { firstName, middleName, lastName }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        contact.Organization = organization;
+        contact.Title = title;
+        contact.Phone = phone;
+        contact.MobilePhone = mobilePhone;
+        contact.Notes = notes;
+        contact.UpdatedAt = DateTimeOffset.UtcNow;
+
+        return contact;
+    }
+
+    private static async Task EnsureClientContactAsync(
+        MatterForgeDbContext db,
+        Client client,
+        Contact contact,
+        string role,
+        bool isPrimary,
+        string notes)
+    {
+        var exists = db.ClientContacts.Local.Any(x => x.ClientId == client.Id && x.ContactId == contact.Id && x.Role == role) ||
+            await db.ClientContacts.AnyAsync(x => x.ClientId == client.Id && x.ContactId == contact.Id && x.Role == role);
+        if (!exists)
+        {
+            db.ClientContacts.Add(new ClientContact
+            {
+                ClientId = client.Id,
+                ContactId = contact.Id,
+                Role = role,
+                IsPrimary = isPrimary,
+                Notes = notes
+            });
+        }
+    }
+
+    private static async Task EnsureMatterContactAsync(
+        MatterForgeDbContext db,
+        Matter matter,
+        Contact contact,
+        string role,
+        bool isPrimary,
+        string notes)
+    {
+        var exists = db.MatterContacts.Local.Any(x => x.MatterId == matter.Id && x.ContactId == contact.Id && x.Role == role) ||
+            await db.MatterContacts.AnyAsync(x => x.MatterId == matter.Id && x.ContactId == contact.Id && x.Role == role);
+        if (!exists)
+        {
+            db.MatterContacts.Add(new MatterContact
+            {
+                MatterId = matter.Id,
+                ContactId = contact.Id,
+                Role = role,
+                IsPrimary = isPrimary,
+                Notes = notes
+            });
+        }
     }
 
     private static async Task<Matter> EnsureDemoConflictMatterAsync(MatterForgeDbContext db, ConflictSearchService conflictSearchService)

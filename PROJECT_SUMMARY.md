@@ -2,7 +2,7 @@
 
 CMIForge is a homegrown ASP.NET Core Razor Pages prototype for configurable legal intake, entity management, workflow automation, and conflict searches. The long-term idea is a law-firm intake/workflow platform in the spirit of tools like Intapp Open, but built in focused slices so the data model and user experience can grow together.
 
-Current version: `20260616.1`.
+Current version: `20260617.2`.
 
 ## Original Direction
 
@@ -80,15 +80,21 @@ Customer 0 was provisioned on `2026-06-17` at `https://cmiforge-customer0-web.az
 
 The Customer 0 slice now includes the first Entra user-provisioning foundation:
 
-- `cmiforge.com` has been added to Entra as a custom domain and is awaiting DNS TXT verification.
-- The required DNS TXT value is `MS=ms36377677`.
-- Microsoft also provided alternate MX verification: `ms36377677.msv1.invalid` with priority `32767`.
+- `cmiforge.com` has been added to Entra as a verified custom domain.
 - Customer 0 stores Entra tenant ID, object ID, and UPN on user records.
 - The create-user flow can optionally create an Entra user, generate a temporary password, and link the Entra identity back to the CMIForge user record.
 - The user's CMIForge work/contact email can differ from the Entra UPN.
 - A UPN such as `first.last@cmiforge.com` does not require a real mailbox.
 - The Customer 0 web app managed identity has the Microsoft Graph `User.ReadWrite.All` application permission needed for user creation.
-- `EntraProvisioning__Enabled` remains off until `cmiforge.com` verifies successfully in Entra.
+- `EntraProvisioning__Enabled` can be enabled per tenant when the managed identity and Graph permissions are in place.
+
+The onboarding/provisioning slice now includes:
+
+- Anonymous `/Signup` request capture for prospective/customer workspace requests.
+- `TenantProvisioningRequests` table for firm, admin, plan, desired domain/subdomain, notes, status, and internal notes.
+- `System -> Signup Requests` for admin triage of new, contacted, provisioning, ready, and closed requests.
+- `System -> Onboarding` for a first-customer checklist covering Entra login, Entra provisioning, support contact, admins, users, teams, forms, workflows, clients, matters, contacts, parties, conflicts, imports, time, attachments, and settings review.
+- The public marketing site now links request-access CTAs to the Customer 0 `/Signup` page so real requests land outside the disposable demo database.
 
 Tracked Customer 0 files:
 
@@ -118,6 +124,8 @@ The live demo now has dedicated guardrails for public visitors:
 - `/System/Demo` shows demo behavior and exposes a manual `Reset demo now` button.
 - Manual reset clears demo-created records and reruns starter seed data.
 - Scheduled reset runs every 12 hours while the App Service process is awake.
+- `DemoResetRuns` records manual and scheduled reset attempts with trigger, status, deleted row count, message, error, start time, and completion time.
+- `/System/Demo` now shows last reset, next estimated reset, and recent reset run history.
 - Demo mode blocks administrative/designer POST actions such as Security, System Settings, Imports, Form designer, and Workflow designer changes.
 - Demo mode blocks destructive handlers with `Delete` or `Remove` in the handler name.
 - User `00000001` remains protected.
@@ -133,7 +141,7 @@ The Help page covers:
 - Forms and form versioning
 - Submissions and approval-gated conversion
 - Workflow definitions, queues, outcomes, and routing conditions
-- Clients, matters, parties, and users
+- Clients, matters, contacts, parties, and users
 - Conflicts search behavior, prior-history matching, and result-level clearance
 - CSV imports and validation mode
 - Teams, roles, permissions, and optional Entra login
@@ -176,8 +184,8 @@ Current plan tiers:
 - `Community`
   - Free
   - 3 users
-  - 100 matters
-  - 100 clients
+  - 50 matters
+  - 50 clients
   - All features
   - Community support
 - `Professional`
@@ -306,6 +314,7 @@ CMIForge now has a first-class `Entities` area with sub-tabs for:
 - Clients
 - Matters
 - Parties
+- Contacts
 - Users
 
 Entity creation is separate from form submission until a submission is intentionally converted.
@@ -348,6 +357,28 @@ Matter numbers start at `00000001` and increment upward.
 Matter detail pages link back to the client record.
 
 Matter detail pages also show linked parties and their roles.
+
+Matter detail pages also show linked contacts and their matter-specific roles.
+
+### Contacts
+
+Contacts are first-class address-book records, separate from application users and conflict-search parties.
+
+Contacts have:
+
+- Stable numeric contact number
+- Display format like `00000001`
+- First, middle, and last name
+- Organization
+- Title
+- Email
+- Phone and mobile phone
+- Mailing address
+- Notes
+- Client links with role, primary flag, and notes
+- Matter links with role, primary flag, and notes
+
+Contacts are for people who belong in the firm's operational address book but should not necessarily log into CMIForge.
 
 ### Parties
 
@@ -610,10 +641,10 @@ Also verified in the running app:
 - Submission status changes persist.
 - Submission conversion creates client and matter records.
 - Converted submissions link to the created client and matter.
-- Clients, matters, and users list/detail pages load.
+- Clients, matters, contacts, and users list/detail pages load.
 - User edit saves successfully.
 - Users show first/last name columns.
-- Dashboard shows version `20260616.1`.
+- Dashboard shows version `20260617.2`.
 - Plan page shows Community, Professional, and Enterprise tiers.
 - Parties show seeded conflict-test records.
 - A rich conflict search against `Stark Stone`, `Globex Bio Systems`, and `Mina Caldera` produced multiple Critical/Medium hits with AI assist and relationship expansion.
@@ -793,7 +824,7 @@ http://localhost:5153/Security/Teams
 
 ## Time Recording and Reporting Slice
 
-CMIForge now includes first-pass time recording and hardcoded operational reporting.
+CMIForge now includes first-pass time recording, built-in operational reporting, and a basic report builder.
 
 Time recording adds:
 
@@ -810,15 +841,13 @@ Time recording adds:
 Reporting adds:
 
 - Top-level Reports navigation
-- Date-range filter
-- Submission status report
-- Workflow queue aging report
-- Conflict status/decision report
-- New matters by month
-- Matters by practice area
-- Time by user
-- Time by client/matter
-- Time detail CSV export
+- Built-in Intake Pipeline report
+- Built-in Approval Queue Aging report
+- Built-in Conflicts Review report
+- Built-in Matter Roster report
+- Built-in Time Detail report
+- Basic report builder with dataset selection, field selection, up to three simple filters, and CSV export
+- Builder datasets for submissions, workflow tasks, conflicts, matters, time entries, clients, and contacts
 
 New permissions:
 
@@ -917,7 +946,7 @@ CMIForge is now in a local prototype shape with the important spine:
 - Optional Entra-backed login
 - Parties, aliases, relationships, and conflict searches
 - Time recording tied to users, clients, and matters
-- Hardcoded operational reports
+- Built-in operational reports and a basic report builder
 - Deterministic conflict scoring with AI-style explanations
 - CSV import center for clients, matters, and parties
 - Private submission attachments through Azure Blob Storage

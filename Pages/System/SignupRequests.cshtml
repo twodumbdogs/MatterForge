@@ -1,0 +1,101 @@
+@page
+@model MatterForge.Pages.System.SignupRequestsModel
+@{
+    ViewData["Title"] = "Signup Requests";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">System</p>
+        <h1>Signup Requests</h1>
+        <p class="text-muted">Incoming workspace requests from the public site and anonymous signup page.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="/System/Onboarding">Open onboarding checklist</a>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="alert alert-success">@Model.StatusMessage</div>
+}
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+<section class="mf-panel">
+    @if (Model.Requests.Count == 0)
+    {
+        <p class="text-muted mb-0">No signup requests yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Firm</th>
+                        <th>Admin</th>
+                        <th>Plan</th>
+                        <th>Requested</th>
+                        <th>Status</th>
+                        <th>Internal notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var request in Model.Requests)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@request.FirmName</strong>
+                                @if (!string.IsNullOrWhiteSpace(request.DesiredDomain))
+                                {
+                                    <small class="d-block text-muted">@request.DesiredDomain</small>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(request.DesiredSubdomain))
+                                {
+                                    <small class="d-block text-muted">@($"{request.DesiredSubdomain}.cmiforge.app")</small>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(request.Notes))
+                                {
+                                    <small class="d-block mt-1">@request.Notes</small>
+                                }
+                            </td>
+                            <td>
+                                @request.AdminFirstName @request.AdminLastName
+                                <small class="d-block text-muted">
+                                    <a href="mailto:@request.AdminEmail">@request.AdminEmail</a>
+                                </small>
+                            </td>
+                            <td>@request.Plan</td>
+                            <td>
+                                @UserDates.Format(request.CreatedAt)
+                                @if (request.UpdatedAt.HasValue)
+                                {
+                                    <small class="d-block text-muted">Updated @UserDates.Format(request.UpdatedAt.Value)</small>
+                                }
+                            </td>
+                            <td>
+                                <form method="post" asp-page-handler="Update" class="d-grid gap-2">
+                                    <input type="hidden" name="id" value="@request.Id" />
+                                    <select class="form-select form-select-sm" name="status">
+                                        @foreach (var status in Model.StatusOptions)
+                                        {
+                                            <option value="@status" selected="@(request.Status == status)">@status</option>
+                                        }
+                                    </select>
+                                    <textarea class="form-control form-control-sm" name="internalNotes" rows="3">@request.InternalNotes</textarea>
+                                    <button class="btn btn-sm btn-primary" type="submit">Save</button>
+                                </form>
+                            </td>
+                            <td colspan="2">
+                                @if (request.UpdatedByUser is not null)
+                                {
+                                    <small class="text-muted">Last touched by @request.UpdatedByUser.DisplayName</small>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

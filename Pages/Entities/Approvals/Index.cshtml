@@ -1,0 +1,121 @@
+@page
+@model MatterForge.Pages.Entities.Approvals.IndexModel
+@{
+    ViewData["Title"] = "Entity Approvals";
+    ViewData["ActiveEntityTab"] = "Approvals";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Entities</p>
+        <h1>Change Approvals</h1>
+        <p class="text-muted">Client and matter edits wait here until an authorized reviewer approves or rejects them.</p>
+    </div>
+</div>
+
+<partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+<div class="mf-panel">
+    <h2>Pending Changes</h2>
+    @if (Model.PendingRequests.Count == 0)
+    {
+        <p class="text-muted mt-3 mb-0">No entity changes are waiting for approval.</p>
+    }
+    else
+    {
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Entity</th>
+                        <th>Record</th>
+                        <th>Requested</th>
+                        <th>Summary</th>
+                        <th>Notes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var request in Model.PendingRequests)
+                    {
+                        <tr>
+                            <td>@request.EntityType</td>
+                            <td>
+                                @if (request.EntityType == MatterForge.Services.EntityChangeService.ClientEntityType)
+                                {
+                                    <a asp-page="/Entities/Clients/Details" asp-route-id="@request.EntityId"><code>@request.EntityNumber</code> @request.EntityName</a>
+                                }
+                                else if (request.EntityType == MatterForge.Services.EntityChangeService.MatterEntityType)
+                                {
+                                    <a asp-page="/Entities/Matters/Details" asp-route-id="@request.EntityId"><code>@request.EntityNumber</code> @request.EntityName</a>
+                                }
+                                else
+                                {
+                                    <span><code>@request.EntityNumber</code> @request.EntityName</span>
+                                }
+                            </td>
+                            <td>
+                                <div>@request.RequestedAt.ToString("MMM d, yyyy h:mm tt")</div>
+                                <div class="text-muted small">@request.RequestedByUser?.DisplayName</div>
+                            </td>
+                            <td>@request.Summary</td>
+                            <td>@request.RequestNotes</td>
+                            <td class="text-end">
+                                @if (Model.CanApprove)
+                                {
+                                    <form method="post" class="d-inline-flex gap-2 align-items-center">
+                                        <input type="hidden" name="id" value="@request.Id" />
+                                        <input asp-for="ReviewNotes" class="form-control form-control-sm" placeholder="Review note" />
+                                        <button class="btn btn-sm btn-success" type="submit" asp-page-handler="Approve">Approve</button>
+                                        <button class="btn btn-sm btn-outline-danger" type="submit" asp-page-handler="Reject">Reject</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="mf-panel mt-3">
+    <h2>Recent Decisions</h2>
+    @if (Model.RecentReviewedRequests.Count == 0)
+    {
+        <p class="text-muted mt-3 mb-0">No entity change decisions have been recorded yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Entity</th>
+                        <th>Record</th>
+                        <th>Reviewed</th>
+                        <th>Summary</th>
+                        <th>Review notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var request in Model.RecentReviewedRequests)
+                    {
+                        <tr>
+                            <td><span class="badge text-bg-secondary">@request.Status</span></td>
+                            <td>@request.EntityType</td>
+                            <td><code>@request.EntityNumber</code> @request.EntityName</td>
+                            <td>
+                                <div>@request.ReviewedAt?.ToString("MMM d, yyyy h:mm tt")</div>
+                                <div class="text-muted small">@request.ReviewedByUser?.DisplayName</div>
+                            </td>
+                            <td>@request.Summary</td>
+                            <td>@request.ReviewNotes</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

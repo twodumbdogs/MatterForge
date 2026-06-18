@@ -19,6 +19,7 @@ builder.Services.AddRazorPages(options =>
     if (entraOptions.Enabled && !demoModeEnabled)
     {
         options.Conventions.AuthorizeFolder("/");
+        options.Conventions.AllowAnonymousToPage("/Signup");
     }
 
     options.Conventions.ConfigureFilter(new ServiceFilterAttribute(typeof(DemoModePageFilter)));

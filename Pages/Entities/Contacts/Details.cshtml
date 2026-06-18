@@ -1,0 +1,220 @@
+@page "{id:guid}"
+@model MatterForge.Pages.Entities.Contacts.DetailsModel
+@{
+    ViewData["Title"] = Model.Contact is null ? "Contact Details" : $"Contact {Model.Contact.ContactNumber:D8}";
+    ViewData["ActiveEntityTab"] = "Contacts";
+}
+
+@if (Model.Contact is null)
+{
+    <div class="alert alert-warning">That contact could not be found.</div>
+}
+else
+{
+    <div class="mf-page-heading">
+        <div>
+            <p class="mf-eyebrow">Contact <span>@Model.Contact.ContactNumber.ToString("D8")</span></p>
+            <h1>@Model.Contact.DisplayName</h1>
+            <p class="text-muted">@Model.Contact.Organization</p>
+        </div>
+        <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+    </div>
+
+    <partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="mf-panel mb-3">
+                <h2>Contact Details</h2>
+                <dl class="row mt-3 mb-0">
+                    <dt class="col-sm-5">Number</dt>
+                    <dd class="col-sm-7"><code>@Model.Contact.ContactNumber.ToString("D8")</code></dd>
+                    <dt class="col-sm-5">Name</dt>
+                    <dd class="col-sm-7">@Model.Contact.DisplayName</dd>
+                    <dt class="col-sm-5">Title</dt>
+                    <dd class="col-sm-7">@Model.Contact.Title</dd>
+                    <dt class="col-sm-5">Organization</dt>
+                    <dd class="col-sm-7">@Model.Contact.Organization</dd>
+                    <dt class="col-sm-5">Email</dt>
+                    <dd class="col-sm-7">
+                        @if (!string.IsNullOrWhiteSpace(Model.Contact.Email))
+                        {
+                            <a href="mailto:@Model.Contact.Email">@Model.Contact.Email</a>
+                        }
+                    </dd>
+                    <dt class="col-sm-5">Phone</dt>
+                    <dd class="col-sm-7">@Model.Contact.Phone</dd>
+                    <dt class="col-sm-5">Mobile</dt>
+                    <dd class="col-sm-7">@Model.Contact.MobilePhone</dd>
+                    <dt class="col-sm-5">Address</dt>
+                    <dd class="col-sm-7">
+                        @if (string.IsNullOrWhiteSpace(Model.Contact.AddressLine1) &&
+                             string.IsNullOrWhiteSpace(Model.Contact.City) &&
+                             string.IsNullOrWhiteSpace(Model.Contact.State))
+                        {
+                            <span class="text-muted">Not set</span>
+                        }
+                        else
+                        {
+                            <div>@Model.Contact.AddressLine1</div>
+                            @if (!string.IsNullOrWhiteSpace(Model.Contact.AddressLine2))
+                            {
+                                <div>@Model.Contact.AddressLine2</div>
+                            }
+                            <div>@string.Join(", ", new[] { Model.Contact.City, Model.Contact.State }.Where(x => !string.IsNullOrWhiteSpace(x))) @Model.Contact.PostalCode</div>
+                            <div>@Model.Contact.Country</div>
+                        }
+                    </dd>
+                    <dt class="col-sm-5">Notes</dt>
+                    <dd class="col-sm-7">@Model.Contact.Notes</dd>
+                </dl>
+            </div>
+
+            <div class="mf-panel">
+                <h2>Link Client</h2>
+                @if (Model.ClientOptions.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">Create a client before linking this contact.</p>
+                }
+                else
+                {
+                    <form method="post" class="row g-2 mt-2">
+                        <div class="col-12">
+                            <select asp-for="ClientLinkInput.ClientId" asp-items="Model.ClientOptions" class="form-select"></select>
+                        </div>
+                        <div class="col-md-7">
+                            <select asp-for="ClientLinkInput.Role" asp-items="Model.ContactRoleOptions" class="form-select"></select>
+                        </div>
+                        <div class="col-md-5 d-flex align-items-center">
+                            <div class="form-check">
+                                <input asp-for="ClientLinkInput.IsPrimary" class="form-check-input" />
+                                <label asp-for="ClientLinkInput.IsPrimary" class="form-check-label"></label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <input asp-for="ClientLinkInput.Notes" class="form-control" placeholder="Notes" />
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-sm btn-primary" asp-page-handler="ClientLink">Add client link</button>
+                        </div>
+                    </form>
+                }
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="mf-panel mb-3">
+                <h2>Client Links</h2>
+                @if (Model.Contact.ClientLinks.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No client links yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Client</th>
+                                    <th>Role</th>
+                                    <th>Primary</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var link in Model.Contact.ClientLinks.OrderBy(x => x.Client?.ClientNumber))
+                                {
+                                    <tr>
+                                        <td>
+                                            @if (link.Client is not null)
+                                            {
+                                                <a asp-page="/Entities/Clients/Details" asp-route-id="@link.Client.Id">@link.Client.ClientNumber.ToString("D8") - @link.Client.Name</a>
+                                            }
+                                        </td>
+                                        <td>@link.Role</td>
+                                        <td>@(link.IsPrimary ? "Yes" : "No")</td>
+                                        <td>@link.Notes</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <div class="mf-panel mb-3">
+                <h2>Matter Links</h2>
+                @if (Model.Contact.MatterLinks.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No matter links yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Matter</th>
+                                    <th>Client</th>
+                                    <th>Role</th>
+                                    <th>Primary</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var link in Model.Contact.MatterLinks.OrderBy(x => x.Matter?.MatterNumber))
+                                {
+                                    <tr>
+                                        <td>
+                                            @if (link.Matter is not null)
+                                            {
+                                                <a asp-page="/Entities/Matters/Details" asp-route-id="@link.Matter.Id">@link.Matter.MatterNumber.ToString("D8") - @link.Matter.Name</a>
+                                            }
+                                        </td>
+                                        <td>@link.Matter?.Client?.Name</td>
+                                        <td>@link.Role</td>
+                                        <td>@(link.IsPrimary ? "Yes" : "No")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <div class="mf-panel">
+                <h2>Link Matter</h2>
+                @if (Model.MatterOptions.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">Create a matter before linking this contact.</p>
+                }
+                else
+                {
+                    <form method="post" class="row g-2 mt-2">
+                        <div class="col-12">
+                            <select asp-for="MatterLinkInput.MatterId" asp-items="Model.MatterOptions" class="form-select"></select>
+                        </div>
+                        <div class="col-md-7">
+                            <select asp-for="MatterLinkInput.Role" asp-items="Model.ContactRoleOptions" class="form-select"></select>
+                        </div>
+                        <div class="col-md-5 d-flex align-items-center">
+                            <div class="form-check">
+                                <input asp-for="MatterLinkInput.IsPrimary" class="form-check-input" />
+                                <label asp-for="MatterLinkInput.IsPrimary" class="form-check-label"></label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <input asp-for="MatterLinkInput.Notes" class="form-control" placeholder="Notes" />
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-sm btn-primary" asp-page-handler="MatterLink">Add matter link</button>
+                        </div>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

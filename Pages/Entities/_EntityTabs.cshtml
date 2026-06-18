@@ -13,6 +13,12 @@
         <a class="nav-link @(activeTab == "Parties" ? "active" : null)" asp-page="/Entities/Parties/Index">Parties</a>
     </li>
     <li class="nav-item">
+        <a class="nav-link @(activeTab == "Contacts" ? "active" : null)" asp-page="/Entities/Contacts/Index">Contacts</a>
+    </li>
+    <li class="nav-item">
         <a class="nav-link @(activeTab == "Users" ? "active" : null)" asp-page="/Entities/Users/Index">Users</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "Approvals" ? "active" : null)" asp-page="/Entities/Approvals/Index">Approvals</a>
     </li>
 </ul>

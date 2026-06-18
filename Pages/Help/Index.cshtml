@@ -108,10 +108,11 @@
             <p>Entities are operational records used by the platform after intake is approved or data is imported.</p>
             <ul>
                 <li><strong>Clients</strong> have client numbers, contact details, status, and related matters.</li>
-                <li><strong>Matters</strong> have matter numbers, client links, status, practice area, responsible user, and related parties.</li>
+                <li><strong>Matters</strong> have matter numbers, client links, status, practice area, responsible user, related parties, and related contacts.</li>
                 <li><strong>Parties</strong> support conflicts searching through names, aliases, relationships, and matter roles.</li>
+                <li><strong>Contacts</strong> are address-book records that can link to clients and matters without becoming login users or conflict parties.</li>
                 <li><strong>Users</strong> are application data users with system IDs, name parts, email, title, activity status, teams, and roles.</li>
-                <li>Matter details show related parties, conflict searches, and recent time entries.</li>
+                <li>Matter details show related contacts, parties, conflict searches, and recent time entries.</li>
             </ul>
         </section>
 
@@ -156,13 +157,13 @@
 
         <section id="reports" class="mf-panel">
             <h2>Reports</h2>
-            <p>Reports are currently hardcoded operational views that make the demo useful before a full report designer exists.</p>
+            <p>Reports include built-in operational views plus a basic report builder for simple ad hoc questions.</p>
             <ul>
                 <li>Report access is controlled by the reporting permission and plan feature gates.</li>
-                <li>The report page supports a date range filter.</li>
-                <li>Current report cards include submission status, workflow queue aging, conflict status/decision counts, matters by practice area, and new matters by month.</li>
-                <li>Time reporting includes total entries, total hours, billable hours, time by user, and time by client/matter.</li>
-                <li>Time detail can be exported to CSV for spreadsheet review.</li>
+                <li>Built-in reports include intake pipeline, approval queue aging, conflicts review, matter roster, and time detail.</li>
+                <li>The basic report builder supports selectable datasets, selectable fields, up to three lightweight filters, and CSV export.</li>
+                <li>Available builder datasets include submissions, workflow tasks, conflicts, matters, time entries, clients, and contacts.</li>
+                <li>Visible results are capped to keep the page responsive, with CSV export available for spreadsheet review.</li>
             </ul>
         </section>
 
@@ -222,7 +223,7 @@
             <h2>Plans</h2>
             <p>Plans are currently hardcoded product gates, not billing. They help test the product shape before payment infrastructure exists.</p>
             <ul>
-                <li><strong>Community</strong>: free, 3 users, 100 matters, 100 clients, all features, and community support.</li>
+                <li><strong>Community</strong>: free, 3 users, 50 matters, 50 clients, all features, and community support.</li>
                 <li><strong>Professional</strong>: $99/month, includes 10 users, 500 matters, 500 clients, all features, email support, and additional users at $10/user/month.</li>
                 <li><strong>Enterprise</strong>: coming soon.</li>
             </ul>
@@ -236,7 +237,7 @@
                 <li>Conflict searches now search prior search text and previous result clearance notes; deeper full-text indexing is still a future scaling slice.</li>
                 <li>Submission attachments now support small PDF, Word, Excel, and hyperlink records. Richer attachment workflows are still a future slice.</li>
                 <li>Time recording is not yet billing, invoice generation, rate management, or accounting sync.</li>
-                <li>Reporting is hardcoded for now. A configurable report designer is a future slice.</li>
+                <li>Reporting now has built-in reports and a basic builder. Rich grouping, charts, scheduled delivery, and saved report definitions are future slices.</li>
                 <li>Workflow versioning is not fully separated from workflow editing yet, so careful admin control matters.</li>
                 <li>The current UI is functional and work-focused; richer designer screens are still a future slice.</li>
             </ul>

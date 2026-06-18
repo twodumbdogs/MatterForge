@@ -17,8 +17,9 @@
     <h2>Create Team</h2>
     @if (Model.IsDemoMode)
     {
-        <div class="alert alert-info">Live demo mode is on. @Model.ProtectedUserMessage</div>
+        <div class="alert alert-info">Live demo mode is on. Admin and destructive changes are limited for public visitors.</div>
     }
+    <div class="alert alert-info">@Model.ProtectedUserMessage</div>
     <form method="post" class="row g-3 mt-1" asp-page-handler="CreateTeam">
         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
         <div class="col-md-3">

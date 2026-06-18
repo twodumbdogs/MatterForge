@@ -2,7 +2,7 @@
 
 CMIForge is a C# / ASP.NET Core prototype for configurable legal intake, workflow approvals, operational entity management, and conflict searches.
 
-Current version: `20260616.1`.
+Current version: `20260617.2`.
 
 The product currently has two public-facing surfaces:
 
@@ -22,15 +22,18 @@ The repo also now includes a Customer 0 deployment slice for a real, non-demo te
 - Runtime form rendering
 - Form submissions stored against the exact published form version
 - Submission queue and detail view
-- Clients, matters, users, parties, aliases, and relationships
+- Clients, matters, contacts, users, parties, aliases, and relationships
 - Native conflicts search with deterministic AI-style explanations
 - Workflow definitions, approval queues, outcomes, and answer-based routing
 - CSV import center for clients, matters, and parties
 - Private submission attachments
-- Time recording and operational reports
+- Time recording, built-in operational reports, and a basic report builder
 - Team, role, permission, and audit-log foundation
 - Admin-editable system settings for operational configuration
 - Optional Microsoft Entra ID sign-in and first-pass Entra user provisioning
+- Anonymous workspace request form for prospective/customer setup
+- Admin signup-request triage and customer onboarding checklist
+- Demo-mode scheduled/manual reset controls with reset run history
 - Hardcoded Community/Professional/Enterprise plan limiter
 - Azure SQL-ready EF Core model and migration
 
@@ -51,6 +54,8 @@ Current dev architecture:
 The live demo currently runs in demo mode with the seeded `Ima User` context. Microsoft Entra authentication is supported in the app, but demo mode keeps the public dev experience frictionless while the product is still being shaped.
 
 Real tenants should run with `MatterForge:DemoMode=false`, `Authentication:Microsoft:Enabled=true`, and a configured `MatterForge:BootstrapAdminEmail`. Customer-managed Entra user creation also needs a verified Entra custom domain, `EntraProvisioning:Enabled=true`, and `EntraProvisioning:Domain=<verified-domain>`.
+
+Public requests can be collected through `/Signup`. Admins can triage requests in `System -> Signup Requests` and work through `System -> Onboarding` after the customer workspace is provisioned.
 
 ## Run Locally
 

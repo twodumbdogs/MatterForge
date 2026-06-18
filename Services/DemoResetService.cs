@@ -1,4 +1,5 @@
 using MatterForge.Data;
+using MatterForge.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace MatterForge.Services;
@@ -20,8 +21,17 @@ public class DemoResetService(
 
         if (!await ResetLock.WaitAsync(0, cancellationToken))
         {
+            await RecordResetRunAsync(
+                trigger,
+                DemoResetRunStatuses.Skipped,
+                0,
+                "A demo reset is already running.",
+                string.Empty,
+                cancellationToken);
             return new DemoResetResult(false, 0, "A demo reset is already running.");
         }
+
+        var runId = await StartResetRunAsync(trigger, cancellationToken);
 
         try
         {
@@ -44,9 +54,12 @@ public class DemoResetService(
                 deletedRows += await db.SubmissionWorkflowInstances.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.FormSubmissions.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.MatterParties.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.MatterContacts.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.ClientContacts.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.PartyRelationships.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.PartyAliases.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.Parties.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.Contacts.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.Matters.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.Clients.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.WorkflowSteps.ExecuteDeleteAsync(cancellationToken);
@@ -65,6 +78,14 @@ public class DemoResetService(
 
                 db.ChangeTracker.Clear();
                 await SeedData.EnsureApplicationSeedDataAsync(db);
+
+                var run = await db.DemoResetRuns.FirstAsync(x => x.Id == runId, cancellationToken);
+                run.Status = DemoResetRunStatuses.Succeeded;
+                run.DeletedRows = deletedRows;
+                run.Message = "Demo data has been reset to the starter dataset.";
+                run.CompletedAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync(cancellationToken);
+
                 await transaction.CommitAsync(cancellationToken);
 
                 logger.LogInformation("Demo reset completed from {Trigger}; deleted {DeletedRows} rows.", trigger, deletedRows);
@@ -74,6 +95,14 @@ public class DemoResetService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Demo reset failed from {Trigger}.", trigger);
+            await RecordResetRunAsync(
+                trigger,
+                DemoResetRunStatuses.Failed,
+                0,
+                "Demo reset failed. Check application logs for details.",
+                ex.Message,
+                CancellationToken.None,
+                runId);
             return new DemoResetResult(false, 0, "Demo reset failed. Check application logs for details.");
         }
         finally
@@ -98,6 +127,62 @@ public class DemoResetService(
         }
 
         return await db.SubmissionAttachments.ExecuteDeleteAsync(cancellationToken);
+    }
+
+    private async Task<Guid> StartResetRunAsync(string trigger, CancellationToken cancellationToken)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        var run = new DemoResetRun
+        {
+            Trigger = trigger,
+            Status = DemoResetRunStatuses.Running,
+            StartedAt = DateTimeOffset.UtcNow
+        };
+        db.DemoResetRuns.Add(run);
+        await db.SaveChangesAsync(cancellationToken);
+        return run.Id;
+    }
+
+    private async Task RecordResetRunAsync(
+        string trigger,
+        string status,
+        int deletedRows,
+        string message,
+        string error,
+        CancellationToken cancellationToken,
+        Guid? existingRunId = null)
+    {
+        try
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+            DemoResetRun? run = null;
+            if (existingRunId.HasValue)
+            {
+                run = await db.DemoResetRuns.FirstOrDefaultAsync(x => x.Id == existingRunId.Value, cancellationToken);
+            }
+
+            if (run is null)
+            {
+                run = new DemoResetRun
+                {
+                    Id = existingRunId ?? Guid.NewGuid(),
+                    Trigger = trigger,
+                    StartedAt = DateTimeOffset.UtcNow
+                };
+                db.DemoResetRuns.Add(run);
+            }
+
+            run.Status = status;
+            run.DeletedRows = deletedRows;
+            run.Message = message;
+            run.Error = error;
+            run.CompletedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not record demo reset run status for {Trigger}.", trigger);
+        }
     }
 }
 
