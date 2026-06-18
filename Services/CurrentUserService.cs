@@ -216,9 +216,18 @@ public class CurrentUserService(
             return;
         }
 
-        await db.Users
-            .Where(x => x.Id == user.Id)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.LastLoginAt, now));
+        if (db.Database.IsRelational())
+        {
+            await db.Users
+                .Where(x => x.Id == user.Id)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.LastLoginAt, now));
+        }
+        else
+        {
+            user.LastLoginAt = now;
+            await db.SaveChangesAsync();
+        }
+
         user.LastLoginAt = now;
     }
 

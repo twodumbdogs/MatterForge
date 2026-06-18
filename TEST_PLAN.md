@@ -28,9 +28,13 @@ By the end of this walkthrough, you should have personally exercised:
 
 - You are running locally or in the live dev app.
 - Local examples below assume `http://localhost:5154`.
-- The live dev app is available at `https://cmiforge-dev-web-06161223.azurewebsites.net`.
+- The public demo app is available at `https://demo.cmiforge.com`.
+- The public demo fallback URL is `https://cmiforge-dev-web-06161223.azurewebsites.net`.
+- Customer 0 / the real app doorway is `https://app.cmiforge.com`.
+- The Customer 0 fallback URL is `https://cmiforge-customer0-web.azurewebsites.net`.
 - The public marketing site is available at `https://cmiforge.com`.
 - The live dev app currently uses demo mode with the seeded `Ima User` context.
+- `cmiforge.com` DNS is hosted in Azure DNS while the domain registration remains at Namecheap.
 - The current hardcoded plan is `Professional`, so all features should be available with the Professional user and matter limits.
 - Azure SQL and Azure Blob attachment storage are already configured.
 - In the live dev app, private submission attachments use Azure Blob Storage through managed identity.
@@ -558,10 +562,55 @@ Expected results:
 - The onboarding checklist gives a clear first-customer setup path.
 - Demo reset attempts persist in reset history with status, timing, deleted row count, and message.
 
-## 17. Suggested Smoke Regression Pass
+## 17. Cloud Domains, DNS, and Email Smoke
+
+Purpose: confirm the current public architecture works after DNS, hosting, and mail changes.
+
+Steps:
+
+1. Open `https://cmiforge.com`.
+2. Confirm the marketing site loads and the primary CTAs point to:
+   - `https://demo.cmiforge.com`
+   - `https://app.cmiforge.com`
+   - `https://app.cmiforge.com/Signup`
+3. Open `https://demo.cmiforge.com`.
+4. Confirm the public demo loads and shows the demo banner.
+5. Open `https://app.cmiforge.com`.
+6. Confirm Customer 0 redirects to Microsoft Entra sign-in.
+7. Open `https://app.cmiforge.com/Signup`.
+8. Confirm the signup page is accessible for request capture.
+9. In PowerShell, check DNS:
+
+```powershell
+Resolve-DnsName cmiforge.com -Type NS
+Resolve-DnsName cmiforge.com -Type MX
+Resolve-DnsName cmiforge.com -Type TXT
+Resolve-DnsName demo.cmiforge.com
+Resolve-DnsName app.cmiforge.com
+```
+
+10. Confirm expected DNS shape:
+   - Nameservers are Azure DNS servers.
+   - `demo` points to `cmiforge-dev-web-06161223.azurewebsites.net`.
+   - `app` points to `cmiforge-customer0-web.azurewebsites.net`.
+   - Email currently uses Namecheap Private Email records unless/until Microsoft 365 mail is cut over.
+
+Expected results:
+
+- `cmiforge.com`, `demo.cmiforge.com`, and `app.cmiforge.com` resolve without browser certificate errors after DNS propagation.
+- Demo and Customer 0 remain separate environments.
+- Public request access routes to Customer 0 `/Signup`.
+- Email DNS shows either the current Namecheap Private Email records or the later Microsoft 365 records, depending on where mail is hosted at the time of test.
+- If Microsoft 365 mail is adopted, `gabe@cmiforge.com` should be licensed and `support@cmiforge.com` should exist as a shared mailbox delegated to Gabe.
+
+## 18. Suggested Smoke Regression Pass
 
 Use this as the short “did we break anything obvious?” sweep after future changes:
 
+- [ ] Marketing site loads
+- [ ] Demo domain loads
+- [ ] Customer app domain redirects to Entra
+- [ ] Signup page loads
 - [ ] Dashboard loads
 - [ ] Help loads
 - [ ] System menu opens
@@ -591,7 +640,7 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] Reports built-in catalog and basic builder load
 - [ ] Plan page loads
 
-## 18. What To Notice While Testing
+## 19. What To Notice While Testing
 
 This is the “buyer brain” part of the walkthrough. As you test, pay attention to:
 
@@ -601,7 +650,7 @@ This is the “buyer brain” part of the walkthrough. As you test, pay attentio
 - Does the platform feel more like firm software than a demo CRUD app?
 - Which screens feel “beta but useful” versus “next obvious polish target”?
 
-## 19. Notes Template
+## 20. Notes Template
 
 Use this if you want to jot reactions as you go:
 

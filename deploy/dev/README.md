@@ -8,9 +8,10 @@ It captures the current Azure dev resources, the expected app settings shape, an
 
 ### Razor Pages app host
 
-- App Service plan: `cmiforge-dev-plan`
+- App Service plan: `cmiforge-customer0-plan` (`B1`, shared with Customer 0 to keep custom-domain cost down)
 - App Service app: `cmiforge-dev-web-06161223`
-- URL: `https://cmiforge-dev-web-06161223.azurewebsites.net`
+- Public demo URL: `https://demo.cmiforge.com`
+- Azure fallback URL: `https://cmiforge-dev-web-06161223.azurewebsites.net`
 - Authentication model to Azure SQL: system-assigned managed identity
 - Attachment storage model: system-assigned managed identity to private Blob Storage
 - Demo mode: enabled for the live public dev demo
@@ -32,6 +33,8 @@ It captures the current Azure dev resources, the expected app settings shape, an
 
 ### Shared supporting services
 
+- Shared paid App Service plan for custom-domain app hosts: `cmiforge-customer0-plan` (`B1`)
+- Legacy/free dev App Service plan resource: `cmiforge-dev-plan` (`F1`)
 - Azure SQL server: `gwmatterforge.database.windows.net`
 - Azure SQL prototype/dev database: `matterforge-prototype`
 - Azure SQL public demo database: `cmiforge-demo`
@@ -130,6 +133,8 @@ The custom domain `cmiforge.com` is already bound to:
 
 - `cmiforge-web-06161219`
 
+Azure DNS now hosts the `cmiforge.com` zone. Namecheap remains the registrar, but DNS records are managed in Azure.
+
 The workflow expects this repository secret:
 
 - `AZURE_STATIC_WEB_APPS_API_TOKEN_CMIFORGE_WEB`
@@ -152,22 +157,17 @@ The most recent public-site deploy was verified at:
 - `https://cmiforge.com`
 - `https://happy-smoke-052d7f610.7.azurestaticapps.net`
 
-The live site currently includes the pain-focused intake messaging, Free/Standard/Professional pricing, `support@cmiforge.com`, and a prominent live demo CTA.
+The live site currently includes the pain-focused intake messaging, Community/Professional/Enterprise pricing, `support@cmiforge.com`, and prominent links for request access, customer login, and the live demo.
 
-## Pending App Domain
+## Current App Domains
 
-`cmiforge.com` DNS is not hosted in this Azure subscription, so `app.cmiforge.com` needs to be created at the domain registrar or external DNS host.
+Current subdomain map:
 
-Recommended DNS records:
+- `demo.cmiforge.com` -> `cmiforge-dev-web-06161223.azurewebsites.net`
+- `app.cmiforge.com` -> `cmiforge-customer0-web.azurewebsites.net`
+- `www.cmiforge.com` -> `happy-smoke-052d7f610.7.azurestaticapps.net`
 
-- `CNAME` for `app` -> `cmiforge-dev-web-06161223.azurewebsites.net`
-- `TXT` for `asuid.app` -> `94D4C4E8F6246343B35E1DF4D7CF95E0BEDE95EF28AFF1FFE5EEDB257E4CBBF4`
-
-Important note:
-
-- The current App Service plan is `F1` (Free).
-- Azure App Service custom domain binding requires a paid plan tier such as `B1`.
-- After the DNS records are live, use `deploy/dev/bind-app-domain.ps1` to upgrade the plan and add the hostname binding.
+Both `demo.cmiforge.com` and `app.cmiforge.com` are bound in Azure App Service with managed certificates. The public demo app was moved onto the existing `cmiforge-customer0-plan` (`B1`) to avoid paying for a second paid App Service plan just to support custom domains.
 
 ## Notes
 
@@ -194,4 +194,4 @@ az staticwebapp backends show --name cmiforge-web-06161219 --resource-group gw-r
 az staticwebapp functions show --name cmiforge-web-06161219 --resource-group gw-rg
 ```
 
-- Free App Service was chosen for the dev web app to keep costs down. Custom domain binding for `cmiforge.com` will need a paid App Service tier later.
+- The public demo app shares the existing `B1` App Service plan with Customer 0 for custom-domain support while keeping hosting cost controlled.

@@ -7,7 +7,13 @@ Current version: `20260617.2`.
 The product currently has two public-facing surfaces:
 
 - Marketing site: `https://cmiforge.com`
-- Live dev app / demo: `https://cmiforge-dev-web-06161223.azurewebsites.net`
+- Public live demo: `https://demo.cmiforge.com`
+- Customer 0 / real app doorway: `https://app.cmiforge.com`
+
+Azure fallback hosts remain available for troubleshooting:
+
+- Demo fallback: `https://cmiforge-dev-web-06161223.azurewebsites.net`
+- Customer 0 fallback: `https://cmiforge-customer0-web.azurewebsites.net`
 
 The repo also now includes a Customer 0 deployment slice for a real, non-demo tenant with Entra login:
 
@@ -49,13 +55,48 @@ Current dev architecture:
 - Managed identity from App Service to Azure SQL
 - Managed identity from App Service to Blob Storage in the cloud dev environment
 - Static Web App for the public marketing site at `cmiforge.com`
+- Azure DNS hosts `cmiforge.com` so app/customer/demo subdomains can be provisioned from Azure instead of manually through the registrar
+- `demo.cmiforge.com` points at the public demo App Service
+- `app.cmiforge.com` points at the Customer 0 App Service
 - Future Azure Function App and Static Web App split-architecture resources are provisioned, but the current production-worthy app host remains App Service
 
-The live demo currently runs in demo mode with the seeded `Ima User` context. Microsoft Entra authentication is supported in the app, but demo mode keeps the public dev experience frictionless while the product is still being shaped.
+The live demo currently runs in demo mode with the seeded `Ima User` context. Microsoft Entra authentication is supported in the app, but demo mode keeps the public demo experience frictionless while the product is still being shaped.
 
 Real tenants should run with `MatterForge:DemoMode=false`, `Authentication:Microsoft:Enabled=true`, and a configured `MatterForge:BootstrapAdminEmail`. Customer-managed Entra user creation also needs a verified Entra custom domain, `EntraProvisioning:Enabled=true`, and `EntraProvisioning:Domain=<verified-domain>`.
 
 Public requests can be collected through `/Signup`. Admins can triage requests in `System -> Signup Requests` and work through `System -> Onboarding` after the customer workspace is provisioned.
+
+## Current Cloud Surfaces
+
+| Surface | URL | Purpose |
+| --- | --- | --- |
+| Marketing | `https://cmiforge.com` | Public product site, pricing, FAQ, request-access links |
+| Demo | `https://demo.cmiforge.com` | Public sandbox with demo mode, guardrails, and scheduled/manual reset |
+| Customer 0 | `https://app.cmiforge.com` | Gabe's real non-demo tenant with Entra login |
+| Demo fallback | `https://cmiforge-dev-web-06161223.azurewebsites.net` | Direct App Service hostname for troubleshooting |
+| Customer 0 fallback | `https://cmiforge-customer0-web.azurewebsites.net` | Direct App Service hostname for troubleshooting |
+
+The near-term customer model is subdomain-per-tenant plus database-per-customer:
+
+```text
+cmiforge.com           public marketing site
+demo.cmiforge.com      public disposable demo
+app.cmiforge.com       Customer 0 / internal real tenant
+firm.cmiforge.com      future customer tenant
+```
+
+DNS is now managed in Azure DNS while the domain registration remains at Namecheap.
+
+## Email Status
+
+`cmiforge.com` email DNS is currently configured in Azure DNS for Namecheap Private Email:
+
+- `MX @ -> mx1.privateemail.com`
+- `MX @ -> mx2.privateemail.com`
+- `TXT @ -> v=spf1 include:spf.privateemail.com ~all`
+- `mail`, `autodiscover`, and `autoconfig` CNAMEs point to `privateemail.com`
+
+An Entra user identity exists for `gabe@cmiforge.com`, but it does not become a Microsoft-hosted mailbox until a Microsoft 365 Business Basic or Exchange Online license is purchased and assigned. If mail is moved from Namecheap Private Email to Microsoft 365, Azure DNS must be updated to the Microsoft 365 Exchange records shown in the Microsoft admin center.
 
 ## Run Locally
 
@@ -94,7 +135,8 @@ In Azure App Service, the dev app uses a managed-identity Azure SQL connection s
 
 CMIForge now has a tracked dev App Service environment in Azure:
 
-- Dev app URL: `https://cmiforge-dev-web-06161223.azurewebsites.net`
+- Demo app URL: `https://demo.cmiforge.com`
+- Demo fallback URL: `https://cmiforge-dev-web-06161223.azurewebsites.net`
 - Dev deployment notes: `deploy/dev/README.md`
 - Dev app settings sample: `deploy/dev/appservice-settings.sample.json`
 - Repo deployment workflow: `.github/workflows/cmiforge-dev-appservice.yml`

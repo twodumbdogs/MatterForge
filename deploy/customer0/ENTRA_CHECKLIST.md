@@ -40,11 +40,11 @@ The login is the user's UPN. It can look like `first.last@cmiforge.com` without 
 
 Before turning this on:
 
-1. Add `cmiforge.com` as a verified custom domain in Microsoft Entra.
+1. Confirm `cmiforge.com` is still a verified custom domain in Microsoft Entra.
 2. Grant the Customer 0 web app managed identity Microsoft Graph application permission `User.ReadWrite.All`.
 3. Configure the App Service settings below.
 
-Current `cmiforge.com` verification record:
+Current `cmiforge.com` verification record kept in Azure DNS:
 
 ```text
 Type: TXT
@@ -53,23 +53,13 @@ Value: MS=ms36377677
 TTL: 3600
 ```
 
-Alternate verification record if the DNS host cannot add TXT at the apex:
-
-```text
-Type: MX
-Name: @
-Mail exchange: ms36377677.msv1.invalid
-Priority: 32767
-TTL: 3600
-```
-
-Verify after adding DNS:
+If verification ever needs to be rerun:
 
 ```powershell
 az rest --method POST --uri "https://graph.microsoft.com/v1.0/domains/cmiforge.com/verify"
 ```
 
-Enable provisioning only after verification succeeds:
+Enable provisioning only after verification and Graph permissions are confirmed:
 
 ```text
 EntraProvisioning__Enabled=true
@@ -86,7 +76,7 @@ Start with the Azure-generated hostname:
 https://cmiforge-customer0-web.azurewebsites.net/signin-oidc
 ```
 
-If a custom domain is added later, add a second redirect URI:
+The custom app domain redirect URI is also configured:
 
 ```text
 https://app.cmiforge.com/signin-oidc

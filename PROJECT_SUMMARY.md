@@ -25,7 +25,9 @@ We deliberately did not over-engineer hosting first. The app still runs locally 
 - Azure SQL for persistent development data
 - Azure Blob Storage for private submission attachment files
 - Azure App Service for the live dev app/demo
+- Azure App Service for Customer 0
 - Azure Static Web Apps for the public marketing site
+- Azure DNS for `cmiforge.com`
 - A future Azure Function App/API resource is provisioned for a possible split architecture later
 - In-memory database fallback when the configured connection string is missing or still has the placeholder server
 - Bootstrap-style UI with custom CMIForge styling
@@ -37,20 +39,28 @@ Current public surfaces:
 
 - Public marketing site: `https://cmiforge.com`
 - Static Web App default host: `https://happy-smoke-052d7f610.7.azurestaticapps.net`
-- Live dev app/demo: `https://cmiforge-dev-web-06161223.azurewebsites.net`
+- Live dev app/demo: `https://demo.cmiforge.com`
+- Live dev app/demo Azure fallback: `https://cmiforge-dev-web-06161223.azurewebsites.net`
+- Customer app doorway: `https://app.cmiforge.com`
+- Customer app Azure fallback: `https://cmiforge-customer0-web.azurewebsites.net`
 
 Current Azure resources:
 
 - Resource group: `gw-rg`
-- App Service plan: `cmiforge-dev-plan`
-- App Service app: `cmiforge-dev-web-06161223`
+- App Service plan: `cmiforge-customer0-plan` (`B1`) hosts both the Customer 0 app and the public demo app to avoid paying for a second paid plan.
+- Former dev App Service plan: `cmiforge-dev-plan` (`F1`) remains as a legacy/free plan resource.
+- Public demo App Service app: `cmiforge-dev-web-06161223`
+- Customer 0 App Service app: `cmiforge-customer0-web`
 - Azure SQL server: `gwmatterforge.database.windows.net`
 - Azure SQL prototype/dev database: `matterforge-prototype`
 - Azure SQL public demo database: `cmiforge-demo`
+- Azure SQL Customer 0 database: `cmiforge-customer0`
 - Attachment storage account: `cmiforgeattachasgmt7`
 - Attachment container: `submission-attachments`
+- Customer 0 attachment container: `customer0-attachments`
 - Static Web App: `cmiforge-web-06161219`
 - Future Function App/API resource: `cmiforge-api-06161219`
+- Azure DNS zone: `cmiforge.com`
 
 Current hosting stance:
 
@@ -59,7 +69,20 @@ Current hosting stance:
 - The Static Web App + Function App split is scaffolded for later, but the app has not been rewritten into that model.
 - The live dev app uses demo mode so visitors can explore with the seeded `Ima User` context.
 - The live demo app points at the separate `cmiforge-demo` database so public test data stays away from the prototype/dev database.
-- `app.cmiforge.com` is intentionally not bound yet because App Service custom domains require a paid plan tier.
+- `app.cmiforge.com` is bound to the Customer 0 app as the real tenant doorway.
+- `demo.cmiforge.com` is bound to the public demo app.
+- DNS for `cmiforge.com`, `app.cmiforge.com`, and `demo.cmiforge.com` is managed by Azure DNS after the Namecheap nameserver delegation.
+- Namecheap remains the registrar.
+
+Current Azure DNS records intentionally include:
+
+- Apex `cmiforge.com` as an Azure DNS alias-style record to the Static Web App.
+- `www` as a CNAME to the Static Web App default host.
+- `app` as a CNAME to `cmiforge-customer0-web.azurewebsites.net`.
+- `demo` as a CNAME to `cmiforge-dev-web-06161223.azurewebsites.net`.
+- `asuid.app` and `asuid.demo` TXT records for App Service custom-domain verification.
+- Entra, Google Search Console, and Static Web App verification TXT records.
+- Namecheap Private Email MX/SPF/autodiscover records until Microsoft 365 mail is fully licensed and cut over.
 
 ## Customer 0 Tenant Slice
 
@@ -76,11 +99,12 @@ Customer 0 is intended to be the first production-style CMIForge space:
 - Sample/demo data disabled.
 - Bootstrap admin configured through `MatterForge:BootstrapAdminEmail`.
 
-Customer 0 was provisioned on `2026-06-17` at `https://cmiforge-customer0-web.azurewebsites.net` using the `CMIForge Customer 0` Entra app registration. It currently uses the free `F1` App Service SKU and a `Basic` Azure SQL database so it can run without binding the paid `app.cmiforge.com` subdomain yet.
+Customer 0 was provisioned on `2026-06-17` at `https://cmiforge-customer0-web.azurewebsites.net` using the `CMIForge Customer 0` Entra app registration. It now uses the `Basic B1` App Service SKU so `app.cmiforge.com` can serve as the cleaner customer app doorway.
 
 The Customer 0 slice now includes the first Entra user-provisioning foundation:
 
 - `cmiforge.com` has been added to Entra as a verified custom domain.
+- `gabe@cmiforge.com` exists as an Entra user identity, pending mailbox licensing if Microsoft 365 email is adopted.
 - Customer 0 stores Entra tenant ID, object ID, and UPN on user records.
 - The create-user flow can optionally create an Entra user, generate a temporary password, and link the Entra identity back to the CMIForge user record.
 - The user's CMIForge work/contact email can differ from the Entra UPN.
@@ -112,6 +136,33 @@ Startup seeding is now split between core platform seed data and sample/demo see
 - `MatterForge:SeedSampleData=true` keeps local/demo-style sample data available when needed.
 
 The near-term tenant model is database-per-customer. That is simpler for support, backup/restore, customer export/delete, and early legal-data isolation. A future subscription flow can queue a provisioning job that creates the customer database, attachment container, app settings, Entra configuration, seed data, and first admin.
+
+The near-term URL model is subdomain-per-tenant rather than path-based tenancy:
+
+```text
+cmiforge.com           public marketing site
+demo.cmiforge.com      public disposable demo
+app.cmiforge.com       Customer 0 / internal real tenant
+firm.cmiforge.com      future customer tenant
+```
+
+Path-based tenancy such as `app.cmiforge.com/customer1` is intentionally avoided for now because it would require tenant-aware route prefixes, auth redirects, per-request tenant resolution, and more cross-tenant isolation testing.
+
+## Email And Microsoft 365
+
+Azure DNS currently carries Namecheap Private Email records for `cmiforge.com`:
+
+- `MX @ -> mx1.privateemail.com`
+- `MX @ -> mx2.privateemail.com`
+- `TXT @ -> v=spf1 include:spf.privateemail.com ~all`
+- `mail`, `autodiscover`, and `autoconfig` CNAMEs point to `privateemail.com`
+
+The planned Microsoft 365 shape is:
+
+- `gabe@cmiforge.com` as the licensed user mailbox.
+- `support@cmiforge.com` as a shared mailbox delegated to `gabe@cmiforge.com`.
+
+After a Microsoft 365 Business Basic or Exchange Online license is purchased and assigned, the Microsoft admin center should provide the Exchange DNS records. At that point Azure DNS needs to be updated from Namecheap Private Email records to the Microsoft 365 Exchange records.
 
 ## Public Demo Safety
 

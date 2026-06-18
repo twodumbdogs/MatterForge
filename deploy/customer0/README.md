@@ -11,7 +11,7 @@ Customer 0 uses the same CMIForge codebase as every other environment, but separ
 - Blob container: `customer0-attachments`
 - Entra app registration: `CMIForge Customer 0`
 - Entra client ID: `cb05ca25-c8ce-42a1-a3aa-226a8e487c73`
-- Entra user provisioning domain: `cmiforge.com` pending verification
+- Entra user provisioning domain: `cmiforge.com`
 - Demo mode: off
 - Demo resets: off
 - Sample data: off
@@ -20,12 +20,16 @@ Customer 0 uses the same CMIForge codebase as every other environment, but separ
 Provisioned status:
 
 - Provisioned on: `2026-06-17`
-- App URL: `https://cmiforge-customer0-web.azurewebsites.net`
+- App URL: `https://app.cmiforge.com`
+- Azure fallback URL: `https://cmiforge-customer0-web.azurewebsites.net`
 - App Service plan: `cmiforge-customer0-plan`
-- App Service SKU: `F1`
+- App Service SKU: `B1`
 - SQL tier: `Basic`
+- DNS host: Azure DNS zone `cmiforge.com`
 - Bootstrap admin email: `gwms@twodumbdogs.com`
-- Entra redirect URI: `https://cmiforge-customer0-web.azurewebsites.net/signin-oidc`
+- Entra redirect URIs:
+  - `https://cmiforge-customer0-web.azurewebsites.net/signin-oidc`
+  - `https://app.cmiforge.com/signin-oidc`
 - Entra custom domain verification TXT value: `MS=ms36377677`
 
 This keeps the disposable public demo away from real testing data.
@@ -44,37 +48,13 @@ Important behavior:
 
 Current Customer 0 status:
 
-- The `cmiforge.com` custom domain exists in Entra but is not verified yet.
+- The `cmiforge.com` custom domain exists in Entra and is verified.
 - The Customer 0 web app managed identity has the Microsoft Graph `User.ReadWrite.All` application permission.
 - App setting `EntraProvisioning__Domain=cmiforge.com` is configured.
-- App setting `EntraProvisioning__Enabled=false` should stay disabled until the domain verifies.
+- App setting `EntraProvisioning__Enabled` can be enabled for tenants after the managed identity and Graph permissions are confirmed.
+- `gabe@cmiforge.com` exists as an Entra identity and can become a Microsoft-hosted mailbox after a Microsoft 365 Business Basic or Exchange Online license is purchased and assigned.
 
-To verify `cmiforge.com`, add this TXT record at the DNS host for the domain:
-
-```text
-Type: TXT
-Name: @
-Value: MS=ms36377677
-TTL: 3600
-```
-
-If the DNS provider will not allow a TXT record at the root because the apex already points at the public Static Web App, Microsoft also provided this alternate MX verification record:
-
-```text
-Type: MX
-Name: @
-Mail exchange: ms36377677.msv1.invalid
-Priority: 32767
-TTL: 3600
-```
-
-After DNS propagation, verify the domain:
-
-```powershell
-az rest --method POST --uri "https://graph.microsoft.com/v1.0/domains/cmiforge.com/verify"
-```
-
-Then enable in-app Entra user creation:
+Enable in-app Entra user creation with:
 
 ```powershell
 az webapp config appsettings set `
@@ -96,6 +76,15 @@ Use a database-per-customer model for now:
 - good fit for small-firm SaaS during early growth
 
 The app code stays shared. Customer isolation comes from separate app settings, SQL database, and attachment container.
+
+Use subdomains for tenant workspaces rather than path-based tenancy:
+
+```text
+app.cmiforge.com       Customer 0 / internal tenant
+firm.cmiforge.com      future customer tenant
+```
+
+Azure DNS now hosts `cmiforge.com`, so future customer provisioning can create `firm.cmiforge.com` and `asuid.firm.cmiforge.com` records directly through Azure rather than the Namecheap DNS UI/API.
 
 ## Prerequisites
 
@@ -173,7 +162,7 @@ az webapp restart --resource-group gw-rg --name cmiforge-customer0-web
 
 ## First Smoke Test
 
-1. Browse to `https://cmiforge-customer0-web.azurewebsites.net`.
+1. Browse to `https://app.cmiforge.com`.
 2. Confirm Microsoft sign-in appears.
 3. Sign in with the configured bootstrap admin email.
 4. Confirm there is no demo banner.

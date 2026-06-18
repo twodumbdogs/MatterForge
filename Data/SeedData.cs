@@ -53,6 +53,7 @@ public static class SeedData
         if (seedSampleData)
         {
             await EnsureStarterConflictDataAsync(db);
+            await EnsureStarterMarketingDemoDataAsync(db);
             await EnsureStarterTimeEntriesAsync(db);
         }
     }
@@ -363,6 +364,186 @@ public static class SeedData
         }
 
         await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureStarterMarketingDemoDataAsync(MatterForgeDbContext db)
+    {
+        var form = await db.FormDefinitions
+            .Include(x => x.Versions)
+            .FirstOrDefaultAsync(x => x.Key == "new-matter-intake");
+        var version = form?.Versions
+            .Where(x => x.IsPublished)
+            .OrderByDescending(x => x.VersionNumber)
+            .FirstOrDefault();
+        if (form is null || version is null)
+        {
+            return;
+        }
+
+        var demoUser = await FindDemoUserAsync(db);
+        var now = DateTimeOffset.UtcNow;
+        var seeds = new[]
+        {
+            new DemoSubmissionSeed(
+                "Northstar Renewable Logistics",
+                "Wind Farm Supply Agreement Review",
+                "Energy",
+                "$48,000",
+                "Review a supplier master agreement for a wind-farm equipment rollout, including indemnity, change-order, and warranty terms.",
+                "Counterparty diligence packet",
+                "https://example.com/cmiforge-demo/northstar-diligence"),
+            new DemoSubmissionSeed(
+                "Beacon Family Office",
+                "Portfolio Company Acquisition Intake",
+                "Corporate",
+                "$125,000",
+                "Open acquisition intake for a family-office buyer evaluating a manufacturing portfolio company with known related-party vendors.",
+                "Buyer questionnaire",
+                "https://example.com/cmiforge-demo/beacon-questionnaire"),
+            new DemoSubmissionSeed(
+                "Meridian Health Partners",
+                "Employment Transition Review",
+                "Employment",
+                "$22,500",
+                "Coordinate executive-transition review, restrictive covenant analysis, and onboarding documents for a regional healthcare group.",
+                "Transition checklist",
+                "https://example.com/cmiforge-demo/meridian-transition")
+        };
+
+        var workflowService = new WorkflowService(db);
+        foreach (var seed in seeds.Select((Value, Index) => new { Value, Index }))
+        {
+            var submission = await EnsureDemoSubmissionAsync(db, form, version, demoUser, seed.Value, now.AddDays(-6 + seed.Index * 2));
+            var instance = await workflowService.EnsureStartedAsync(submission);
+            if (instance is not null && seed.Index == 1)
+            {
+                var firstOpenTask = await db.SubmissionWorkflowTasks
+                    .Where(x => x.FormSubmissionId == submission.Id && x.Status == WorkflowStatuses.TaskOpen)
+                    .OrderBy(x => x.CreatedAt)
+                    .FirstOrDefaultAsync();
+                if (firstOpenTask is not null)
+                {
+                    await workflowService.ApplyOutcomeAsync(
+                        firstOpenTask.Id,
+                        "primary",
+                        "Initial review complete. Route to final approval after conflicts follow-up.",
+                        demoUser?.Id);
+                }
+            }
+        }
+
+        await EnsureStarterConflictSearchesAsync(db, demoUser);
+    }
+
+    private static async Task<FormSubmission> EnsureDemoSubmissionAsync(
+        MatterForgeDbContext db,
+        FormDefinition form,
+        FormVersion version,
+        MatterForgeUser? demoUser,
+        DemoSubmissionSeed seed,
+        DateTimeOffset submittedAt)
+    {
+        var existing = await db.FormSubmissions
+            .Include(x => x.Attachments)
+            .FirstOrDefaultAsync(x => x.DataJson.Contains(seed.MatterName));
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var nextNumber = (await db.FormSubmissions.MaxAsync(x => (int?)x.SubmissionNumber) ?? 0) + 1;
+        var data = new Dictionary<string, string>
+        {
+            ["clientName"] = seed.ClientName,
+            ["matterName"] = seed.MatterName,
+            ["practiceArea"] = seed.PracticeArea,
+            ["estimatedFees"] = seed.EstimatedFees,
+            ["assignedUser"] = DemoUserDisplayName,
+            ["summary"] = seed.Summary
+        };
+
+        var submission = new FormSubmission
+        {
+            FormDefinitionId = form.Id,
+            FormVersionId = version.Id,
+            SubmissionNumber = nextNumber,
+            SubmitterName = "Ima User",
+            SubmitterUserId = demoUser?.Id,
+            Status = SubmissionStatuses.Submitted,
+            DataJson = JsonSerializer.Serialize(data, FormJson.Options),
+            SubmittedAt = submittedAt
+        };
+
+        submission.Attachments.Add(new SubmissionAttachment
+        {
+            AttachmentType = SubmissionAttachmentTypes.Link,
+            DisplayName = seed.AttachmentName,
+            OriginalFileName = seed.AttachmentName,
+            ContentType = "text/html",
+            Url = seed.AttachmentUrl,
+            UploadedByUserId = demoUser?.Id,
+            CreatedAt = submittedAt.AddMinutes(7)
+        });
+
+        db.FormSubmissions.Add(submission);
+        await db.SaveChangesAsync();
+        return submission;
+    }
+
+    private static async Task EnsureStarterConflictSearchesAsync(MatterForgeDbContext db, MatterForgeUser? demoUser)
+    {
+        var conflictSearchService = new ConflictSearchService(db);
+        var arcadiaMatter = await db.Matters
+            .FirstOrDefaultAsync(x => x.Name == "Demo Conflicts - Legacy Supply Dispute");
+        var beaconSubmission = await db.FormSubmissions
+            .FirstOrDefaultAsync(x => x.DataJson.Contains("Portfolio Company Acquisition Intake"));
+
+        var searchSeeds = new[]
+        {
+            new DemoConflictSearchSeed(
+                "Stark & Stone acquisition review",
+                "Stark Stone\nArcadia Ventures IV\nMina Caldera",
+                beaconSubmission?.Id,
+                arcadiaMatter?.Id),
+            new DemoConflictSearchSeed(
+                "New Cascadia municipal bid screen",
+                "City of New Cascadia\nGlobex BioSystems\nUmbrella Risk Group",
+                null,
+                arcadiaMatter?.Id),
+            new DemoConflictSearchSeed(
+                "Wayne Wainwright finance check",
+                "Wayne Wainwright Capital\nAcme Anvil Works",
+                null,
+                arcadiaMatter?.Id)
+        };
+
+        foreach (var seed in searchSeeds)
+        {
+            if (await db.ConflictSearches.AnyAsync(x => x.SearchName == seed.SearchName))
+            {
+                continue;
+            }
+
+            var search = await conflictSearchService.CreateAndRunSearchAsync(
+                seed.SearchName,
+                seed.SearchTerms,
+                seed.FormSubmissionId,
+                seed.MatterId,
+                demoUser?.Id);
+
+            var topResult = search.Results
+                .OrderByDescending(x => x.Score)
+                .ThenBy(x => x.MatchedName)
+                .FirstOrDefault();
+            if (topResult is not null && seed.SearchName.Contains("Stark", StringComparison.OrdinalIgnoreCase))
+            {
+                await conflictSearchService.ApplyResultClearanceAsync(
+                    topResult.Id,
+                    ConflictSearchDecisions.PotentialConflict,
+                    "Similar-name prior representation found. Partner review required before matter opening.",
+                    demoUser?.Id);
+            }
+        }
     }
 
     private static async Task EnsureUserNamePartsAsync(MatterForgeDbContext db)
@@ -1168,4 +1349,19 @@ public static class SeedData
         string Value,
         string ValueType,
         bool IsSecret = false);
+
+    private sealed record DemoSubmissionSeed(
+        string ClientName,
+        string MatterName,
+        string PracticeArea,
+        string EstimatedFees,
+        string Summary,
+        string AttachmentName,
+        string AttachmentUrl);
+
+    private sealed record DemoConflictSearchSeed(
+        string SearchName,
+        string SearchTerms,
+        Guid? FormSubmissionId,
+        Guid? MatterId);
 }
