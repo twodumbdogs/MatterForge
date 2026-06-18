@@ -308,6 +308,31 @@ body {
   min-height: 40px;
 }
 
+.mf-ocr-import {
+  overflow: hidden;
+}
+
+.mf-ocr-status {
+  align-self: flex-start;
+  background: #eef6ff;
+  border: 1px solid #c8ddf5;
+  border-radius: 999px;
+  color: #175b9f;
+  font-size: 0.875rem;
+  font-weight: 750;
+  padding: 0.35rem 0.75rem;
+}
+
+.mf-ocr-progress {
+  height: 0.55rem;
+}
+
+.mf-ocr-raw {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
 .mf-help-grid {
   align-items: start;
   display: grid;

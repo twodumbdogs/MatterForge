@@ -39,6 +39,7 @@ public static class TenantProvisioningStatuses
     public const string Contacted = "Contacted";
     public const string Provisioning = "Provisioning";
     public const string Ready = "Ready";
+    public const string Failed = "Failed";
     public const string Closed = "Closed";
 }
 

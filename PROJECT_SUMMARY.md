@@ -127,6 +127,15 @@ Tracked Customer 0 files:
 - `deploy/customer0/ENTRA_CHECKLIST.md`
 - `deploy/customer0/README.md`
 
+The reusable v1 customer provisioning command now lives at:
+
+- `deploy/customer/provision-customer.ps1`
+- `deploy/customer/README.md`
+
+For a requested `firm.cmiforge.com` workspace, the command validates the subdomain, creates the customer database and private attachment container, deploys/configures the App Service app, creates the Azure DNS CNAME and `asuid` TXT verification record, binds the hostname, creates/binds an App Service managed certificate, adds Entra redirect URIs, applies migrations, enables core seed startup, grants managed identity access where possible, and can mark the signup request `Provisioning`, `Ready`, or `Failed`.
+
+The command can also create the initial Entra admin user, create the matching CMIForge user as `00000001`, assign the Administrator role, generate a temporary password, and email that password to the admin after the tenant hostname is ready.
+
 The app now supports `MatterForge:BootstrapAdminEmail`. When Microsoft Entra login is enabled and demo mode is off, a matching authenticated user is activated if needed and granted the seeded `Administrator` role. This prevents a fresh tenant from being easy to lock yourself out of.
 
 Startup seeding is now split between core platform seed data and sample/demo seed data:

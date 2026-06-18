@@ -12,6 +12,7 @@ public class IndexModel(
     MatterForgeDbContext db,
     CsvImportService csvImportService,
     CurrentUserService currentUserService,
+    ProductPlanService productPlanService,
     PermissionService permissionService) : PageModel
 {
     [BindProperty]
@@ -23,6 +24,9 @@ public class IndexModel(
     [BindProperty]
     public IFormFile? PartyFile { get; set; }
 
+    [BindProperty]
+    public OcrClientInput OcrInput { get; set; } = new();
+
     public List<ImportBatch> RecentBatches { get; private set; } = [];
 
     public ImportBatch? LatestBatch { get; private set; }
@@ -31,6 +35,9 @@ public class IndexModel(
 
     [TempData]
     public Guid? LatestBatchId { get; set; }
+
+    [TempData]
+    public string? OcrImportMessage { get; set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -104,6 +111,58 @@ public class IndexModel(
         return await RunImportAsync(PartyFile, ImportTypes.Parties, validateOnly: false);
     }
 
+    public async Task<IActionResult> OnPostOcrClientAsync()
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.ImportsRun))
+        {
+            return Forbid();
+        }
+
+        var clientLimit = await productPlanService.GetClientLimitAsync();
+        if (!clientLimit.CanCreate)
+        {
+            ModelState.AddModelError(string.Empty, clientLimit.Message);
+        }
+
+        ApplyServerSideOcrFallback();
+
+        if (string.IsNullOrWhiteSpace(OcrInput.Name))
+        {
+            ModelState.AddModelError("OcrInput.Name", "Review the OCR result and enter a client name before creating the client.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await LoadAsync();
+            return Page();
+        }
+
+        var reviewedName = OcrInput.Name!.Trim();
+        var nextNumber = (await db.Clients.MaxAsync(x => (int?)x.ClientNumber) ?? 0) + 1;
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+
+        db.Clients.Add(new Client
+        {
+            Name = reviewedName,
+            ClientNumber = nextNumber,
+            Status = "Active",
+            PrimaryContact = OcrInput.PrimaryContact?.Trim() ?? string.Empty,
+            Email = OcrInput.Email?.Trim() ?? string.Empty,
+            Phone = OcrInput.Phone?.Trim() ?? string.Empty,
+            AddressLine1 = OcrInput.AddressLine1?.Trim() ?? string.Empty,
+            AddressLine2 = OcrInput.AddressLine2?.Trim() ?? string.Empty,
+            City = OcrInput.City?.Trim() ?? string.Empty,
+            State = OcrInput.State?.Trim() ?? string.Empty,
+            PostalCode = OcrInput.PostalCode?.Trim() ?? string.Empty,
+            Country = OcrInput.Country?.Trim() ?? string.Empty,
+            Notes = BuildOcrNote(currentUser?.DisplayName)
+        });
+
+        await db.SaveChangesAsync();
+        OcrImportMessage = $"Created client {nextNumber:D8} from reviewed OCR draft.";
+        return RedirectToPage("./Index");
+    }
+
     private async Task<IActionResult> RunImportAsync(IFormFile? file, string importType, bool validateOnly)
     {
         if (!await permissionService.HasAsync(PermissionKeys.ImportsRun))
@@ -172,8 +231,69 @@ public class IndexModel(
             LatestBatch = RecentBatches.FirstOrDefault(x => x.Id == LatestBatchId.Value)
                 ?? await db.ImportBatches
                     .Include(x => x.ImportedByUser)
-                    .Include(x => x.Rows)
+                .Include(x => x.Rows)
                     .FirstOrDefaultAsync(x => x.Id == LatestBatchId.Value);
         }
     }
+
+    private void ApplyServerSideOcrFallback()
+    {
+        if (string.IsNullOrWhiteSpace(OcrInput.RawText))
+        {
+            return;
+        }
+
+        var draft = OcrClientDraftParser.Parse(OcrInput.RawText);
+        OcrInput.Name = FillIfBlank(OcrInput.Name, draft.Name);
+        OcrInput.PrimaryContact = FillIfBlank(OcrInput.PrimaryContact, draft.PrimaryContact);
+        OcrInput.Email = FillIfBlank(OcrInput.Email, draft.Email);
+        OcrInput.Phone = FillIfBlank(OcrInput.Phone, draft.Phone);
+        OcrInput.AddressLine1 = FillIfBlank(OcrInput.AddressLine1, draft.AddressLine1);
+        OcrInput.AddressLine2 = FillIfBlank(OcrInput.AddressLine2, draft.AddressLine2);
+        OcrInput.City = FillIfBlank(OcrInput.City, draft.City);
+        OcrInput.State = FillIfBlank(OcrInput.State, draft.State);
+        OcrInput.PostalCode = FillIfBlank(OcrInput.PostalCode, draft.PostalCode);
+        OcrInput.Country = FillIfBlank(OcrInput.Country, draft.Country);
+    }
+
+    private string BuildOcrNote(string? userName)
+    {
+        var rawText = (OcrInput.RawText ?? string.Empty).Trim();
+        var clippedText = rawText.Length > 2000 ? rawText[..2000] + "..." : rawText;
+        var importedBy = string.IsNullOrWhiteSpace(userName) ? "a user" : userName;
+
+        return string.IsNullOrWhiteSpace(clippedText)
+            ? $"Created from reviewed OCR draft by {importedBy}."
+            : $"Created from reviewed OCR draft by {importedBy}.{Environment.NewLine}{Environment.NewLine}OCR text:{Environment.NewLine}{clippedText}";
+    }
+
+    private static string FillIfBlank(string? currentValue, string suggestedValue)
+    {
+        return string.IsNullOrWhiteSpace(currentValue) ? suggestedValue : currentValue.Trim();
+    }
+}
+
+public class OcrClientInput
+{
+    public string? RawText { get; set; }
+
+    public string? Name { get; set; }
+
+    public string? PrimaryContact { get; set; }
+
+    public string? Email { get; set; }
+
+    public string? Phone { get; set; }
+
+    public string? AddressLine1 { get; set; }
+
+    public string? AddressLine2 { get; set; }
+
+    public string? City { get; set; }
+
+    public string? State { get; set; }
+
+    public string? PostalCode { get; set; }
+
+    public string? Country { get; set; }
 }

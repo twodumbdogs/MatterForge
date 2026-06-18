@@ -25,6 +25,13 @@
     </section>
 }
 
+@if (!string.IsNullOrWhiteSpace(Model.OcrImportMessage))
+{
+    <section class="alert alert-success">
+        @Model.OcrImportMessage
+    </section>
+}
+
 <section class="row g-4">
     <div class="col-lg-4">
         <form method="post" enctype="multipart/form-data" class="mf-panel h-100">
@@ -117,6 +124,97 @@
             </div>
         </form>
     </div>
+</section>
+
+<section class="mf-panel mt-4 mf-ocr-import" data-ocr-import>
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+        <div>
+            <p class="mf-eyebrow">Photo OCR</p>
+            <h2>Import Client From Photo</h2>
+            <p class="text-muted mt-2 mb-0">Pull text from a client photo or scan, review the draft, then create the client record.</p>
+        </div>
+        <div class="mf-ocr-status" data-ocr-status>Ready for an image</div>
+    </div>
+
+    <form method="post" class="mt-3">
+        <div class="row g-4">
+            <div class="col-lg-5">
+                <label class="mf-upload-drop mf-ocr-drop">
+                    <input type="file" accept="image/png,image/jpeg,image/webp,image/bmp,image/tiff" data-ocr-file />
+                    <span>Drag client photo here</span>
+                    <small data-ocr-file-label>or click to choose an image</small>
+                </label>
+                <div class="mf-import-actions">
+                    <button class="btn btn-outline-primary" type="button" data-ocr-run @(Model.CanRunImports ? null : "disabled")>Read Photo</button>
+                    <button class="btn btn-outline-secondary" type="button" data-ocr-clear>Clear Draft</button>
+                </div>
+                <div class="progress mf-ocr-progress mt-3" role="progressbar" aria-label="OCR progress" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar" data-ocr-progress style="width: 0%"></div>
+                </div>
+                <label asp-for="OcrInput.RawText" class="form-label mt-3">OCR text</label>
+                <textarea asp-for="OcrInput.RawText" class="form-control mf-ocr-raw" rows="9" data-ocr-field="rawText" placeholder="Recognized text will appear here for review."></textarea>
+            </div>
+            <div class="col-lg-7">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label asp-for="OcrInput.Name" class="form-label">Client name</label>
+                        <input asp-for="OcrInput.Name" class="form-control" data-ocr-field="name" />
+                        <span asp-validation-for="OcrInput.Name" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Status</label>
+                        <input class="form-control" value="Active" disabled />
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="OcrInput.PrimaryContact" class="form-label">Primary contact</label>
+                        <input asp-for="OcrInput.PrimaryContact" class="form-control" data-ocr-field="primaryContact" />
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="OcrInput.Email" class="form-label">Email</label>
+                        <input asp-for="OcrInput.Email" class="form-control" data-ocr-field="email" />
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="OcrInput.Phone" class="form-label">Phone</label>
+                        <input asp-for="OcrInput.Phone" class="form-control" data-ocr-field="phone" />
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="OcrInput.Country" class="form-label">Country</label>
+                        <input asp-for="OcrInput.Country" class="form-control" data-ocr-field="country" />
+                    </div>
+                    <div class="col-md-8">
+                        <label asp-for="OcrInput.AddressLine1" class="form-label">Address line 1</label>
+                        <input asp-for="OcrInput.AddressLine1" class="form-control" data-ocr-field="addressLine1" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="OcrInput.AddressLine2" class="form-label">Address line 2</label>
+                        <input asp-for="OcrInput.AddressLine2" class="form-control" data-ocr-field="addressLine2" />
+                    </div>
+                    <div class="col-md-5">
+                        <label asp-for="OcrInput.City" class="form-label">City</label>
+                        <input asp-for="OcrInput.City" class="form-control" data-ocr-field="city" />
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="OcrInput.State" class="form-label">State</label>
+                        <input asp-for="OcrInput.State" class="form-control" data-ocr-field="state" maxlength="2" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="OcrInput.PostalCode" class="form-label">Postal code</label>
+                        <input asp-for="OcrInput.PostalCode" class="form-control" data-ocr-field="postalCode" />
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end mt-3">
+                    @if (Model.CanRunImports)
+                    {
+                        <button class="btn btn-primary" type="submit" asp-page-handler="OcrClient">Create Reviewed Client</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary" type="submit" disabled>Create Reviewed Client</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </form>
 </section>
 
 @if (Model.LatestBatch is not null)
@@ -214,6 +312,7 @@
 }
 
 @section Scripts {
+    <script src="/lib/tesseract/tesseract.min.js"></script>
     <script>
         document.querySelectorAll('.mf-upload-drop').forEach((dropZone) => {
             const input = dropZone.querySelector('input[type="file"]');
@@ -235,5 +334,151 @@
                 setFileName();
             });
         });
+
+        (() => {
+            const root = document.querySelector('[data-ocr-import]');
+            if (!root || !window.Tesseract) {
+                return;
+            }
+
+            const fileInput = root.querySelector('[data-ocr-file]');
+            const fileLabel = root.querySelector('[data-ocr-file-label]');
+            const runButton = root.querySelector('[data-ocr-run]');
+            const clearButton = root.querySelector('[data-ocr-clear]');
+            const status = root.querySelector('[data-ocr-status]');
+            const progress = root.querySelector('[data-ocr-progress]');
+            const fields = Object.fromEntries(
+                Array.from(root.querySelectorAll('[data-ocr-field]'))
+                    .map((field) => [field.dataset.ocrField, field]));
+
+            let worker;
+
+            const setStatus = (message, percent) => {
+                status.textContent = message;
+                if (typeof percent === 'number') {
+                    progress.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+                }
+            };
+
+            const setField = (name, value) => {
+                if (fields[name] && !fields[name].value.trim()) {
+                    fields[name].value = value || '';
+                }
+            };
+
+            const clearDraft = () => {
+                Object.values(fields).forEach((field) => {
+                    field.value = '';
+                });
+                fileInput.value = '';
+                fileLabel.textContent = 'or click to choose an image';
+                setStatus('Ready for an image', 0);
+            };
+
+            const normalizeLines = (text) => [...new Set((text || '')
+                .replace(/\r/g, '')
+                .split('\n')
+                .map((line) => line.replace(/\s+/g, ' ').replace(/^[\s|_-]+|[\s|_-]+$/g, '').trim())
+                .filter(Boolean))];
+
+            const parseDraft = (text) => {
+                const lines = normalizeLines(text);
+                const email = lines.join(' ').match(/[A-Z0-9._%+-]+@@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || '';
+                const phone = lines.join(' ').match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/)?.[0] || '';
+                const cityStateZipLine = lines.find((line) => /^[A-Za-z .'-]+,?\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?$/.test(line)) || '';
+                const cityStateZip = cityStateZipLine.match(/^(?<city>[A-Za-z .'-]+),?\s+(?<state>[A-Z]{2})\s+(?<zip>\d{5}(?:-\d{4})?)$/);
+                const streetPattern = /\d+.+\b(?:Street|St\.?|Avenue|Ave\.?|Road|Rd\.?|Boulevard|Blvd\.?|Drive|Dr\.?|Lane|Ln\.?|Court|Ct\.?|Circle|Cir\.?|Way|Parkway|Pkwy\.?|Place|Pl\.?|Suite|Ste\.?|Floor|Fl\.?)\b/i;
+                const addressLine1 = lines.find((line) => streetPattern.test(line)) || '';
+                const addressIndex = lines.indexOf(addressLine1);
+                const addressLine2 = addressIndex >= 0
+                    ? lines.slice(addressIndex + 1).find((line) => /\b(?:Suite|Ste\.?|Unit|Apt\.?|Floor|Fl\.?|PO Box|P\.O\. Box)\b/i.test(line)) || ''
+                    : '';
+                const primaryContact = lines.find((line) => /^(?:attn|attention|contact)\s*:?/i.test(line))?.replace(/^(?:attn|attention|contact)\s*:?\s*/i, '') || '';
+                const noisePattern = /www\.|https?:|\.com|invoice|bill to/i;
+                const name = lines.find((line) =>
+                    line !== email &&
+                    line !== phone &&
+                    line !== addressLine1 &&
+                    line !== addressLine2 &&
+                    line !== primaryContact &&
+                    !noisePattern.test(line) &&
+                    !streetPattern.test(line) &&
+                    !/^[A-Za-z .'-]+,?\s+[A-Z]{2}\s+\d{5}(?:-\d{4})?$/.test(line)) || '';
+                const country = lines.find((line) => /^(United States|USA|U\.S\.A\.)$/i.test(line)) || '';
+
+                return {
+                    name,
+                    primaryContact,
+                    email,
+                    phone,
+                    addressLine1,
+                    addressLine2,
+                    city: cityStateZip?.groups?.city?.trim() || '',
+                    state: cityStateZip?.groups?.state?.trim() || '',
+                    postalCode: cityStateZip?.groups?.zip?.trim() || '',
+                    country
+                };
+            };
+
+            const ensureWorker = async () => {
+                if (worker) {
+                    return worker;
+                }
+
+                worker = await Tesseract.createWorker('eng', 1, {
+                    workerPath: '/lib/tesseract/worker.min.js',
+                    workerBlobURL: false,
+                    corePath: '/lib/tesseract/core',
+                    langPath: '/lib/tesseract/lang-data',
+                    logger: (message) => {
+                        if (message.status) {
+                            setStatus(message.status, Math.round((message.progress || 0) * 100));
+                        }
+                    }
+                });
+
+                await worker.setParameters({
+                    tessedit_pageseg_mode: Tesseract.PSM.AUTO
+                });
+
+                return worker;
+            };
+
+            fileInput.addEventListener('change', () => {
+                fileLabel.textContent = fileInput.files.length > 0 ? fileInput.files[0].name : 'or click to choose an image';
+                setStatus(fileInput.files.length > 0 ? 'Image selected' : 'Ready for an image', 0);
+            });
+
+            clearButton.addEventListener('click', clearDraft);
+
+            runButton.addEventListener('click', async () => {
+                const file = fileInput.files[0];
+                if (!file) {
+                    setStatus('Choose an image first', 0);
+                    return;
+                }
+
+                runButton.disabled = true;
+                clearButton.disabled = true;
+                setStatus('Starting OCR', 2);
+
+                try {
+                    const activeWorker = await ensureWorker();
+                    const result = await activeWorker.recognize(file);
+                    const text = result.data.text.trim();
+                    fields.rawText.value = text;
+
+                    const draft = parseDraft(text);
+                    Object.entries(draft).forEach(([name, value]) => setField(name, value));
+                    setStatus('OCR draft ready for review', 100);
+                } catch (error) {
+                    console.error(error);
+                    setStatus('OCR could not read that image', 0);
+                } finally {
+                    runButton.disabled = false;
+                    clearButton.disabled = false;
+                }
+            });
+        })();
     </script>
 }

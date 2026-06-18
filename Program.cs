@@ -110,10 +110,11 @@ app.Use(async (context, next) =>
     headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
     headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     headers.TryAdd("Content-Security-Policy",
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'");
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'");
 
     await next();
 });
+app.UseStaticFiles();
 app.UseRouting();
 if (entraOptions.Enabled)
 {

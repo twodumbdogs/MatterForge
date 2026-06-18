@@ -187,9 +187,15 @@ MatterForge__SeedSampleData=false
 
 After the first successful boot, `MatterForge__RunSeedDataOnStartup` can be changed to `false`. The seed operation is designed to be idempotent, but turning it off removes a little startup work.
 
+## Customer Provisioning Command
+
+The repeatable v1 customer provisioning command now lives at `deploy/customer/provision-customer.ps1`.
+
+That script is the operator-safe path for the next real customer. It validates a subdomain, creates the customer database and private attachment container, deploys/configures the App Service app, creates Azure DNS records, binds the custom hostname, creates/binds an App Service managed certificate, adds Entra redirect URIs, applies migrations, configures core seed startup, and can update a `TenantProvisioningRequest` to `Provisioning`, `Ready`, or `Failed`.
+
 ## Future Customer Provisioning Button
 
-Yes, it is practical to make customer provisioning happen from a button after subscription.
+Yes, it is practical to make customer provisioning happen from a button after subscription, but the button should enqueue this kind of work instead of doing Azure operations in a normal web request.
 
 The safe version should not create Azure resources directly inside a normal web request. The better pattern is:
 
@@ -197,7 +203,7 @@ The safe version should not create Azure resources directly inside a normal web 
 2. CMIForge creates a `TenantProvisioningRequest` record.
 3. The app queues a provisioning job.
 4. A background worker or Azure Function picks up the job.
-5. The worker creates the database, storage container, app settings, Entra configuration, and seed data.
+5. The worker runs the same provisioning path used by `deploy/customer/provision-customer.ps1`.
 6. Status flows through `Pending`, `Provisioning`, `Ready`, or `Failed`.
 7. Admin/support can retry failed jobs safely.
 

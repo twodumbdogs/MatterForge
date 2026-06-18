@@ -21,6 +21,7 @@ public class SignupRequestsModel(
         TenantProvisioningStatuses.Contacted,
         TenantProvisioningStatuses.Provisioning,
         TenantProvisioningStatuses.Ready,
+        TenantProvisioningStatuses.Failed,
         TenantProvisioningStatuses.Closed
     ];
 
