@@ -122,7 +122,6 @@ if (entraOptions.Enabled)
 }
 app.UseAuthorization();
 
-app.MapStaticAssets();
 if (entraOptions.Enabled)
 {
     app.MapGet("/Account/SignIn", () => Results.Challenge(
@@ -133,7 +132,6 @@ if (entraOptions.Enabled)
         [CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme]));
 }
 
-app.MapRazorPages()
-   .WithStaticAssets();
+app.MapRazorPages();
 
 app.Run();
