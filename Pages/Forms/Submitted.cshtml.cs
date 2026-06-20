@@ -1,8 +1,8 @@
-using MatterForge.Services;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace MatterForge.Pages.Forms;
+namespace CMIForge.Pages.Forms;
 
 public class SubmittedModel(PermissionService permissionService) : PageModel
 {

@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public class DemoModePageFilter(
     DemoModeService demoModeService,

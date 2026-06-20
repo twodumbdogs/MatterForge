@@ -1,15 +1,15 @@
 using System.Text;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Imports;
+namespace CMIForge.Pages.Imports;
 
 public class IndexModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     CsvImportService csvImportService,
     CurrentUserService currentUserService,
     ProductPlanService productPlanService,

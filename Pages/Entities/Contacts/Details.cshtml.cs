@@ -1,22 +1,29 @@
 using System.ComponentModel.DataAnnotations;
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Contacts;
+namespace CMIForge.Pages.Entities.Contacts;
 
-public class DetailsModel(MatterForgeDbContext db) : PageModel
+public class DetailsModel(CMIForgeDbContext db, PermissionService permissionService, AuditLogService auditLogService) : PageModel
 {
     public Contact? Contact { get; private set; }
+
+    public List<AuditLog> AuditHistory { get; private set; } = [];
+
+    public List<EntityChangeRequest> PendingChanges { get; private set; } = [];
 
     public List<SelectListItem> ClientOptions { get; private set; } = [];
 
     public List<SelectListItem> MatterOptions { get; private set; } = [];
 
     public SelectList ContactRoleOptions { get; } = new(ContactRoles.All);
+
+    public bool CanEditEntities { get; private set; }
 
     [BindProperty]
     public AddClientContactInput ClientLinkInput { get; set; } = new();
@@ -58,6 +65,13 @@ public class DetailsModel(MatterForgeDbContext db) : PageModel
                 Notes = ClientLinkInput.Notes?.Trim() ?? string.Empty
             });
             await db.SaveChangesAsync();
+            await auditLogService.LogAsync(
+                "Contact.ClientLinkAdded",
+                "Contact",
+                id,
+                Contact.ContactNumber.ToString("D8"),
+                $"Linked contact {Contact.DisplayName} to client as {ClientLinkInput.Role}.",
+                new { ClientLinkInput.ClientId, ClientLinkInput.IsPrimary });
         }
 
         return RedirectToPage(new { id });
@@ -91,13 +105,47 @@ public class DetailsModel(MatterForgeDbContext db) : PageModel
                 Notes = MatterLinkInput.Notes?.Trim() ?? string.Empty
             });
             await db.SaveChangesAsync();
+            await auditLogService.LogAsync(
+                "Contact.MatterLinkAdded",
+                "Contact",
+                id,
+                Contact.ContactNumber.ToString("D8"),
+                $"Linked contact {Contact.DisplayName} to matter as {MatterLinkInput.Role}.",
+                new { MatterLinkInput.MatterId, MatterLinkInput.IsPrimary });
         }
+
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostArchiveAsync(Guid id)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.EntitiesEdit))
+        {
+            return Forbid();
+        }
+
+        var contact = await db.Contacts.FirstOrDefaultAsync(x => x.Id == id);
+        if (contact is null)
+        {
+            return NotFound();
+        }
+
+        contact.IsArchived = !contact.IsArchived;
+        contact.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            contact.IsArchived ? "Contact.Archived" : "Contact.Restored",
+            "Contact",
+            contact.Id,
+            contact.ContactNumber.ToString("D8"),
+            $"{(contact.IsArchived ? "Archived" : "Restored")} contact {contact.DisplayName}.");
 
         return RedirectToPage(new { id });
     }
 
     private async Task LoadPageAsync(Guid id)
     {
+        CanEditEntities = await permissionService.HasAsync(PermissionKeys.EntitiesEdit);
         Contact = await db.Contacts
             .Include(x => x.ClientLinks)
                 .ThenInclude(x => x.Client)
@@ -107,14 +155,28 @@ public class DetailsModel(MatterForgeDbContext db) : PageModel
             .FirstOrDefaultAsync(x => x.Id == id);
 
         ClientOptions = await db.Clients
+            .Where(x => !x.IsArchived)
             .OrderBy(x => x.ClientNumber)
             .Select(x => new SelectListItem($"{x.ClientNumber:D8} - {x.Name}", x.Id.ToString()))
             .ToListAsync();
 
         MatterOptions = await db.Matters
+            .Where(x => !x.IsArchived)
             .Include(x => x.Client)
             .OrderBy(x => x.MatterNumber)
             .Select(x => new SelectListItem($"{x.MatterNumber:D8} - {x.Name} / {x.Client!.Name}", x.Id.ToString()))
+            .ToListAsync();
+
+        AuditHistory = Contact is null
+            ? []
+            : await auditLogService.ListForEntityAsync("Contact", id);
+
+        PendingChanges = await db.EntityChangeRequests
+            .Include(x => x.RequestedByUser)
+            .Where(x => x.EntityType == EntityChangeService.ContactEntityType &&
+                x.EntityId == id &&
+                x.Status == EntityChangeRequestStatuses.Pending)
+            .OrderBy(x => x.RequestedAt)
             .ToListAsync();
     }
 }

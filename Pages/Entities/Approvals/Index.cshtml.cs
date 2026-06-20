@@ -1,14 +1,14 @@
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Approvals;
+namespace CMIForge.Pages.Entities.Approvals;
 
 public class IndexModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     CurrentUserService currentUserService,
     AuditLogService auditLogService) : PageModel
@@ -16,9 +16,17 @@ public class IndexModel(
     [BindProperty]
     public string? ReviewNotes { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public int PageNumber { get; set; } = 1;
+
+    [BindProperty(SupportsGet = true)]
+    public string? Search { get; set; }
+
     public List<EntityChangeRequest> PendingRequests { get; private set; } = [];
 
     public List<EntityChangeRequest> RecentReviewedRequests { get; private set; } = [];
+
+    public RecordPage PendingPagination { get; private set; } = RecordPage.Empty;
 
     public bool CanApprove { get; private set; }
 
@@ -69,6 +77,17 @@ public class IndexModel(
 
             EntityChangeService.Apply(matter, proposed);
         }
+        else if (request.EntityType == EntityChangeService.ContactEntityType)
+        {
+            var contact = await db.Contacts.FirstOrDefaultAsync(x => x.Id == request.EntityId);
+            var proposed = EntityChangeService.Deserialize<ContactChangeSnapshot>(request.ProposedValuesJson);
+            if (contact is null || proposed is null)
+            {
+                return RedirectToPage();
+            }
+
+            EntityChangeService.Apply(contact, proposed);
+        }
 
         request.Status = EntityChangeRequestStatuses.Approved;
         request.ReviewedAt = DateTimeOffset.UtcNow;
@@ -84,7 +103,7 @@ public class IndexModel(
             $"Approved {request.EntityType.ToLowerInvariant()} change request for {request.EntityName}.",
             new { request.Id, request.Summary, request.ReviewNotes });
 
-        return RedirectToPage();
+        return RedirectToPage(new { pageNumber = PageNumber, Search });
     }
 
     public async Task<IActionResult> OnPostRejectAsync(Guid id)
@@ -115,22 +134,58 @@ public class IndexModel(
             $"Rejected {request.EntityType.ToLowerInvariant()} change request for {request.EntityName}.",
             new { request.Id, request.Summary, request.ReviewNotes });
 
-        return RedirectToPage();
+        return RedirectToPage(new { pageNumber = PageNumber, Search });
     }
 
     private async Task LoadAsync()
     {
         CanApprove = await permissionService.HasAsync(PermissionKeys.EntitiesApprove);
-        PendingRequests = await db.EntityChangeRequests
+
+        var pendingQuery = db.EntityChangeRequests
+            .Where(x => x.Status == EntityChangeRequestStatuses.Pending);
+
+        Search = Search?.Trim();
+        if (!string.IsNullOrWhiteSpace(Search))
+        {
+            pendingQuery = pendingQuery.Where(x =>
+                x.EntityType.Contains(Search) ||
+                x.EntityNumber.Contains(Search) ||
+                x.EntityName.Contains(Search) ||
+                x.Summary.Contains(Search) ||
+                x.RequestNotes.Contains(Search) ||
+                (x.RequestedByUser != null && x.RequestedByUser.DisplayName.Contains(Search)));
+        }
+
+        PendingPagination = RecordPage.Create(PageNumber, await pendingQuery.CountAsync());
+        PageNumber = PendingPagination.PageNumber;
+
+        PendingRequests = await pendingQuery
             .Include(x => x.RequestedByUser)
-            .Where(x => x.Status == EntityChangeRequestStatuses.Pending)
             .OrderBy(x => x.RequestedAt)
+            .Skip(PendingPagination.Skip)
+            .Take(PendingPagination.PageSize)
             .ToListAsync();
 
-        RecentReviewedRequests = await db.EntityChangeRequests
+        var recentReviewedQuery = db.EntityChangeRequests
             .Include(x => x.RequestedByUser)
             .Include(x => x.ReviewedByUser)
-            .Where(x => x.Status != EntityChangeRequestStatuses.Pending)
+            .Where(x => x.Status != EntityChangeRequestStatuses.Pending);
+
+        if (!string.IsNullOrWhiteSpace(Search))
+        {
+            recentReviewedQuery = recentReviewedQuery.Where(x =>
+                x.Status.Contains(Search) ||
+                x.EntityType.Contains(Search) ||
+                x.EntityNumber.Contains(Search) ||
+                x.EntityName.Contains(Search) ||
+                x.Summary.Contains(Search) ||
+                x.RequestNotes.Contains(Search) ||
+                x.ReviewNotes.Contains(Search) ||
+                (x.RequestedByUser != null && x.RequestedByUser.DisplayName.Contains(Search)) ||
+                (x.ReviewedByUser != null && x.ReviewedByUser.DisplayName.Contains(Search)));
+        }
+
+        RecentReviewedRequests = await recentReviewedQuery
             .OrderByDescending(x => x.ReviewedAt)
             .Take(20)
             .ToListAsync();

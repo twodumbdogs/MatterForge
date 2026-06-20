@@ -27,9 +27,9 @@ Authentication__Microsoft__TenantId=<directory tenant id>
 Authentication__Microsoft__ClientId=<application client id>
 Authentication__Microsoft__ClientSecret=<client secret value>
 Authentication__Microsoft__CallbackPath=/signin-oidc
-MatterForge__BootstrapAdminEmail=<your Entra sign-in email>
-MatterForge__DemoMode=false
-MatterForge__DemoResetEnabled=false
+CMIForge__BootstrapAdminEmail=<your Entra sign-in email>
+CMIForge__DemoMode=false
+CMIForge__DemoResetEnabled=false
 ```
 
 ## Optional In-App Entra User Creation

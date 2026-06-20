@@ -1,16 +1,16 @@
 using System.Text;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Time;
+namespace CMIForge.Pages.Time;
 
 public class IndexModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     CurrentUserService currentUserService,
     PermissionService permissionService) : PageModel
 {
@@ -49,6 +49,8 @@ public class IndexModel(
 
     public int DraftCount { get; private set; }
 
+    public int ExportedCount { get; private set; }
+
     public async Task<IActionResult> OnGetAsync()
     {
         if (!await CanViewTimeAsync())
@@ -68,8 +70,22 @@ public class IndexModel(
         }
 
         var entries = await BuildQueryAsync();
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        var now = DateTimeOffset.UtcNow;
+        foreach (var entry in entries.Where(x => x.Status == TimeEntryStatuses.Approved && !x.ExportedAt.HasValue))
+        {
+            entry.ExportedAt = now;
+            entry.ExportedByUserId = currentUser?.Id;
+            entry.UpdatedAt = now;
+        }
+
+        if (db.ChangeTracker.HasChanges())
+        {
+            await db.SaveChangesAsync();
+        }
+
         var csv = new StringBuilder();
-        csv.AppendLine("TimeEntryNumber,WorkDate,User,Client,Matter,Hours,Billable,Status,Narrative");
+        csv.AppendLine("TimeEntryNumber,WorkDate,User,Client,Matter,Phase,Task,Hours,Billable,Status,Exported,ClientNarrative,InternalNotes");
         foreach (var entry in entries)
         {
             csv.AppendLine(string.Join(",",
@@ -78,10 +94,14 @@ public class IndexModel(
                 Csv(entry.User?.DisplayName),
                 Csv(entry.Client?.Name),
                 Csv(entry.Matter?.Name),
+                Csv(entry.TimePhase is null ? string.Empty : $"{entry.TimePhase.Code} - {entry.TimePhase.Name}"),
+                Csv(entry.TimeTask is null ? string.Empty : $"{entry.TimeTask.Code} - {entry.TimeTask.Name}"),
                 (entry.Minutes / 60m).ToString("0.00"),
                 entry.IsBillable ? "Yes" : "No",
                 Csv(entry.Status),
-                Csv(entry.Narrative)));
+                entry.ExportedAt.HasValue ? "Yes" : "No",
+                Csv(entry.ClientNarrative),
+                Csv(entry.InternalNotes)));
         }
 
         return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "cmiforge-time-entries.csv");
@@ -101,6 +121,7 @@ public class IndexModel(
         BillableHours = Entries.Where(x => x.IsBillable).Sum(x => x.Minutes) / 60m;
         NonBillableHours = TotalHours - BillableHours;
         DraftCount = Entries.Count(x => x.Status == TimeEntryStatuses.Draft);
+        ExportedCount = Entries.Count(x => x.ExportedAt.HasValue);
 
         UserOptions = await db.Users
             .Where(x => x.IsActive && !x.IsArchived)
@@ -126,6 +147,8 @@ public class IndexModel(
             .Include(x => x.User)
             .Include(x => x.Client)
             .Include(x => x.Matter)
+            .Include(x => x.TimePhase)
+            .Include(x => x.TimeTask)
             .AsQueryable();
 
         if (!CanViewAll)

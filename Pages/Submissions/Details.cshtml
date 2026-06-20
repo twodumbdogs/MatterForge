@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Submissions.DetailsModel
+@model CMIForge.Pages.Submissions.DetailsModel
 @{
     ViewData["Title"] = "Submission Details";
 }
@@ -12,7 +12,7 @@ else
 {
     <div class="mf-page-heading">
         <div>
-            <p class="mf-eyebrow">Submission <span>@MatterForge.Services.RecordNumbers.Submission(Model.Submission.SubmissionNumber)</span> · @Model.Submission.Status</p>
+            <p class="mf-eyebrow">Submission <span>@CMIForge.Services.RecordNumbers.Submission(Model.Submission.SubmissionNumber)</span> · @Model.Submission.Status</p>
             <h1>@Model.Submission.FormDefinition?.Name</h1>
             <p class="text-muted">
                 Submitted by
@@ -36,7 +36,14 @@ else
             {
                 <a class="btn btn-primary" asp-page="./Convert" asp-route-id="@Model.Submission.Id">Create Client/Matter</a>
             }
-            else if (Model.Submission.Status != MatterForge.Services.SubmissionStatuses.Converted && (Model.Submission.Client is null || Model.Submission.Matter is null))
+            @if (Model.CanCancel)
+            {
+                <form method="post" asp-page-handler="Cancel" asp-route-id="@Model.Submission.Id" onsubmit="return confirm('Cancel this submission and close any open workflow work?');">
+                    <input type="hidden" name="id" value="@Model.Submission.Id" />
+                    <button class="btn btn-outline-danger" type="submit">Cancel Submission</button>
+                </form>
+            }
+            @if (!Model.CanConvert && Model.Submission.Status != CMIForge.Services.SubmissionStatuses.Converted && Model.Submission.Status != CMIForge.Services.SubmissionStatuses.Cancelled && (Model.Submission.Client is null || Model.Submission.Matter is null))
             {
                 <button class="btn btn-outline-secondary" type="button" disabled>Conversion locked until approval</button>
             }
@@ -49,18 +56,18 @@ else
         <div class="alert alert-danger" asp-validation-summary="ModelOnly"></div>
     }
 
-    <div class="mf-panel mb-3">
+    <div class="mf-panel mb-3 mf-submission-summary">
         <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
             <div>
                 <strong>Workflow status</strong>
-                <span class="badge text-bg-success ms-2">@Model.Submission.Status</span>
-                <code class="ms-2">@MatterForge.Services.RecordNumbers.Submission(Model.Submission.SubmissionNumber)</code>
+                <span class="badge @StatusClass(Model.Submission.Status) ms-2">@Model.Submission.Status</span>
+                <code class="ms-2">@CMIForge.Services.RecordNumbers.Submission(Model.Submission.SubmissionNumber)</code>
             </div>
             @if (Model.CanStartWorkflow)
             {
-                <form method="post">
+                <form method="post" asp-page-handler="StartWorkflow" asp-route-id="@Model.Submission.Id">
                     <input type="hidden" name="id" value="@Model.Submission.Id" />
-                    <button class="btn btn-sm btn-primary" asp-page-handler="StartWorkflow">Start workflow</button>
+                    <button class="btn btn-sm btn-primary" type="submit">Start workflow</button>
                 </form>
             }
             else
@@ -68,9 +75,69 @@ else
                 <a class="btn btn-sm btn-outline-primary" asp-page="/Workflow/Queue">Open queue</a>
             }
         </div>
+
+        <div class="mf-submission-context-grid mt-3">
+            <div>
+                <span>Client</span>
+                @if (Model.Submission.Client is not null)
+                {
+                    <a asp-page="/Entities/Clients/Details" asp-route-id="@Model.Submission.Client.Id">@Model.Submission.Client.ClientNumber.ToString("D8") - @Model.Submission.Client.Name</a>
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.SubmittedClientName))
+                {
+                    <strong class="mf-submitted-value">@Model.SubmittedClientName</strong>
+                    <small>Submitted value, not linked yet</small>
+                }
+                else
+                {
+                    <strong class="text-muted">Not linked</strong>
+                }
+            </div>
+            <div>
+                <span>Matter</span>
+                @if (Model.Submission.Matter is not null)
+                {
+                    <a asp-page="/Entities/Matters/Details" asp-route-id="@Model.Submission.Matter.Id">@Model.Submission.Matter.MatterNumber.ToString("D8") - @Model.Submission.Matter.Name</a>
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.SubmittedMatterName))
+                {
+                    <strong class="mf-submitted-value">@Model.SubmittedMatterName</strong>
+                    <small>Submitted value, not linked yet</small>
+                }
+                else
+                {
+                    <strong class="text-muted">Not linked</strong>
+                }
+            </div>
+            @if (Model.Submission.LeadPartner is not null)
+            {
+                <div>
+                    <span>Lead partner</span>
+                    <a asp-page="/Entities/Users/Details" asp-route-id="@Model.Submission.LeadPartner.Id">@Model.Submission.LeadPartner.DisplayName</a>
+                </div>
+            }
+        </div>
+
+        @if (!Model.CanEditReturned && Model.Answers.Count > 0)
+        {
+            <hr />
+            <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
+                <h2>Submitted Data</h2>
+            </div>
+            <dl class="mf-answer-grid mb-0">
+                @foreach (var answer in Model.Answers)
+                {
+                    <div>
+                        <dt>@answer.Label</dt>
+                        <dd>@answer.Value</dd>
+                    </div>
+                }
+            </dl>
+        }
+
         @{
             var openTasks = Model.WorkflowTasks
-                .Where(x => x.Status == MatterForge.Services.WorkflowStatuses.TaskOpen)
+                .Where(x => x.Status == CMIForge.Services.WorkflowStatuses.TaskOpen)
                 .OrderBy(x => x.CreatedAt)
                 .ToList();
         }
@@ -100,11 +167,11 @@ else
                                 <input type="hidden" name="taskId" value="@task.Id" />
                                 <input name="Notes" class="form-control form-control-sm" placeholder="Optional note" />
                                 <div class="d-flex gap-2">
-                                    @foreach (var outcome in MatterForge.Services.WorkflowOutcomeParser.GetOutcomes(task.WorkflowStep!))
+                                    @foreach (var outcome in CMIForge.Services.WorkflowOutcomeParser.GetOutcomes(task.WorkflowStep!))
                                     {
-                                        var buttonClass = outcome.Action == MatterForge.Services.WorkflowOutcomeActions.Return
+                                        var buttonClass = outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Return
                                             ? "btn-outline-warning"
-                                            : outcome.Action == MatterForge.Services.WorkflowOutcomeActions.Complete
+                                            : outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Complete
                                                 ? "btn-success"
                                                 : "btn-primary";
                                         <button class="btn btn-sm @buttonClass" name="outcomeKey" value="@outcome.Key" asp-page-handler="OutcomeTask">@outcome.Label</button>
@@ -128,26 +195,6 @@ else
                         <small class="d-block text-muted">Started @UserDates.Format(instance.StartedAt)</small>
                     </div>
                 }
-            </div>
-        }
-        @if (Model.Submission.Client is not null || Model.Submission.Matter is not null)
-        {
-            <hr />
-            <div class="row g-2">
-                <div class="col-md-6">
-                    <strong>Client</strong>
-                    @if (Model.Submission.Client is not null)
-                    {
-                        <a class="d-block" asp-page="/Entities/Clients/Details" asp-route-id="@Model.Submission.Client.Id">@Model.Submission.Client.ClientNumber.ToString("D8") - @Model.Submission.Client.Name</a>
-                    }
-                </div>
-                <div class="col-md-6">
-                    <strong>Matter</strong>
-                    @if (Model.Submission.Matter is not null)
-                    {
-                        <a class="d-block" asp-page="/Entities/Matters/Details" asp-route-id="@Model.Submission.Matter.Id">@Model.Submission.Matter.MatterNumber.ToString("D8") - @Model.Submission.Matter.Name</a>
-                    }
-                </div>
             </div>
         }
     </div>
@@ -180,7 +227,7 @@ else
                     <tbody>
                         @foreach (var attachment in Model.Attachments)
                         {
-                            var isLink = attachment.AttachmentType == MatterForge.Models.SubmissionAttachmentTypes.Link;
+                            var isLink = attachment.AttachmentType == CMIForge.Models.SubmissionAttachmentTypes.Link;
                             <tr>
                                 <td>
                                     @if (isLink)
@@ -280,7 +327,7 @@ else
                                     }
                                 </td>
                                 <td>@(task.AssignedUser?.DisplayName ?? task.AssignedTeam?.Name ?? "Unassigned")</td>
-                                <td><span class="badge @(task.Status == MatterForge.Services.WorkflowStatuses.TaskOpen ? "text-bg-primary" : task.Status == MatterForge.Services.WorkflowStatuses.TaskReturned ? "text-bg-warning" : "text-bg-success")">@task.Status</span></td>
+                                <td><span class="badge @(task.Status == CMIForge.Services.WorkflowStatuses.TaskOpen ? "text-bg-primary" : task.Status == CMIForge.Services.WorkflowStatuses.TaskReturned ? "text-bg-warning" : task.Status == CMIForge.Services.WorkflowStatuses.TaskCancelled ? "text-bg-danger" : "text-bg-success")">@task.Status</span></td>
                                 <td>@task.Outcome</td>
                                 <td>@UserDates.FormatNullable(task.CompletedAt)</td>
                             </tr>
@@ -320,7 +367,7 @@ else
                         @foreach (var search in Model.ConflictSearches)
                         {
                             <tr>
-                                <td><a asp-page="/Conflicts/Details" asp-route-id="@search.Id"><code>@MatterForge.Services.RecordNumbers.ConflictSearch(search.SearchNumber)</code></a></td>
+                                <td><a asp-page="/Conflicts/Details" asp-route-id="@search.Id"><code>@CMIForge.Services.RecordNumbers.ConflictSearch(search.SearchNumber)</code></a></td>
                                 <td><span class="badge text-bg-primary">@search.Status</span></td>
                                 <td>@search.ReviewerDecision</td>
                                 <td>@search.Results.Count</td>
@@ -382,10 +429,10 @@ else
                         {<span class="text-danger"> *</span>}</label>
                     @switch (field.Type)
                     {
-                        case MatterForge.Services.FieldType.TextArea:
+                        case CMIForge.Services.FieldType.TextArea:
                             <textarea class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" rows="4">@value</textarea>
                             break;
-                        case MatterForge.Services.FieldType.Select:
+                        case CMIForge.Services.FieldType.Select:
                             <select class="form-select" id="edit-@field.Key" name="Fields[@field.Key]">
                                 <option value="">Choose...</option>
                                 @foreach (var option in field.Options)
@@ -394,18 +441,41 @@ else
                                 }
                             </select>
                             break;
-                        case MatterForge.Services.FieldType.Checkbox:
+                        case CMIForge.Services.FieldType.Address:
+                            var address = CMIForge.Services.FormAddressValue.Parse(value);
+                            <div class="mf-address-field-grid" data-address-lookup-group>
+                                <div class="col-span-8">
+                                    <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key].AddressLine1" value="@address.AddressLine1" placeholder="Address line 1" autocomplete="street-address" data-address-lookup-input data-address-field="line1" />
+                                </div>
+                                <div class="col-span-4">
+                                    <input class="form-control" name="Fields[@field.Key].AddressLine2" value="@address.AddressLine2" placeholder="Suite, floor, etc." data-address-field="line2" />
+                                </div>
+                                <div class="col-span-4">
+                                    <input class="form-control" name="Fields[@field.Key].City" value="@address.City" placeholder="City" data-address-field="city" />
+                                </div>
+                                <div class="col-span-3">
+                                    <input class="form-control" name="Fields[@field.Key].State" value="@address.State" placeholder="State" data-address-field="state" />
+                                </div>
+                                <div class="col-span-2">
+                                    <input class="form-control" name="Fields[@field.Key].PostalCode" value="@address.PostalCode" placeholder="Postal code" data-address-field="postalCode" />
+                                </div>
+                                <div class="col-span-3">
+                                    <input class="form-control" name="Fields[@field.Key].Country" value="@address.Country" placeholder="Country" data-address-field="country" />
+                                </div>
+                            </div>
+                            break;
+                        case CMIForge.Services.FieldType.Checkbox:
                             <div class="form-check">
                                 <input type="hidden" name="Fields[@field.Key]" value="false" />
                                 <input class="form-check-input" id="edit-@field.Key" name="Fields[@field.Key]" type="checkbox" value="true" checked="@(value.Equals("Yes", StringComparison.OrdinalIgnoreCase) || value.Equals("true", StringComparison.OrdinalIgnoreCase))" />
                                 <label class="form-check-label" for="edit-@field.Key">Yes</label>
                             </div>
                             break;
-                        case MatterForge.Services.FieldType.Date:
+                        case CMIForge.Services.FieldType.Date:
                             <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" type="date" value="@value" />
                             break;
-                        case MatterForge.Services.FieldType.Currency:
-                        case MatterForge.Services.FieldType.Number:
+                        case CMIForge.Services.FieldType.Currency:
+                        case CMIForge.Services.FieldType.Number:
                             <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" type="number" step="0.01" value="@value" />
                             break;
                         default:
@@ -417,16 +487,27 @@ else
             <button class="btn btn-primary" type="submit">Save and resubmit</button>
         </form>
     }
-    else
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    @if (Model.Schema?.Fields.Any(x => x.Type == CMIForge.Services.FieldType.Address) == true)
     {
-        <div class="mf-panel">
-            <dl class="row">
-                @foreach (var answer in Model.Answers)
-                {
-                    <dt class="col-sm-4">@answer.Label</dt>
-                    <dd class="col-sm-8">@answer.Value</dd>
-                }
-            </dl>
-        </div>
+        <script src="~/js/address-lookup.js" asp-append-version="true"></script>
+    }
+}
+
+@functions {
+    private static string StatusClass(string status)
+    {
+        return status switch
+        {
+            CMIForge.Services.SubmissionStatuses.Approved => "text-bg-success",
+            CMIForge.Services.SubmissionStatuses.Returned => "text-bg-warning",
+            CMIForge.Services.SubmissionStatuses.Cancelled => "text-bg-danger",
+            CMIForge.Services.SubmissionStatuses.Converted => "text-bg-dark",
+            CMIForge.Services.SubmissionStatuses.InReview => "text-bg-primary",
+            _ => "text-bg-secondary"
+        };
     }
 }

@@ -1,18 +1,21 @@
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Users;
+namespace CMIForge.Pages.Entities.Users;
 
 public class DetailsModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     DemoModeService demoModeService,
-    PermissionService permissionService) : PageModel
+    PermissionService permissionService,
+    AuditLogService auditLogService) : PageModel
 {
-    public MatterForgeUser? UserRecord { get; private set; }
+    public CMIForgeUser? UserRecord { get; private set; }
+
+    public List<AuditLog> AuditHistory { get; private set; } = [];
 
     public bool IsEditLocked => UserRecord is not null && demoModeService.IsProtectedSystemUser(UserRecord.SystemId);
 
@@ -29,11 +32,17 @@ public class DetailsModel(
         UserRecord = await db.Users
             .Include(x => x.ResponsibleMatters)
                 .ThenInclude(x => x.Client)
+            .Include(x => x.LeadPartnerMatters)
+                .ThenInclude(x => x.Client)
             .Include(x => x.TeamMemberships)
                 .ThenInclude(x => x.Team)
             .Include(x => x.Roles)
                 .ThenInclude(x => x.SecurityRole)
             .FirstOrDefaultAsync(x => x.Id == id);
+
+        AuditHistory = UserRecord is null
+            ? []
+            : await auditLogService.ListForEntityAsync("User", id);
     }
 
     public async Task<IActionResult> OnPostArchiveAsync(Guid id)
@@ -57,6 +66,13 @@ public class DetailsModel(
         user.IsArchived = !user.IsArchived;
         user.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            user.IsArchived ? "User.Archived" : "User.Restored",
+            "User",
+            user.Id,
+            user.SystemId.ToString("D8"),
+            $"{(user.IsArchived ? "Archived" : "Restored")} user {user.DisplayName}.");
+
         return RedirectToPage(new { id });
     }
 }

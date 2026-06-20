@@ -1,17 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Security.Teams;
+namespace CMIForge.Pages.Security.Teams;
 
 public partial class IndexModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     DemoModeService demoModeService,
     AuditLogService auditLogService) : PageModel

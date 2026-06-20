@@ -1,12 +1,12 @@
-using MatterForge.Data;
+using CMIForge.Data;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace MatterForge.Migrations
+namespace CMIForge.Migrations
 {
-    [DbContext(typeof(MatterForgeDbContext))]
+    [DbContext(typeof(CMIForgeDbContext))]
     [Migration("20260618214500_AddArchiveFlagsAndBranding")]
     public partial class AddArchiveFlagsAndBranding : Migration
     {

@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Entities.Clients.DetailsModel
+@model CMIForge.Pages.Entities.Clients.DetailsModel
 @{
     ViewData["Title"] = Model.Client is null ? "Client Details" : $"Client {Model.Client.ClientNumber:D8}";
     ViewData["ActiveEntityTab"] = "Clients";
@@ -190,4 +190,5 @@ else
     }
 
     <partial name="/Pages/Entities/_EntityNotes.cshtml" model="Model.Notes" />
+    <partial name="/Pages/Entities/_EntityAuditHistory.cshtml" model="Model.AuditHistory" />
 }

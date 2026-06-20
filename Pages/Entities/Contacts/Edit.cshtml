@@ -1,0 +1,104 @@
+@page "{id:guid}"
+@model CMIForge.Pages.Entities.Contacts.EditModel
+@{
+    ViewData["Title"] = Model.Contact is null ? "Edit Contact" : $"Edit Contact {Model.Contact.ContactNumber:D8}";
+    ViewData["ActiveEntityTab"] = "Contacts";
+}
+
+@if (Model.Contact is null)
+{
+    <div class="alert alert-warning">That contact could not be found.</div>
+}
+else
+{
+    <div class="mf-page-heading">
+        <div>
+            <p class="mf-eyebrow">Contact <span>@Model.Contact.ContactNumber.ToString("D8")</span></p>
+            <h1>Submit Contact Change</h1>
+            <p class="text-muted">Changes are held for approval before the contact record is updated.</p>
+        </div>
+        <a class="btn btn-outline-secondary" asp-page="./Details" asp-route-id="@Model.Contact.Id">Back</a>
+    </div>
+
+    <partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+    <form method="post" class="mf-panel">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label asp-for="Input.FirstName" class="form-label"></label>
+                <input asp-for="Input.FirstName" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.MiddleName" class="form-label"></label>
+                <input asp-for="Input.MiddleName" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.LastName" class="form-label"></label>
+                <input asp-for="Input.LastName" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.Organization" class="form-label"></label>
+                <input asp-for="Input.Organization" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.Title" class="form-label"></label>
+                <input asp-for="Input.Title" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.Email" class="form-label"></label>
+                <input asp-for="Input.Email" class="form-control" />
+                <span asp-validation-for="Input.Email" class="text-danger"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.Phone" class="form-label"></label>
+                <input asp-for="Input.Phone" class="form-control" />
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.MobilePhone" class="form-label"></label>
+                <input asp-for="Input.MobilePhone" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.AddressLine1" class="form-label"></label>
+                <input asp-for="Input.AddressLine1" class="form-control" autocomplete="street-address" data-address-lookup-input data-address-field="line1" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Input.AddressLine2" class="form-label"></label>
+                <input asp-for="Input.AddressLine2" class="form-control" data-address-field="line2" />
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Input.City" class="form-label"></label>
+                <input asp-for="Input.City" class="form-control" data-address-field="city" />
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Input.State" class="form-label"></label>
+                <input asp-for="Input.State" class="form-control" data-address-field="state" />
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Input.PostalCode" class="form-label"></label>
+                <input asp-for="Input.PostalCode" class="form-control" data-address-field="postalCode" />
+            </div>
+            <div class="col-md-3">
+                <label asp-for="Input.Country" class="form-label"></label>
+                <input asp-for="Input.Country" class="form-control" data-address-field="country" />
+            </div>
+            <div class="col-12">
+                <label asp-for="Input.Notes" class="form-label"></label>
+                <textarea asp-for="Input.Notes" class="form-control" rows="4"></textarea>
+            </div>
+            <div class="col-12">
+                <label asp-for="Input.RequestNotes" class="form-label"></label>
+                <textarea asp-for="Input.RequestNotes" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button class="btn btn-primary" type="submit">Submit for approval</button>
+            <a class="btn btn-outline-secondary" asp-page="./Details" asp-route-id="@Model.Contact.Id">Cancel</a>
+        </div>
+    </form>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/address-lookup.js" asp-append-version="true"></script>
+}

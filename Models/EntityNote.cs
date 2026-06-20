@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class EntityNote
 {
@@ -12,7 +12,7 @@ public class EntityNote
 
     public Guid? CreatedByUserId { get; set; }
 
-    public MatterForgeUser? CreatedByUser { get; set; }
+    public CMIForgeUser? CreatedByUser { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

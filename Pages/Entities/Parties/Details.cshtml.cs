@@ -1,23 +1,26 @@
 using System.ComponentModel.DataAnnotations;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Parties;
+namespace CMIForge.Pages.Entities.Parties;
 
 public class DetailsModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     EntityNoteService entityNoteService,
     CurrentUserService currentUserService,
-    PermissionService permissionService) : PageModel
+    PermissionService permissionService,
+    AuditLogService auditLogService) : PageModel
 {
     public Party? Party { get; private set; }
 
     public List<EntityNote> Notes { get; private set; } = [];
+
+    public List<AuditLog> AuditHistory { get; private set; } = [];
 
     public List<SelectListItem> PartyOptions { get; private set; } = [];
 
@@ -70,6 +73,12 @@ public class DetailsModel(
                 Notes = AliasInput.Notes?.Trim() ?? string.Empty
             });
             await db.SaveChangesAsync();
+            await auditLogService.LogAsync(
+                "Party.AliasAdded",
+                "Party",
+                id,
+                Party.PartyNumber.ToString("D8"),
+                $"Added alias {AliasInput.Alias.Trim()} to {Party.Name}.");
         }
 
         return RedirectToPage(new { id });
@@ -103,6 +112,13 @@ public class DetailsModel(
                 Notes = RelationshipInput.Notes?.Trim() ?? string.Empty
             });
             await db.SaveChangesAsync();
+            await auditLogService.LogAsync(
+                "Party.RelationshipAdded",
+                "Party",
+                id,
+                Party.PartyNumber.ToString("D8"),
+                $"Added {RelationshipInput.RelationshipType} relationship for {Party.Name}.",
+                new { RelationshipInput.ToPartyId });
         }
 
         return RedirectToPage(new { id });
@@ -136,6 +152,13 @@ public class DetailsModel(
                 Notes = MatterPartyInput.Notes?.Trim() ?? string.Empty
             });
             await db.SaveChangesAsync();
+            await auditLogService.LogAsync(
+                "Party.MatterRoleAdded",
+                "Party",
+                id,
+                Party.PartyNumber.ToString("D8"),
+                $"Linked {Party.Name} to matter role {MatterPartyInput.Role}.",
+                new { MatterPartyInput.MatterId });
         }
 
         return RedirectToPage(new { id });
@@ -151,6 +174,7 @@ public class DetailsModel(
 
         var currentUser = await currentUserService.GetCurrentUserAsync();
         await entityNoteService.AddAsync(EntityNoteService.PartyEntityType, id, NewNote, currentUser?.Id);
+        await auditLogService.LogAsync("Party.NoteAdded", "Party", id, null, "Added party discussion note.");
         return RedirectToPage(new { id });
     }
 
@@ -170,6 +194,13 @@ public class DetailsModel(
         party.IsArchived = !party.IsArchived;
         party.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            party.IsArchived ? "Party.Archived" : "Party.Restored",
+            "Party",
+            party.Id,
+            party.PartyNumber.ToString("D8"),
+            $"{(party.IsArchived ? "Archived" : "Restored")} party {party.Name}.");
+
         return RedirectToPage(new { id });
     }
 
@@ -203,6 +234,10 @@ public class DetailsModel(
         Notes = Party is null
             ? []
             : await entityNoteService.ListAsync(EntityNoteService.PartyEntityType, id);
+
+        AuditHistory = Party is null
+            ? []
+            : await auditLogService.ListForEntityAsync("Party", id);
     }
 }
 

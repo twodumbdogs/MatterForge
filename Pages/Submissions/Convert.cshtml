@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Submissions.ConvertModel
+@model CMIForge.Pages.Submissions.ConvertModel
 @{
     ViewData["Title"] = "Create Client/Matter";
 }
@@ -141,6 +141,13 @@ else
                 <select asp-for="Input.ResponsibleUserId" asp-items="Model.UserOptions" class="form-select">
                     <option value="">Unassigned</option>
                 </select>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.LeadPartnerId" class="form-label"></label>
+                <select asp-for="Input.LeadPartnerId" asp-items="Model.PartnerOptions" class="form-select">
+                    <option value="">Unassigned</option>
+                </select>
+                <span asp-validation-for="Input.LeadPartnerId" class="text-danger"></span>
             </div>
             <div class="col-12">
                 <label asp-for="Input.MatterNotes" class="form-label"></label>

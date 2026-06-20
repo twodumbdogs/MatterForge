@@ -1,0 +1,34 @@
+@page
+@model CMIForge.Pages.System.ArchiveModel
+@{
+    ViewData["Title"] = "Archive";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">System</p>
+        <h1>Archive</h1>
+        <p class="text-muted">Restore archived records when they need to come back into the everyday interface.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-6">
+        <partial name="_ArchiveSection" model='new CMIForge.Pages.System.ArchiveSectionViewModel("Clients", "Client", Model.Clients.Select(x => new CMIForge.Pages.System.ArchiveRowViewModel(x.Id, x.ClientNumber.ToString("D8"), x.Name, x.Status)).ToList())' />
+    </div>
+    <div class="col-xl-6">
+        <partial name="_ArchiveSection" model='new CMIForge.Pages.System.ArchiveSectionViewModel("Matters", "Matter", Model.Matters.Select(x => new CMIForge.Pages.System.ArchiveRowViewModel(x.Id, x.MatterNumber.ToString("D8"), x.Name, x.Client?.Name ?? "No client")).ToList())' />
+    </div>
+    <div class="col-xl-6">
+        <partial name="_ArchiveSection" model='new CMIForge.Pages.System.ArchiveSectionViewModel("Parties", "Party", Model.Parties.Select(x => new CMIForge.Pages.System.ArchiveRowViewModel(x.Id, x.PartyNumber.ToString("D8"), x.Name, x.PartyType)).ToList())' />
+    </div>
+    <div class="col-xl-6">
+        <partial name="_ArchiveSection" model='new CMIForge.Pages.System.ArchiveSectionViewModel("Contacts", "Contact", Model.Contacts.Select(x => new CMIForge.Pages.System.ArchiveRowViewModel(x.Id, x.ContactNumber.ToString("D8"), x.DisplayName, x.Organization)).ToList())' />
+    </div>
+    <div class="col-xl-6">
+        <partial name="_ArchiveSection" model='new CMIForge.Pages.System.ArchiveSectionViewModel("Users", "User", Model.Users.Select(x => new CMIForge.Pages.System.ArchiveRowViewModel(x.Id, x.SystemId.ToString("D8"), x.DisplayName, x.Email)).ToList())' />
+    </div>
+    <div class="col-xl-6">
+        <partial name="_ArchiveSection" model='new CMIForge.Pages.System.ArchiveSectionViewModel("Cancelled Submissions", "Submission", Model.Submissions.Select(x => new CMIForge.Pages.System.ArchiveRowViewModel(x.Id, CMIForge.Services.RecordNumbers.Submission(x.SubmissionNumber), x.FormDefinition?.Name ?? "Submission", x.SubmitterUser?.DisplayName ?? x.SubmitterName)).ToList())' />
+    </div>
+</div>

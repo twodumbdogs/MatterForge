@@ -1,13 +1,13 @@
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Security;
+namespace CMIForge.Pages.Security;
 
-public class AuditModel(MatterForgeDbContext db, PermissionService permissionService) : PageModel
+public class AuditModel(CMIForgeDbContext db, PermissionService permissionService) : PageModel
 {
     public List<AuditLog> AuditLogs { get; private set; } = [];
 

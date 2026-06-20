@@ -1,0 +1,43 @@
+@using CMIForge.Models
+@model IReadOnlyList<AuditLog>
+
+<div class="mf-panel mt-3">
+    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+        <div>
+            <h2>Recent Activity</h2>
+            <small class="text-muted">Latest audited changes for this record.</small>
+        </div>
+        <span class="badge text-bg-light">Top @Model.Count</span>
+    </div>
+
+    @if (Model.Count == 0)
+    {
+        <p class="text-muted mt-3 mb-0">No audited activity has been recorded for this record yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Action</th>
+                        <th>Actor</th>
+                        <th>Summary</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var audit in Model)
+                    {
+                        <tr>
+                            <td>@UserDates.Format(audit.CreatedAt, "g")</td>
+                            <td><code>@audit.Action</code></td>
+                            <td>@(audit.ActorDisplayName == "Unknown" ? "System" : audit.ActorDisplayName)</td>
+                            <td>@audit.Summary</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

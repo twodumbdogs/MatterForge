@@ -1,0 +1,52 @@
+@model CMIForge.Models.RecordPaginationViewModel
+
+@if (Model.Page.TotalRecords > 0)
+{
+    var previousRoutes = (Model.RouteValues ?? new Dictionary<string, string>())
+        .ToDictionary(x => x.Key, x => (string?)x.Value);
+    previousRoutes["pageNumber"] = Model.Page.PreviousPage.ToString();
+
+    var nextRoutes = (Model.RouteValues ?? new Dictionary<string, string>())
+        .ToDictionary(x => x.Key, x => (string?)x.Value);
+    nextRoutes["pageNumber"] = Model.Page.NextPage.ToString();
+    var currentPath = Context.Request.Path.Value ?? "/";
+    var previousHref = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(currentPath, previousRoutes);
+    var nextHref = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(currentPath, nextRoutes);
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+        <small class="text-muted">
+            Showing <strong>@Model.Page.FirstRecord-@Model.Page.LastRecord</strong> of <strong>@Model.Page.TotalRecords</strong> @Model.Label
+        </small>
+
+        @if (Model.Page.TotalPages > 1)
+        {
+            <nav aria-label="@Model.Label pages">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(Model.Page.HasPrevious ? null : "disabled")">
+                        @if (Model.Page.HasPrevious)
+                        {
+                            <a class="page-link" href="@previousHref">Previous</a>
+                        }
+                        else
+                        {
+                            <span class="page-link">Previous</span>
+                        }
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">Page @Model.Page.PageNumber of @Model.Page.TotalPages</span>
+                    </li>
+                    <li class="page-item @(Model.Page.HasNext ? null : "disabled")">
+                        @if (Model.Page.HasNext)
+                        {
+                            <a class="page-link" href="@nextHref">Next</a>
+                        }
+                        else
+                        {
+                            <span class="page-link">Next</span>
+                        }
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+}

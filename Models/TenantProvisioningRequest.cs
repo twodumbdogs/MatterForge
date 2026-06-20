@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class TenantProvisioningRequest
 {
@@ -30,7 +30,9 @@ public class TenantProvisioningRequest
 
     public Guid? UpdatedByUserId { get; set; }
 
-    public MatterForgeUser? UpdatedByUser { get; set; }
+    public CMIForgeUser? UpdatedByUser { get; set; }
+
+    public LegalAgreementAcceptance? LegalAgreementAcceptance { get; set; }
 }
 
 public static class TenantProvisioningStatuses

@@ -1,13 +1,13 @@
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public class CurrentUserService(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     IConfiguration configuration,
     IHttpContextAccessor httpContextAccessor,
     IOptions<EntraAuthenticationOptions> entraOptions,
@@ -18,7 +18,7 @@ public class CurrentUserService(
     private const string DefaultCurrentUserDisplayName = "Ima User";
     private static readonly TimeSpan LastLoginUpdateInterval = TimeSpan.FromMinutes(5);
 
-    public async Task<MatterForgeUser?> GetCurrentUserAsync()
+    public async Task<CMIForgeUser?> GetCurrentUserAsync()
     {
         var authenticatedIdentity = GetAuthenticatedIdentity();
         if (authenticatedIdentity is not null)
@@ -26,12 +26,12 @@ public class CurrentUserService(
             return await GetOrCreateAuthenticatedUserAsync(authenticatedIdentity);
         }
 
-        if (entraOptions.Value.Enabled && !configuration.GetValue<bool>("MatterForge:DemoMode"))
+        if (entraOptions.Value.Enabled && !configuration.GetValue<bool>("CMIForge:DemoMode"))
         {
             return null;
         }
 
-        var configuredEmail = configuration["MatterForge:CurrentUserEmail"];
+        var configuredEmail = configuration["CMIForge:CurrentUserEmail"];
         var email = string.IsNullOrWhiteSpace(configuredEmail)
             ? DefaultCurrentUserEmail
             : configuredEmail.Trim();
@@ -44,7 +44,7 @@ public class CurrentUserService(
             return configuredUser;
         }
 
-        var configuredDisplayName = configuration["MatterForge:CurrentUserDisplayName"];
+        var configuredDisplayName = configuration["CMIForge:CurrentUserDisplayName"];
         var displayName = string.IsNullOrWhiteSpace(configuredDisplayName)
             ? DefaultCurrentUserDisplayName
             : configuredDisplayName.Trim();
@@ -144,7 +144,7 @@ public class CurrentUserService(
         return null;
     }
 
-    private async Task<MatterForgeUser?> GetOrCreateAuthenticatedUserAsync(AuthenticatedIdentity identity)
+    private async Task<CMIForgeUser?> GetOrCreateAuthenticatedUserAsync(AuthenticatedIdentity identity)
     {
         var email = identity.Email?.Trim();
         var userPrincipalName = identity.UserPrincipalName?.Trim();
@@ -184,7 +184,7 @@ public class CurrentUserService(
         var nameParts = UserNameParts.FromDisplayName(displayName, email);
 
         var nextSystemId = (await db.Users.MaxAsync(x => (int?)x.SystemId) ?? 0) + 1;
-        var user = new MatterForgeUser
+        var user = new CMIForgeUser
         {
             SystemId = nextSystemId,
             FirstName = nameParts.FirstName,
@@ -208,7 +208,7 @@ public class CurrentUserService(
         return user;
     }
 
-    private async Task StampLastLoginAsync(MatterForgeUser user)
+    private async Task StampLastLoginAsync(CMIForgeUser user)
     {
         var now = DateTimeOffset.UtcNow;
         if (user.LastLoginAt.HasValue && now - user.LastLoginAt.Value < LastLoginUpdateInterval)
@@ -231,7 +231,7 @@ public class CurrentUserService(
         user.LastLoginAt = now;
     }
 
-    private async Task<MatterForgeUser?> FindExistingAuthenticatedUserAsync(AuthenticatedIdentity identity)
+    private async Task<CMIForgeUser?> FindExistingAuthenticatedUserAsync(AuthenticatedIdentity identity)
     {
         if (!string.IsNullOrWhiteSpace(identity.TenantId) && !string.IsNullOrWhiteSpace(identity.ObjectId))
         {
@@ -269,7 +269,7 @@ public class CurrentUserService(
 
     private bool IsBootstrapAdminIdentity(AuthenticatedIdentity identity)
     {
-        var configuredEmails = configuration["MatterForge:BootstrapAdminEmail"];
+        var configuredEmails = configuration["CMIForge:BootstrapAdminEmail"];
         if (string.IsNullOrWhiteSpace(configuredEmails))
         {
             return false;
@@ -282,7 +282,7 @@ public class CurrentUserService(
                 x.Equals(identity.UserPrincipalName, StringComparison.OrdinalIgnoreCase));
     }
 
-    private async Task EnsureBootstrapAdminRoleAsync(MatterForgeUser user)
+    private async Task EnsureBootstrapAdminRoleAsync(CMIForgeUser user)
     {
         var administratorRole = await db.SecurityRoles
             .FirstOrDefaultAsync(x => x.Key == AdministratorRoleKey && x.IsActive);
@@ -308,7 +308,7 @@ public class CurrentUserService(
         }
     }
 
-    private static void ApplyEntraIdentity(MatterForgeUser user, AuthenticatedIdentity identity)
+    private static void ApplyEntraIdentity(CMIForgeUser user, AuthenticatedIdentity identity)
     {
         if (!string.IsNullOrWhiteSpace(identity.TenantId))
         {

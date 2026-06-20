@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class WorkflowStep
 {
@@ -18,7 +18,7 @@ public class WorkflowStep
 
     public Guid? AssignedUserId { get; set; }
 
-    public MatterForgeUser? AssignedUser { get; set; }
+    public CMIForgeUser? AssignedUser { get; set; }
 
     public Guid? AssignedTeamId { get; set; }
 
@@ -41,6 +41,10 @@ public class WorkflowStep
     public string NotificationBody { get; set; } = string.Empty;
 
     public string NotificationRecipients { get; set; } = string.Empty;
+
+    public Guid? NotificationTemplateId { get; set; }
+
+    public WorkflowNotificationTemplate? NotificationTemplate { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 

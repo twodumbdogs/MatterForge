@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class UserRole
 {
@@ -6,7 +6,7 @@ public class UserRole
 
     public Guid UserId { get; set; }
 
-    public MatterForgeUser? User { get; set; }
+    public CMIForgeUser? User { get; set; }
 
     public Guid SecurityRoleId { get; set; }
 

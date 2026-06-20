@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Conflicts.CreateModel
+@model CMIForge.Pages.Conflicts.CreateModel
 @{
     ViewData["Title"] = "Run Conflict Search";
 }
@@ -21,7 +21,7 @@
     {
         <div class="alert alert-info">
             Source submission:
-            <a asp-page="/Submissions/Details" asp-route-id="@Model.SourceSubmission.Id">@MatterForge.Services.RecordNumbers.Submission(Model.SourceSubmission.SubmissionNumber) - @Model.SourceSubmission.FormDefinition?.Name</a>
+            <a asp-page="/Submissions/Details" asp-route-id="@Model.SourceSubmission.Id">@CMIForge.Services.RecordNumbers.Submission(Model.SourceSubmission.SubmissionNumber) - @Model.SourceSubmission.FormDefinition?.Name</a>
         </div>
     }
 
@@ -33,8 +33,12 @@
         </div>
         <div class="col-md-4">
             <label asp-for="Input.MatterId" class="form-label"></label>
-            <select asp-for="Input.MatterId" asp-items="Model.MatterOptions" class="form-select">
+            <select asp-for="Input.MatterId" class="form-select" data-conflict-matter-select>
                 <option value="">No matter context</option>
+                @foreach (var matter in Model.MatterOptions)
+                {
+                    <option value="@matter.Id" data-matter-name="@matter.MatterName">@matter.Label</option>
+                }
             </select>
         </div>
         <div class="col-12">
@@ -53,4 +57,38 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const searchName = document.querySelector('[name="Input.SearchName"]');
+            const matterSelect = document.querySelector('[data-conflict-matter-select]');
+            if (!searchName || !matterSelect) {
+                return;
+            }
+
+            let autoValue = searchName.value.trim();
+            let userEdited = false;
+
+            searchName.addEventListener('input', () => {
+                userEdited = searchName.value.trim() !== '' && searchName.value.trim() !== autoValue;
+            });
+
+            matterSelect.addEventListener('change', () => {
+                const selectedOption = matterSelect.selectedOptions[0];
+                const matterName = selectedOption?.dataset.matterName?.trim();
+                if (!matterName) {
+                    return;
+                }
+
+                const currentValue = searchName.value.trim();
+                if (userEdited && currentValue !== autoValue) {
+                    return;
+                }
+
+                autoValue = `Conflicts - ${matterName}`;
+                searchName.value = autoValue;
+                searchName.dispatchEvent(new Event('input', { bubbles: true }));
+                userEdited = false;
+            });
+        })();
+    </script>
 }

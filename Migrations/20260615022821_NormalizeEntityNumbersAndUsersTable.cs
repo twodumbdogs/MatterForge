@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace MatterForge.Migrations
+namespace CMIForge.Migrations
 {
     /// <inheritdoc />
     public partial class NormalizeEntityNumbersAndUsersTable : Migration
@@ -11,7 +11,7 @@ namespace MatterForge.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
-                name: "FK_Matters_MatterForgeUsers_ResponsibleUserId",
+                name: "FK_Matters_CMIForgeUsers_ResponsibleUserId",
                 table: "Matters");
 
             migrationBuilder.DropIndex(
@@ -23,8 +23,8 @@ namespace MatterForge.Migrations
                 table: "Clients");
 
             migrationBuilder.DropPrimaryKey(
-                name: "PK_MatterForgeUsers",
-                table: "MatterForgeUsers");
+                name: "PK_CMIForgeUsers",
+                table: "CMIForgeUsers");
 
             migrationBuilder.DropColumn(
                 name: "MatterCode",
@@ -35,11 +35,11 @@ namespace MatterForge.Migrations
                 table: "Clients");
 
             migrationBuilder.RenameTable(
-                name: "MatterForgeUsers",
+                name: "CMIForgeUsers",
                 newName: "Users");
 
             migrationBuilder.RenameIndex(
-                name: "IX_MatterForgeUsers_Email",
+                name: "IX_CMIForgeUsers_Email",
                 table: "Users",
                 newName: "IX_Users_Email");
 
@@ -133,12 +133,12 @@ namespace MatterForge.Migrations
 
             migrationBuilder.RenameTable(
                 name: "Users",
-                newName: "MatterForgeUsers");
+                newName: "CMIForgeUsers");
 
             migrationBuilder.RenameIndex(
                 name: "IX_Users_Email",
-                table: "MatterForgeUsers",
-                newName: "IX_MatterForgeUsers_Email");
+                table: "CMIForgeUsers",
+                newName: "IX_CMIForgeUsers_Email");
 
             migrationBuilder.AddColumn<string>(
                 name: "MatterCode",
@@ -160,8 +160,8 @@ namespace MatterForge.Migrations
             migrationBuilder.Sql("UPDATE Matters SET MatterCode = RIGHT('00000000' + CAST(MatterNumber AS varchar(8)), 8);");
 
             migrationBuilder.AddPrimaryKey(
-                name: "PK_MatterForgeUsers",
-                table: "MatterForgeUsers",
+                name: "PK_CMIForgeUsers",
+                table: "CMIForgeUsers",
                 column: "Id");
 
             migrationBuilder.CreateIndex(
@@ -175,10 +175,10 @@ namespace MatterForge.Migrations
                 column: "ClientCode");
 
             migrationBuilder.AddForeignKey(
-                name: "FK_Matters_MatterForgeUsers_ResponsibleUserId",
+                name: "FK_Matters_CMIForgeUsers_ResponsibleUserId",
                 table: "Matters",
                 column: "ResponsibleUserId",
-                principalTable: "MatterForgeUsers",
+                principalTable: "CMIForgeUsers",
                 principalColumn: "Id");
         }
     }

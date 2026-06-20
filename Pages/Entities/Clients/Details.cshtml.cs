@@ -1,21 +1,24 @@
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Clients;
+namespace CMIForge.Pages.Entities.Clients;
 
 public class DetailsModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     EntityNoteService entityNoteService,
-    CurrentUserService currentUserService) : PageModel
+    CurrentUserService currentUserService,
+    AuditLogService auditLogService) : PageModel
 {
     public Client? Client { get; private set; }
 
     public List<EntityNote> Notes { get; private set; } = [];
+
+    public List<AuditLog> AuditHistory { get; private set; } = [];
 
     public List<EntityChangeRequest> PendingChanges { get; private set; } = [];
 
@@ -39,6 +42,7 @@ public class DetailsModel(
 
         var currentUser = await currentUserService.GetCurrentUserAsync();
         await entityNoteService.AddAsync(EntityNoteService.ClientEntityType, id, NewNote, currentUser?.Id);
+        await auditLogService.LogAsync("Client.NoteAdded", "Client", id, null, "Added client discussion note.");
         return RedirectToPage(new { id });
     }
 
@@ -58,6 +62,13 @@ public class DetailsModel(
         client.IsArchived = !client.IsArchived;
         client.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            client.IsArchived ? "Client.Archived" : "Client.Restored",
+            "Client",
+            client.Id,
+            client.ClientNumber.ToString("D8"),
+            $"{(client.IsArchived ? "Archived" : "Restored")} client {client.Name}.");
+
         return RedirectToPage(new { id });
     }
 
@@ -82,5 +93,9 @@ public class DetailsModel(
         Notes = Client is null
             ? []
             : await entityNoteService.ListAsync(EntityNoteService.ClientEntityType, id);
+
+        AuditHistory = Client is null
+            ? []
+            : await auditLogService.ListForEntityAsync("Client", id);
     }
 }

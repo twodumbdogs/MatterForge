@@ -1,15 +1,15 @@
 using System.ComponentModel.DataAnnotations;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Clients;
+namespace CMIForge.Pages.Entities.Clients;
 
 public class EditModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     CurrentUserService currentUserService,
     AuditLogService auditLogService) : PageModel

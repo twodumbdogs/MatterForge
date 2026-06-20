@@ -1,16 +1,16 @@
 using System.ComponentModel.DataAnnotations;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Conflicts;
+namespace CMIForge.Pages.Conflicts;
 
 public class CreateModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     ConflictSearchService conflictSearchService,
     CurrentUserService currentUserService,
     PermissionService permissionService) : PageModel
@@ -24,7 +24,7 @@ public class CreateModel(
     [BindProperty]
     public ConflictSearchInput Input { get; set; } = new();
 
-    public List<SelectListItem> MatterOptions { get; private set; } = [];
+    public List<MatterContextOption> MatterOptions { get; private set; } = [];
 
     public FormSubmission? SourceSubmission { get; private set; }
 
@@ -69,7 +69,10 @@ public class CreateModel(
         MatterOptions = await db.Matters
             .Include(x => x.Client)
             .OrderByDescending(x => x.MatterNumber)
-            .Select(x => new SelectListItem($"{x.MatterNumber:D8} - {x.Name} / {x.Client!.Name}", x.Id.ToString()))
+            .Select(x => new MatterContextOption(
+                x.Id,
+                $"{x.MatterNumber:D8} - {x.Name} / {x.Client!.Name}",
+                x.Name))
             .ToListAsync();
     }
 
@@ -110,7 +113,7 @@ public class CreateModel(
                 .FirstOrDefaultAsync(x => x.Id == MatterId.Value);
             if (matter is not null)
             {
-                Input.SearchName = $"Matter {matter.MatterNumber:D8} conflict search";
+                Input.SearchName = $"Conflicts - {matter.Name}";
                 Input.SearchTerms = string.Join(Environment.NewLine, new[] { matter.Client?.Name, matter.Name }.Where(x => !string.IsNullOrWhiteSpace(x)));
             }
         }
@@ -135,3 +138,5 @@ public class ConflictSearchInput
     [Display(Name = "Matter context")]
     public Guid? MatterId { get; set; }
 }
+
+public sealed record MatterContextOption(Guid Id, string Label, string MatterName);

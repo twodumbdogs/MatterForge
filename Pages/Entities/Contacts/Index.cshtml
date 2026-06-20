@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Entities.Contacts.IndexModel
+@model CMIForge.Pages.Entities.Contacts.IndexModel
 @{
     ViewData["Title"] = "Contacts";
     ViewData["ActiveEntityTab"] = "Contacts";
@@ -11,7 +11,10 @@
         <h1>Contacts</h1>
         <p class="text-muted">Address-book contacts that can link to clients and matters without becoming CMIForge users.</p>
     </div>
-    <a class="btn btn-primary" asp-page="./Create">Create contact</a>
+    <div class="mf-heading-actions">
+        <partial name="/Pages/Shared/_ListSearch.cshtml" model='new CMIForge.Models.ListSearchViewModel(Model.Search, "Find contact...", "Search contacts")' />
+        <a class="btn btn-primary" asp-page="./Create">Create contact</a>
+    </div>
 </div>
 
 <partial name="/Pages/Entities/_EntityTabs.cshtml" />
@@ -24,16 +27,16 @@
     else
     {
         <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle" data-no-sort>
                 <thead>
                     <tr>
-                        <th>Number</th>
-                        <th>Name</th>
-                        <th>Organization</th>
-                        <th>Email</th>
-                        <th>Phone</th>
-                        <th>Client links</th>
-                        <th>Matter links</th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "number")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="number" asp-route-sortDirection="@Model.NextSortDirection("number")">Number</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "name")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="name" asp-route-sortDirection="@Model.NextSortDirection("name")">Name</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "organization")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="organization" asp-route-sortDirection="@Model.NextSortDirection("organization")">Organization</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "email")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="email" asp-route-sortDirection="@Model.NextSortDirection("email")">Email</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "phone")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="phone" asp-route-sortDirection="@Model.NextSortDirection("phone")">Phone</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "client-links")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="client-links" asp-route-sortDirection="@Model.NextSortDirection("client-links")">Client links</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "matter-links")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="matter-links" asp-route-sortDirection="@Model.NextSortDirection("matter-links")">Matter links</a></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -60,5 +63,6 @@
                 </tbody>
             </table>
         </div>
+        <partial name="/Pages/Shared/_RecordPagination.cshtml" model='new CMIForge.Models.RecordPaginationViewModel(Model.Pagination, "contacts", Model.RouteValues)' />
     }
 </div>

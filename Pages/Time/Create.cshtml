@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Time.CreateModel
+@model CMIForge.Pages.Time.CreateModel
 @{
     ViewData["Title"] = "Record Time";
 }
@@ -15,13 +15,37 @@
 
 <form method="post" class="mf-panel">
     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="mf-timer mb-4" data-time-entry-timer>
+        <div>
+            <span class="mf-timer-label">Timer</span>
+            <strong data-timer-display>00:00:00</strong>
+            <small class="d-block text-muted">Start and stop here, then drop the elapsed time into the hours field.</small>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-primary" type="button" data-timer-start>Start</button>
+            <button class="btn btn-outline-secondary" type="button" data-timer-stop disabled>Stop</button>
+            <button class="btn btn-outline-dark" type="button" data-timer-apply>Use elapsed</button>
+            <button class="btn btn-outline-secondary" type="button" data-timer-reset>Reset</button>
+        </div>
+    </div>
     <div class="row g-3">
         <div class="col-md-6">
             <label asp-for="Input.MatterId" class="form-label"></label>
-            <select asp-for="Input.MatterId" asp-items="Model.MatterOptions" class="form-select">
+            <select asp-for="Input.MatterId" class="form-select" data-time-matter-select data-system-increment-label="@Model.SystemIncrementLabel">
                 <option value="">Choose matter...</option>
+                @foreach (var matter in Model.MatterOptions)
+                {
+                    <option value="@matter.Id"
+                            selected="@(Model.Input.MatterId == matter.Id)"
+                            data-requires-approval="@matter.RequiresApproval.ToString().ToLowerInvariant()"
+                            data-increment="@matter.IncrementMinutes"
+                            data-code-set="@matter.TimeCodeSetId">
+                        @matter.Label
+                    </option>
+                }
             </select>
             <span asp-validation-for="Input.MatterId" class="text-danger"></span>
+            <small class="text-muted" data-time-rule-summary>Uses @Model.SystemIncrementLabel until a matter-specific rule is selected.</small>
         </div>
         <div class="col-md-6">
             <label asp-for="Input.UserId" class="form-label"></label>
@@ -41,13 +65,39 @@
         </div>
         <div class="col-md-3">
             <label asp-for="Input.Hours" class="form-label"></label>
-            <input asp-for="Input.Hours" class="form-control" type="number" min="0.01" max="24" step="0.05" />
+            <input asp-for="Input.Hours" class="form-control" type="number" min="0.01" max="24" step="0.1" data-time-hours />
             <span asp-validation-for="Input.Hours" class="text-danger"></span>
         </div>
         <div class="col-md-3">
-            <label asp-for="Input.Status" class="form-label"></label>
-            <select asp-for="Input.Status" asp-items="Model.StatusOptions" class="form-select"></select>
-            <span asp-validation-for="Input.Status" class="text-danger"></span>
+            <label asp-for="Input.TimePhaseId" class="form-label"></label>
+            <select asp-for="Input.TimePhaseId" class="form-select" data-time-phase-select>
+                <option value="">No phase</option>
+                @foreach (var phase in Model.PhaseOptions)
+                {
+                    <option value="@phase.Id"
+                            selected="@(Model.Input.TimePhaseId == phase.Id)"
+                            data-code-set="@phase.TimeCodeSetId">
+                        @phase.Code - @phase.Name
+                    </option>
+                }
+            </select>
+            <span asp-validation-for="Input.TimePhaseId" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Input.TimeTaskId" class="form-label"></label>
+            <select asp-for="Input.TimeTaskId" class="form-select" data-time-task-select>
+                <option value="">No task</option>
+                @foreach (var task in Model.TaskOptions)
+                {
+                    <option value="@task.Id"
+                            selected="@(Model.Input.TimeTaskId == task.Id)"
+                            data-code-set="@task.TimeCodeSetId"
+                            data-phase="@task.TimePhaseId">
+                        @task.Code - @task.Name
+                    </option>
+                }
+            </select>
+            <span asp-validation-for="Input.TimeTaskId" class="text-danger"></span>
         </div>
         <div class="col-md-3 d-flex align-items-end">
             <div class="form-check mb-2">
@@ -56,17 +106,161 @@
             </div>
         </div>
         <div class="col-12">
-            <label asp-for="Input.Narrative" class="form-label"></label>
-            <textarea asp-for="Input.Narrative" class="form-control" rows="5"></textarea>
-            <span asp-validation-for="Input.Narrative" class="text-danger"></span>
+            <label asp-for="Input.ClientNarrative" class="form-label"></label>
+            <textarea asp-for="Input.ClientNarrative" class="form-control" rows="4"></textarea>
+            <span asp-validation-for="Input.ClientNarrative" class="text-danger"></span>
+        </div>
+        <div class="col-12">
+            <label asp-for="Input.InternalNotes" class="form-label"></label>
+            <textarea asp-for="Input.InternalNotes" class="form-control" rows="3"></textarea>
+            <span asp-validation-for="Input.InternalNotes" class="text-danger"></span>
         </div>
     </div>
     <div class="d-flex gap-2 mt-4">
-        <button class="btn btn-primary" type="submit">Save time</button>
+        <button class="btn btn-outline-primary" type="submit" name="actionType" value="draft">Save draft</button>
+        <button class="btn btn-primary" type="submit" name="actionType" value="submit">Submit</button>
         <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
     </div>
 </form>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const matterSelect = document.querySelector('[data-time-matter-select]');
+            const phaseSelect = document.querySelector('[data-time-phase-select]');
+            const taskSelect = document.querySelector('[data-time-task-select]');
+            const summary = document.querySelector('[data-time-rule-summary]');
+            const hoursInput = document.querySelector('[data-time-hours]');
+            const systemIncrementLabel = matterSelect?.dataset.systemIncrementLabel ?? 'system default';
+
+            function updateMatterRules() {
+                const selected = matterSelect?.selectedOptions?.[0];
+                const codeSet = selected?.dataset.codeSet ?? '';
+                const increment = selected?.dataset.increment ?? '';
+                const requiresApproval = selected?.dataset.requiresApproval === 'true';
+                const incrementLabel = increment === '6'
+                    ? '6-minute increments'
+                    : increment === '15'
+                        ? '15-minute increments'
+                        : increment === '0'
+                            ? 'actual time'
+                            : systemIncrementLabel;
+
+                if (summary) {
+                    summary.textContent = `${incrementLabel}; ${requiresApproval ? 'partner approval required' : 'submitted time auto-approves'}.`;
+                }
+
+                if (hoursInput) {
+                    hoursInput.step = increment === '15' ? '0.25' : increment === '6' || increment === '' ? '0.1' : '0.01';
+                }
+
+                filterOptions(phaseSelect, (option) => !option.value || option.dataset.codeSet === codeSet);
+                if (phaseSelect && phaseSelect.selectedOptions[0]?.hidden) {
+                    phaseSelect.value = '';
+                }
+
+                updateTasks();
+            }
+
+            function updateTasks() {
+                const selectedMatter = matterSelect?.selectedOptions?.[0];
+                const codeSet = selectedMatter?.dataset.codeSet ?? '';
+                const phase = phaseSelect?.value ?? '';
+                filterOptions(taskSelect, (option) => {
+                    if (!option.value) {
+                        return true;
+                    }
+
+                    return option.dataset.codeSet === codeSet && (!phase || option.dataset.phase === phase);
+                });
+
+                if (taskSelect && taskSelect.selectedOptions[0]?.hidden) {
+                    taskSelect.value = '';
+                }
+            }
+
+            function filterOptions(select, predicate) {
+                if (!select) {
+                    return;
+                }
+
+                Array.from(select.options).forEach((option) => {
+                    option.hidden = !predicate(option);
+                });
+            }
+
+            matterSelect?.addEventListener('change', updateMatterRules);
+            phaseSelect?.addEventListener('change', updateTasks);
+            updateMatterRules();
+
+            const timer = document.querySelector('[data-time-entry-timer]');
+            const display = timer?.querySelector('[data-timer-display]');
+            const startButton = timer?.querySelector('[data-timer-start]');
+            const stopButton = timer?.querySelector('[data-timer-stop]');
+            const applyButton = timer?.querySelector('[data-timer-apply]');
+            const resetButton = timer?.querySelector('[data-timer-reset]');
+            let startedAt = null;
+            let elapsedMs = 0;
+            let intervalId = null;
+
+            function renderTimer() {
+                const totalMs = elapsedMs + (startedAt ? Date.now() - startedAt : 0);
+                const totalSeconds = Math.floor(totalMs / 1000);
+                const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+                const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+                const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+                if (display) {
+                    display.textContent = `${hours}:${minutes}:${seconds}`;
+                }
+            }
+
+            startButton?.addEventListener('click', () => {
+                if (startedAt) {
+                    return;
+                }
+
+                startedAt = Date.now();
+                intervalId = window.setInterval(renderTimer, 1000);
+                startButton.disabled = true;
+                if (stopButton) {
+                    stopButton.disabled = false;
+                }
+                renderTimer();
+            });
+
+            stopButton?.addEventListener('click', () => {
+                if (!startedAt) {
+                    return;
+                }
+
+                elapsedMs += Date.now() - startedAt;
+                startedAt = null;
+                window.clearInterval(intervalId);
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                renderTimer();
+            });
+
+            applyButton?.addEventListener('click', () => {
+                const totalMs = elapsedMs + (startedAt ? Date.now() - startedAt : 0);
+                const hours = Math.max(totalMs / 3600000, 0.01);
+                if (hoursInput) {
+                    hoursInput.value = hours.toFixed(2);
+                    hoursInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+
+            resetButton?.addEventListener('click', () => {
+                startedAt = null;
+                elapsedMs = 0;
+                window.clearInterval(intervalId);
+                startButton.disabled = false;
+                if (stopButton) {
+                    stopButton.disabled = true;
+                }
+                renderTimer();
+            });
+        })();
+    </script>
 }

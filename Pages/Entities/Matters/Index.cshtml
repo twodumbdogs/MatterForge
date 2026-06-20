@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Entities.Matters.IndexModel
+@model CMIForge.Pages.Entities.Matters.IndexModel
 @{
     ViewData["Title"] = "Matters";
     ViewData["ActiveEntityTab"] = "Matters";
@@ -10,40 +10,37 @@
         <p class="mf-eyebrow">Entities</p>
         <h1>Matters</h1>
     </div>
-    <a class="btn btn-primary" asp-page="./Create">Create matter</a>
+    <div class="mf-heading-actions">
+        <partial name="/Pages/Shared/_ListSearch.cshtml" model='new CMIForge.Models.ListSearchViewModel(Model.Search, "Find matter...", "Search matters")' />
+        <a class="btn btn-primary" asp-page="./Create">Create matter</a>
+    </div>
 </div>
 
 <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
 <div class="mf-panel">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div>
-            <strong>@(Model.Archived ? "Archived matters" : "Active matters")</strong>
-            <small class="d-block text-muted">Archived records stay available for conflicts and can be restored from their detail page.</small>
-        </div>
-        <div class="btn-group btn-group-sm" role="group" aria-label="Matter archive filter">
-            <a class="btn @(Model.Archived ? "btn-outline-secondary" : "btn-primary")" asp-page="./Index">Active</a>
-            <a class="btn @(Model.Archived ? "btn-primary" : "btn-outline-secondary")" asp-page="./Index" asp-route-archived="true">Archived</a>
-        </div>
+    <div class="mb-3">
+        <strong>Active matters</strong>
+        <small class="d-block text-muted">Archived records stay available for conflicts and can be restored from System &gt; Archive.</small>
     </div>
 
     @if (Model.Matters.Count == 0)
     {
-        <p class="text-muted mb-0">No @(Model.Archived ? "archived" : "active") matters found.</p>
+        <p class="text-muted mb-0">No active matters found.</p>
     }
     else
     {
         <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle" data-no-sort>
                 <thead>
                     <tr>
-                        <th>Number</th>
-                        <th>Matter</th>
-                        <th>Client</th>
-                        <th>Practice area</th>
-                        <th>Status</th>
-                        <th>Responsible user</th>
-                        <th>Opened</th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "number")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="number" asp-route-sortDirection="@Model.NextSortDirection("number")">Number</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "matter")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="matter" asp-route-sortDirection="@Model.NextSortDirection("matter")">Matter</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "client")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="client" asp-route-sortDirection="@Model.NextSortDirection("client")">Client</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "practice")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="practice" asp-route-sortDirection="@Model.NextSortDirection("practice")">Practice area</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "status")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="status" asp-route-sortDirection="@Model.NextSortDirection("status")">Status</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "responsible")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="responsible" asp-route-sortDirection="@Model.NextSortDirection("responsible")">Responsible user</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "opened")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="opened" asp-route-sortDirection="@Model.NextSortDirection("opened")">Opened</a></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -51,9 +48,7 @@
                     {
                         <tr>
                             <td><a asp-page="./Details" asp-route-id="@matter.Id"><code>@matter.MatterNumber.ToString("D8")</code></a></td>
-                            <td>
-                                <strong>@matter.Name</strong>
-                            </td>
+                            <td><strong>@matter.Name</strong></td>
                             <td>@matter.Client?.Name</td>
                             <td>@matter.PracticeArea</td>
                             <td><span class="badge text-bg-primary">@matter.Status</span></td>
@@ -64,5 +59,6 @@
                 </tbody>
             </table>
         </div>
+        <partial name="/Pages/Shared/_RecordPagination.cshtml" model='new CMIForge.Models.RecordPaginationViewModel(Model.Pagination, "active matters", Model.RouteValues)' />
     }
 </div>

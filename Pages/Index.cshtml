@@ -1,6 +1,6 @@
 @page
 @model IndexModel
-@inject MatterForge.Services.TenantBrandingService TenantBranding
+@inject CMIForge.Services.TenantBrandingService TenantBranding
 @{
     ViewData["Title"] = "Dashboard";
     var tenantDisplayName = await TenantBranding.GetDisplayNameAsync();
@@ -18,22 +18,22 @@
 </section>
 
 <section class="mf-stat-grid" aria-label="@tenantDisplayName counts">
-    <div class="mf-stat">
+    <a class="mf-stat mf-stat-link" asp-page="/Forms/Index" aria-label="View active forms">
         <span>@Model.FormCount</span>
         <strong>Active forms</strong>
-    </div>
-    <div class="mf-stat">
+    </a>
+    <a class="mf-stat mf-stat-link" asp-page="/Submissions/Index" aria-label="View submissions">
         <span>@Model.SubmissionCount</span>
         <strong>Submissions</strong>
-    </div>
-    <div class="mf-stat">
+    </a>
+    <a class="mf-stat mf-stat-link" asp-page="/Forms/Index" aria-label="View published form versions">
         <span>@Model.PublishedVersionCount</span>
         <strong>Published versions</strong>
-    </div>
-    <div class="mf-stat">
+    </a>
+    <a class="mf-stat mf-stat-link" asp-page="/Time/Index" aria-label="View recorded hours">
         <span>@Model.TimeHours.ToString("0.0")</span>
         <strong>Recorded hours</strong>
-    </div>
+    </a>
 </section>
 
 <section class="mf-dashboard-grid mb-4">

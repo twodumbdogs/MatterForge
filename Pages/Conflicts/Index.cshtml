@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Conflicts.IndexModel
+@model CMIForge.Pages.Conflicts.IndexModel
 @{
     ViewData["Title"] = "Conflicts";
 }
@@ -17,6 +17,22 @@
 </div>
 
 <div class="mf-panel">
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-md-8 col-lg-6">
+            <label asp-for="Query" class="form-label">Search conflicts</label>
+            <input asp-for="Query" class="form-control" placeholder="Name, matter, client, clearance notes, result text" />
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-outline-primary" type="submit">Search</button>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.Query))
+        {
+            <div class="col-auto">
+                <a class="btn btn-outline-secondary" asp-page="./Index">Clear</a>
+            </div>
+        }
+    </form>
+
     @if (Model.Searches.Count == 0)
     {
         <p class="text-muted mb-0">No conflict searches yet.</p>
@@ -24,7 +40,7 @@
     else
     {
         <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle mf-compact-table">
                 <thead>
                     <tr>
                         <th>Number</th>
@@ -39,35 +55,35 @@
                 <tbody>
                     @foreach (var search in Model.Searches)
                     {
-                        var topRisk = search.Results
-                            .OrderByDescending(x => Array.IndexOf(MatterForge.Models.ConflictRiskLevels.All, x.RiskLevel))
-                            .ThenByDescending(x => x.Score)
-                            .FirstOrDefault();
                         <tr>
-                            <td><a asp-page="./Details" asp-route-id="@search.Id"><code>@MatterForge.Services.RecordNumbers.ConflictSearch(search.SearchNumber)</code></a></td>
-                            <td>
+                            <td><a asp-page="./Details" asp-route-id="@search.Id"><code>@CMIForge.Services.RecordNumbers.ConflictSearch(search.SearchNumber)</code></a></td>
+                            <td class="mf-truncate-cell">
                                 <a class="mf-record-link" asp-page="./Details" asp-route-id="@search.Id">
                                     <strong>@search.SearchName</strong>
-                                    @if (search.FormSubmission is not null)
+                                    @if (search.IsArchived)
                                     {
-                                        <small class="d-block text-muted">Submission @MatterForge.Services.RecordNumbers.Submission(search.FormSubmission.SubmissionNumber) · @search.FormSubmission.FormDefinition?.Name</small>
+                                        <span class="badge text-bg-light ms-1">Archived</span>
                                     }
-                                    @if (search.Matter is not null)
+                                    @if (search.SubmissionNumber.HasValue)
                                     {
-                                        <small class="d-block text-muted">Matter @search.Matter.MatterNumber.ToString("D8") · @search.Matter.Name</small>
+                                        <span class="mf-inline-context">Submission @CMIForge.Services.RecordNumbers.Submission(search.SubmissionNumber.Value) &middot; @search.FormName</span>
+                                    }
+                                    @if (search.MatterNumber.HasValue)
+                                    {
+                                        <span class="mf-inline-context">Matter @search.MatterNumber.Value.ToString("D8") &middot; @search.MatterName</span>
                                     }
                                 </a>
                             </td>
                             <td><span class="badge text-bg-primary">@search.Status</span></td>
                             <td>@search.ReviewerDecision</td>
                             <td>
-                                @search.Results.Count
-                                @if (topRisk is not null)
+                                @search.ResultCount
+                                @if (!string.IsNullOrWhiteSpace(search.HighestRiskLevel))
                                 {
-                                    <span class="badge @RiskClass(topRisk.RiskLevel) ms-1">@topRisk.RiskLevel</span>
+                                    <span class="badge @RiskClass(search.HighestRiskLevel) ms-1">@search.HighestRiskLevel</span>
                                 }
                             </td>
-                            <td>@(search.RequestedByUser?.DisplayName ?? "System")</td>
+                            <td>@search.RequestedBy</td>
                             <td>@UserDates.Format(search.CreatedAt)</td>
                         </tr>
                     }
@@ -82,9 +98,9 @@
     {
         return risk switch
         {
-            MatterForge.Models.ConflictRiskLevels.Critical => "text-bg-danger",
-            MatterForge.Models.ConflictRiskLevels.High => "text-bg-warning",
-            MatterForge.Models.ConflictRiskLevels.Medium => "text-bg-info",
+            CMIForge.Models.ConflictRiskLevels.Critical => "text-bg-danger",
+            CMIForge.Models.ConflictRiskLevels.High => "text-bg-warning",
+            CMIForge.Models.ConflictRiskLevels.Medium => "text-bg-info",
             _ => "text-bg-secondary"
         };
     }

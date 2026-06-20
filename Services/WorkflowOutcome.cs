@@ -1,7 +1,7 @@
 using System.Text.Json;
-using MatterForge.Models;
+using CMIForge.Models;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public static class WorkflowOutcomeActions
 {

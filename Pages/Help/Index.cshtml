@@ -140,7 +140,7 @@
             <p>Conflict searches compare entered search terms against the party index and prior conflict history. The search engine normalizes names, checks aliases, scores fuzzy matches, expands strong matches through known party relationships, and checks previous search/review text for recurring issues.</p>
             <ul>
                 <li>Searches can be linked to a submission or a matter.</li>
-                <li>Results show score, risk, matched item, matter/client context, explanation, AI assist assessment, and row-level clearance state.</li>
+                <li>Results show match strength, risk, matched item, matter/client context, explanation, AI assist assessment, and row-level clearance state.</li>
                 <li>Reviewer decisions can be recorded at the overall search level or on individual result rows.</li>
                 <li>Previous conflict search names, terms, review notes, AI summaries, and result clearance notes are included as searchable history.</li>
                 <li>Submission forms can show a floating live conflict preview while a user types client and matter names, giving early warnings before the form is submitted.</li>
@@ -168,8 +168,10 @@
             <ul>
                 <li>Time entries receive stable eight-digit numbers.</li>
                 <li>Each entry links to a user, client, and matter.</li>
-                <li>Entries capture work date, hours, billable flag, status, and narrative.</li>
-                <li>Status values include <code>Draft</code>, <code>Submitted</code>, <code>Approved</code>, <code>Billed</code>, and <code>No Charge</code>.</li>
+                <li>Entries capture work date, hours, billable flag, status, client narrative, internal notes, and optional phase/task codes.</li>
+                <li>Status values include <code>Draft</code>, <code>Submitted</code>, and <code>Approved</code>.</li>
+                <li>Matters can require lead-partner approval before submitted time becomes approved.</li>
+                <li>Approved and exported entries are locked from normal editing.</li>
                 <li>The time list can be filtered by date range, matter, status, and user when permissions allow.</li>
                 <li>Users can export filtered time entries to CSV.</li>
                 <li>Matter pages provide a shortcut to record time directly against that matter.</li>
@@ -221,7 +223,9 @@
                 <li>Settings updates are audit logged.</li>
                 <li>Settings are hidden from the System menu and read-only in demo mode.</li>
                 <li>Password resets, MFA, account verification, lockout, and sign-in policy belong in Microsoft Entra, not inside CMIForge settings.</li>
-                <li>The Terms & Conditions page lives under System and describes the baseline SaaS terms, data protection posture, support access, maintenance access, and related customer responsibilities.</li>
+                <li>The Terms & Conditions page lives under System and describes the baseline SaaS terms, legal-use rules, license conditions, data protection posture, support access, maintenance access, and related customer responsibilities.</li>
+                <li>Public workspace signup requires the submitter to accept the current CMIForge SaaS Terms, Legal Use, and License Agreement before the request can be sent.</li>
+                <li>Agreement acceptance is recorded with the signup request, including the customer name, signer name and email, accepted agreement version, product version, timestamp, IP address, and browser user agent.</li>
             </ul>
         </section>
 

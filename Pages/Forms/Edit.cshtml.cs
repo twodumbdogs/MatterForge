@@ -1,18 +1,18 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Forms;
+namespace CMIForge.Pages.Forms;
 
 public partial class EditModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     ProductPlanService productPlanService,
     AuditLogService auditLogService) : PageModel
@@ -28,6 +28,8 @@ public partial class EditModel(
     public List<SelectListItem> WorkflowOptions { get; private set; } = [];
 
     public int CurrentVersionNumber { get; private set; }
+
+    public int MaxFieldCount => FormDesignerLimits.MaxFields;
 
     public bool CanAttachWorkflow => productPlanService.AllowsFeature(ProductFeatureKeys.Workflow);
 
@@ -58,6 +60,20 @@ public partial class EditModel(
         }
 
         var schema = FormJson.DeserializeSchema(latestVersion.SchemaJson);
+        var existingFields = schema.Fields
+            .Select(x => new EditFieldInput
+            {
+                Label = x.Label,
+                Key = x.Key,
+                Type = x.Type,
+                Required = x.Required,
+                Options = string.Join(", ", x.Options)
+            })
+            .ToList();
+        var blankRows = Math.Min(
+            FormDesignerLimits.BlankRows,
+            Math.Max(0, FormDesignerLimits.MaxFields - existingFields.Count));
+
         CurrentVersionNumber = latestVersion.VersionNumber;
         Input = new EditFormInput
         {
@@ -65,16 +81,8 @@ public partial class EditModel(
             Key = form.Key,
             Description = form.Description,
             WorkflowDefinitionId = latestVersion.WorkflowDefinitionId,
-            Fields = schema.Fields
-                .Select(x => new EditFieldInput
-                {
-                    Label = x.Label,
-                    Key = x.Key,
-                    Type = x.Type,
-                    Required = x.Required,
-                    Options = string.Join(", ", x.Options)
-                })
-                .Concat([new EditFieldInput(), new EditFieldInput(), new EditFieldInput()])
+            Fields = existingFields
+                .Concat(Enumerable.Range(0, blankRows).Select(_ => new EditFieldInput()))
                 .ToList()
         };
 
@@ -114,6 +122,11 @@ public partial class EditModel(
         if (fields.Count == 0)
         {
             ModelState.AddModelError(string.Empty, "Add at least one field before publishing a new version.");
+        }
+
+        if (fields.Count > FormDesignerLimits.MaxFields)
+        {
+            ModelState.AddModelError(string.Empty, $"Forms can have up to {FormDesignerLimits.MaxFields} fields.");
         }
 
         if (!string.IsNullOrWhiteSpace(Input.Key) && !SlugRegex().IsMatch(Input.Key))

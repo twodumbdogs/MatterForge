@@ -1,17 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Workflow.Definitions;
+namespace CMIForge.Pages.Workflow.Definitions;
 
 public partial class CreateModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     ProductPlanService productPlanService,
     AuditLogService auditLogService) : PageModel
@@ -24,6 +24,10 @@ public partial class CreateModel(
     public List<SelectListItem> UserOptions { get; private set; } = [];
 
     public List<SelectListItem> TeamOptions { get; private set; } = [];
+
+    public List<SelectListItem> NotificationRecipientOptions { get; private set; } = [];
+
+    public List<SelectListItem> NotificationTemplateOptions { get; private set; } = [];
 
     public List<SelectListItem> StepTypeOptions { get; } = WorkflowStepTypes.All
         .Select(x => new SelectListItem(x, x))
@@ -51,6 +55,7 @@ public partial class CreateModel(
         }
 
         await LoadOptionsAsync();
+        ApplyDefaultNotificationTemplate();
         return Page();
     }
 
@@ -110,7 +115,8 @@ public partial class CreateModel(
                 ConditionValue = step.ConditionValue?.Trim() ?? string.Empty,
                 NotificationSubject = step.NotificationSubject?.Trim() ?? string.Empty,
                 NotificationBody = step.NotificationBody?.Trim() ?? string.Empty,
-                NotificationRecipients = step.NotificationRecipients?.Trim() ?? string.Empty
+                NotificationRecipients = WorkflowNotificationRecipientInput.Normalize(step.NotificationRecipientTokens),
+                NotificationTemplateId = IsNotificationStep(step) ? step.NotificationTemplateId : null
             });
         }
 
@@ -176,7 +182,11 @@ public partial class CreateModel(
                 ModelState.AddModelError(string.Empty, $"Invalid routing condition for step {step.StepNumber}.");
             }
 
-            if (!IsNotificationStep(step))
+            if (IsNotificationStep(step))
+            {
+                ValidateNotificationRecipients(step);
+            }
+            else
             {
                 var outcomes = WorkflowOutcomeParser.FromDesignerText(step.Outcomes, step.ApprovalLabel, step.CompletionSubmissionStatus);
                 if (outcomes.Count == 0)
@@ -232,6 +242,58 @@ public partial class CreateModel(
             .OrderBy(x => x.Name)
             .Select(x => new SelectListItem(x.Name, x.Id.ToString()))
             .ToListAsync();
+
+        NotificationRecipientOptions = await WorkflowNotificationRecipientInput.LoadOptionsAsync(db);
+
+        NotificationTemplateOptions = await db.WorkflowNotificationTemplates
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.Key == "workflow-step-update" ? 0 : 1)
+            .ThenBy(x => x.Name)
+            .Select(x => new SelectListItem(x.Name, x.Id.ToString()))
+            .ToListAsync();
+    }
+
+    private void ValidateNotificationRecipients(WorkflowStepInput step)
+    {
+        var selected = step.NotificationRecipientTokens
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+        if (selected.Count == 0)
+        {
+            ModelState.AddModelError(string.Empty, $"Select at least one notification recipient for step {step.StepNumber}.");
+            return;
+        }
+
+        var validTokens = NotificationRecipientOptions
+            .Select(x => x.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var token in selected)
+        {
+            if (!validTokens.Contains(token))
+            {
+                ModelState.AddModelError(string.Empty, $"Notification step {step.StepNumber} has an invalid recipient selection.");
+                return;
+            }
+        }
+
+        if (step.NotificationTemplateId.HasValue && NotificationTemplateOptions.All(x => x.Value != step.NotificationTemplateId.Value.ToString()))
+        {
+            ModelState.AddModelError(string.Empty, $"Notification step {step.StepNumber} has an invalid notification template.");
+        }
+    }
+
+    private void ApplyDefaultNotificationTemplate()
+    {
+        var defaultTemplateId = NotificationTemplateOptions.FirstOrDefault()?.Value;
+        if (!Guid.TryParse(defaultTemplateId, out var templateId))
+        {
+            return;
+        }
+
+        foreach (var step in Input.Steps.Where(IsNotificationStep))
+        {
+            step.NotificationTemplateId ??= templateId;
+        }
     }
 
     [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$")]
@@ -263,7 +325,7 @@ public class WorkflowDefinitionInput
             Steps =
             [
                 new() { StepNumber = 1, Name = "Review", ApprovalLabel = "Approve", CompletionSubmissionStatus = SubmissionStatuses.InReview },
-                new() { StepNumber = 2, Name = "Notify Intake Team", StepType = WorkflowStepTypes.Notification, NotificationRecipients = "assigned; submitter", NotificationSubject = "Submission {{SubmissionNumber}} is moving", NotificationBody = "{{WorkflowName}} reached {{StepName}} for {{SubmissionNumber}}." },
+                new() { StepNumber = 2, Name = "Notify Intake Team", StepType = WorkflowStepTypes.Notification, NotificationRecipientTokens = [WorkflowNotificationRecipientTokens.Assigned, WorkflowNotificationRecipientTokens.Submitter], NotificationSubject = "Submission {{SubmissionNumber}} is moving", NotificationBody = "{{WorkflowName}} reached {{StepName}} for {{SubmissionNumber}}." },
                 new() { StepNumber = 3, Name = "Final Approval", ApprovalLabel = "Approve", CompletionSubmissionStatus = SubmissionStatuses.Approved, Outcomes = "Approve|Complete|Approved; Return|Return|Returned" },
                 new() { StepNumber = 4, ApprovalLabel = "Approve", CompletionSubmissionStatus = SubmissionStatuses.InReview }
             ]
@@ -304,4 +366,67 @@ public class WorkflowStepInput
     public string? NotificationBody { get; set; }
 
     public string? NotificationRecipients { get; set; }
+
+    public List<string> NotificationRecipientTokens { get; set; } = [];
+
+    public Guid? NotificationTemplateId { get; set; }
+}
+
+public static class WorkflowNotificationRecipientInput
+{
+    private static readonly SelectListGroup WorkflowGroup = new() { Name = "Workflow" };
+    private static readonly SelectListGroup UsersGroup = new() { Name = "Users" };
+    private static readonly SelectListGroup ContactsGroup = new() { Name = "Contacts" };
+
+    public static async Task<List<SelectListItem>> LoadOptionsAsync(CMIForgeDbContext db)
+    {
+        var options = new List<SelectListItem>
+        {
+            new("Assigned user/team", WorkflowNotificationRecipientTokens.Assigned) { Group = WorkflowGroup },
+            new("Submitter", WorkflowNotificationRecipientTokens.Submitter) { Group = WorkflowGroup }
+        };
+
+        var users = await db.Users
+            .Where(x => x.IsActive && !x.IsArchived && x.Email != string.Empty)
+            .OrderBy(x => x.DisplayName)
+            .Select(x => new { x.Id, x.DisplayName, x.Email })
+            .ToListAsync();
+        options.AddRange(users.Select(x => new SelectListItem(
+            $"{x.DisplayName} ({x.Email})",
+            WorkflowNotificationRecipientTokens.User(x.Id))
+        {
+            Group = UsersGroup
+        }));
+
+        var contacts = await db.Contacts
+            .Where(x => !x.IsArchived && x.Email != string.Empty)
+            .OrderBy(x => x.DisplayName)
+            .Select(x => new { x.Id, x.DisplayName, x.Email })
+            .ToListAsync();
+        options.AddRange(contacts.Select(x => new SelectListItem(
+            $"{x.DisplayName} ({x.Email})",
+            WorkflowNotificationRecipientTokens.Contact(x.Id))
+        {
+            Group = ContactsGroup
+        }));
+
+        return options;
+    }
+
+    public static string Normalize(IEnumerable<string>? tokens)
+    {
+        return string.Join(';', (tokens ?? [])
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    public static List<string> Parse(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? []
+            : value
+                .Split([';', ',', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+    }
 }

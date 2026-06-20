@@ -1,10 +1,10 @@
 using System.Text.Json;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
-namespace MatterForge.Data;
+namespace CMIForge.Data;
 
 public static class SeedData
 {
@@ -19,26 +19,30 @@ public static class SeedData
     public static async Task EnsureSeededAsync(IServiceProvider services)
     {
         using var scope = services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<MatterForgeDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<CMIForgeDbContext>();
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-        var runMigrationsOnStartup = configuration.GetValue("MatterForge:RunMigrationsOnStartup", false);
-        var runSeedDataOnStartup = configuration.GetValue("MatterForge:RunSeedDataOnStartup", false);
+        var runMigrationsOnStartup = configuration.GetValue("CMIForge:RunMigrationsOnStartup", false);
+        var runSeedDataOnStartup = configuration.GetValue("CMIForge:RunSeedDataOnStartup", false);
         if (db.Database.IsRelational() && runMigrationsOnStartup)
         {
             await db.Database.MigrateAsync();
         }
+
+        var archiveService = scope.ServiceProvider.GetRequiredService<ConflictSearchArchiveService>();
+        await archiveService.ArchiveExistingClearedSearchesAsync();
 
         if (!runSeedDataOnStartup)
         {
             return;
         }
 
-        var seedSampleData = configuration.GetValue("MatterForge:SeedSampleData", false);
+        var seedSampleData = configuration.GetValue("CMIForge:SeedSampleData", false);
         await EnsureApplicationSeedDataAsync(db, seedSampleData);
+        await ApplyConfiguredSystemSettingsAsync(db, configuration);
     }
 
-    public static async Task EnsureApplicationSeedDataAsync(MatterForgeDbContext db, bool seedSampleData = true)
+    public static async Task EnsureApplicationSeedDataAsync(CMIForgeDbContext db, bool seedSampleData = true)
     {
         if (seedSampleData)
         {
@@ -47,8 +51,11 @@ public static class SeedData
 
         await EnsureStarterSecurityAsync(db);
         await EnsureStarterSystemSettingsAsync(db);
+        await EnsureStarterNotificationTemplatesAsync(db);
+        await EnsureStarterTimeCodeSetsAsync(db);
         await EnsureStarterFormAsync(db, seedSampleData);
         await EnsureStarterWorkflowAsync(db);
+        await EnsureStarterConflictReferencePartiesAsync(db);
 
         if (seedSampleData)
         {
@@ -58,7 +65,35 @@ public static class SeedData
         }
     }
 
-    private static async Task EnsureStarterUserAsync(MatterForgeDbContext db)
+    private static async Task ApplyConfiguredSystemSettingsAsync(CMIForgeDbContext db, IConfiguration configuration)
+    {
+        var overrides = configuration.GetSection("CMIForge:SystemSettings").GetChildren().ToList();
+        if (overrides.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var item in overrides)
+        {
+            if (string.IsNullOrWhiteSpace(item.Key) || item.Value is null)
+            {
+                continue;
+            }
+
+            var setting = await db.SystemSettings.FirstOrDefaultAsync(x => x.Key == item.Key);
+            if (setting is null)
+            {
+                continue;
+            }
+
+            setting.Value = item.Value.Trim();
+            setting.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureStarterUserAsync(CMIForgeDbContext db)
     {
         var protectedUser = await db.Users.FirstOrDefaultAsync(x => x.SystemId == DemoUserSystemId);
         if (protectedUser is null)
@@ -66,7 +101,7 @@ public static class SeedData
             protectedUser = await db.Users.FirstOrDefaultAsync(x => x.Email == LegacyStarterUserEmail);
             if (protectedUser is null)
             {
-                protectedUser = new MatterForgeUser
+                protectedUser = new CMIForgeUser
                 {
                     SystemId = DemoUserSystemId,
                     FirstName = "User",
@@ -97,7 +132,7 @@ public static class SeedData
             var databaseMaxSystemId = await db.Users.MaxAsync(x => (int?)x.SystemId) ?? 0;
             var localMaxSystemId = db.Users.Local.Count == 0 ? 0 : db.Users.Local.Max(x => x.SystemId);
             var nextSystemId = Math.Max(databaseMaxSystemId, localMaxSystemId) + 1;
-            demoUser = new MatterForgeUser
+            demoUser = new CMIForgeUser
             {
                 SystemId = nextSystemId,
                 FirstName = DemoUserFirstName,
@@ -133,7 +168,7 @@ public static class SeedData
         await db.SaveChangesAsync();
     }
 
-    private static async Task EnsureStarterSecurityAsync(MatterForgeDbContext db)
+    private static async Task EnsureStarterSecurityAsync(CMIForgeDbContext db)
     {
         var protectedUser = await db.Users.FirstOrDefaultAsync(x => x.SystemId == DemoUserSystemId);
         var demoUser = await FindDemoUserAsync(db);
@@ -189,6 +224,7 @@ public static class SeedData
         var workflowDesigner = await EnsureRoleAsync(db, "Workflow Designer", "workflow-designer", "Can design forms and workflows.", false);
         var intakeReviewer = await EnsureRoleAsync(db, "Intake Reviewer", "intake-reviewer", "Can review and approve assigned intake workflow tasks.", false);
         var entityManager = await EnsureRoleAsync(db, "Entity Manager", "entity-manager", "Can view, create, and edit operational entities.", false);
+        var partner = await EnsureRoleAsync(db, "Partner", SecurityRoleKeys.Partner, "Can be selected as lead partner and review partner-level intake work.", false);
         var submitter = await EnsureRoleAsync(db, "Submitter", "submitter", "Can submit forms and view their own submissions.", false);
 
         await EnsureRolePermissionsAsync(db, administrator, permissions.Select(x => x.Key).ToArray());
@@ -223,6 +259,17 @@ public static class SeedData
             PermissionKeys.TimeViewAll,
             PermissionKeys.TimeCreate,
             PermissionKeys.TimeEdit,
+            PermissionKeys.ReportingView);
+        await EnsureRolePermissionsAsync(db, partner,
+            PermissionKeys.FormsView,
+            PermissionKeys.SubmissionsViewAll,
+            PermissionKeys.SubmissionsApprove,
+            PermissionKeys.WorkflowsViewQueue,
+            PermissionKeys.WorkflowsViewAllQueues,
+            PermissionKeys.ConflictsView,
+            PermissionKeys.ConflictsRun,
+            PermissionKeys.ConflictsReview,
+            PermissionKeys.TimeViewAll,
             PermissionKeys.ReportingView);
         await EnsureRolePermissionsAsync(db, submitter,
             PermissionKeys.FormsView,
@@ -260,28 +307,36 @@ public static class SeedData
         await db.SaveChangesAsync();
     }
 
-    private static async Task EnsureStarterConflictDataAsync(MatterForgeDbContext db)
+    private static async Task EnsureStarterConflictDataAsync(CMIForgeDbContext db)
     {
         var conflictSearchService = new ConflictSearchService(db);
         await conflictSearchService.SyncExistingClientMatterPartiesAsync();
         await EnsureDemoConflictPartiesAsync(db, conflictSearchService);
     }
 
-    private static async Task EnsureStarterSystemSettingsAsync(MatterForgeDbContext db)
+    private static async Task EnsureStarterConflictReferencePartiesAsync(CMIForgeDbContext db)
+    {
+        var conflictSearchService = new ConflictSearchService(db);
+        await EnsureDemoConflictPartiesAsync(db, conflictSearchService);
+    }
+    private static async Task EnsureStarterSystemSettingsAsync(CMIForgeDbContext db)
     {
         var settings = new[]
         {
             new SettingSeed("General.SupportEmail", "General", "Support email", "Primary support address shown to users and used in outbound support-related messages.", "support@cmiforge.com", SystemSettingValueTypes.Email),
             new SettingSeed("General.DefaultTimeZone", "General", "Default timezone", "Fallback timezone used when the browser has not provided a local timezone cookie.", "Central Standard Time", SystemSettingValueTypes.Text),
             new SettingSeed(TenantBrandingService.FirmNameSettingKey, "Branding", "Firm name", "Display name shown in the upper-left navigation for this customer or firm.", ProductInfo.Name, SystemSettingValueTypes.Text),
-            new SettingSeed("Email.NotificationsEnabled", "Email", "Enable email notifications", "Turns outbound workflow and system email notifications on or off once notification sending is wired.", "false", SystemSettingValueTypes.Boolean),
-            new SettingSeed("Email.SmtpHost", "Email", "SMTP host", "Hostname for the SMTP server used for outbound notifications.", string.Empty, SystemSettingValueTypes.Text),
-            new SettingSeed("Email.SmtpPort", "Email", "SMTP port", "Port for the SMTP server. Common values are 25, 465, and 587.", "587", SystemSettingValueTypes.Integer),
-            new SettingSeed("Email.SmtpUseSsl", "Email", "Use SSL/TLS", "Whether SMTP should use SSL/TLS for outbound connections.", "true", SystemSettingValueTypes.Boolean),
-            new SettingSeed("Email.SmtpUsername", "Email", "SMTP username", "Username for SMTP authentication, when required.", string.Empty, SystemSettingValueTypes.Text),
-            new SettingSeed("Email.SmtpPasswordSecretName", "Email", "SMTP password secret", "Key Vault secret name or secret identifier for the SMTP password. The secret value itself should live in Key Vault, not in CMIForge settings.", string.Empty, SystemSettingValueTypes.SecretReference, IsSecret: true),
-            new SettingSeed("Email.FromEmail", "Email", "From email", "Email address used as the sender for outbound CMIForge notifications.", "support@cmiforge.com", SystemSettingValueTypes.Email),
-            new SettingSeed("Email.FromName", "Email", "From name", "Display name used as the sender for outbound CMIForge notifications.", "CMIForge", SystemSettingValueTypes.Text)
+            new SettingSeed("AddressLookup.Enabled", "Address Lookup", "Enable address lookup", "Turns address autocomplete suggestions on for client and contact address fields when a provider key is configured.", "false", SystemSettingValueTypes.Boolean),
+            new SettingSeed("AddressLookup.GeoapifyApiKey", "Address Lookup", "Geoapify API key", "Server-side Geoapify key used for address autocomplete. The key is never sent to browsers.", string.Empty, SystemSettingValueTypes.SecretReference, IsSecret: true),
+            new SettingSeed("AddressLookup.CountryFilter", "Address Lookup", "Country filter", "Optional ISO country code used to narrow address suggestions, such as us. Leave blank for worldwide lookup.", "us", SystemSettingValueTypes.Text),
+            new SettingSeed("AddressLookup.ResultLimit", "Address Lookup", "Suggestion limit", "Maximum address suggestions returned while a user types.", "5", SystemSettingValueTypes.Integer),
+            new SettingSeed("Conflicts.LivePreviewEnabled", "Conflicts", "Live conflict preview", "Shows the conflict radar while users type client, matter, contact, or party names on intake forms.", "true", SystemSettingValueTypes.Boolean),
+            new SettingSeed(TimeIncrementRules.SystemDefaultSettingKey, "Time", "Default time increment", "System default for time entry rounding: 0 records actual time, 6 records tenths, and 15 records quarter hours. Matters can override this.", "6", SystemSettingValueTypes.Integer),
+            new SettingSeed("Email.NotificationsEnabled", "Email", "Enable email notifications", "Turns outbound workflow and system email notifications on or off.", "false", SystemSettingValueTypes.Boolean),
+            new SettingSeed("Email.MailboxAddress", "Email", "Mailbox anchor", "Shared mailbox CMIForge uses through Microsoft Graph when sending this tenant's outbound mail.", "intake@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingSeed("Email.FromEmail", "Email", "From email", "Tenant sender address used on outbound CMIForge notifications.", "customer0@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingSeed("Email.ReplyToEmail", "Email", "Reply-to email", "Tenant reply address used on outbound CMIForge notifications.", "customer0@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingSeed("Email.FromName", "Email", "From name", "Display name used as the sender for outbound CMIForge notifications.", "Customer 0", SystemSettingValueTypes.Text)
         };
 
         foreach (var seed in settings)
@@ -308,7 +363,150 @@ public static class SeedData
         await db.SaveChangesAsync();
     }
 
-    private static async Task EnsureStarterTimeEntriesAsync(MatterForgeDbContext db)
+    private static async Task EnsureStarterNotificationTemplatesAsync(CMIForgeDbContext db)
+    {
+        var templates = new[]
+        {
+            new NotificationTemplateSeed(
+                "workflow-step-update",
+                "Workflow step update",
+                "General workflow notification for movement between intake/review steps.",
+                "Submission {{SubmissionNumber}} needs attention",
+                "{{WorkflowName}} reached {{StepName}} for submission {{SubmissionNumber}}.\n\nStatus: {{SubmissionStatus}}\nSubmitter: {{SubmitterName}}"),
+            new NotificationTemplateSeed(
+                "workflow-approved",
+                "Workflow approved",
+                "Notification used when an intake or review workflow reaches approval.",
+                "Submission {{SubmissionNumber}} was approved",
+                "{{WorkflowName}} approved submission {{SubmissionNumber}}.\n\nStatus: {{SubmissionStatus}}"),
+            new NotificationTemplateSeed(
+                "workflow-returned",
+                "Workflow returned",
+                "Notification used when a workflow item needs revision or follow-up.",
+                "Submission {{SubmissionNumber}} was returned",
+                "{{WorkflowName}} returned submission {{SubmissionNumber}} at {{StepName}}.\n\nPlease review the workflow notes in CMIForge.")
+        };
+
+        foreach (var seed in templates)
+        {
+            var template = await db.WorkflowNotificationTemplates.FirstOrDefaultAsync(x => x.Key == seed.Key);
+            if (template is null)
+            {
+                template = new WorkflowNotificationTemplate
+                {
+                    Key = seed.Key
+                };
+                db.WorkflowNotificationTemplates.Add(template);
+            }
+
+            template.Name = seed.Name;
+            template.Description = seed.Description;
+            template.Subject = seed.Subject;
+            template.Body = seed.Body;
+            template.IsActive = true;
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureStarterTimeCodeSetsAsync(CMIForgeDbContext db)
+    {
+        var codeSet = await db.TimeCodeSets
+            .Include(x => x.Phases)
+            .Include(x => x.Tasks)
+            .FirstOrDefaultAsync(x => x.Key == "utbms-litigation-starter");
+        if (codeSet is null)
+        {
+            codeSet = new TimeCodeSet
+            {
+                Key = "utbms-litigation-starter",
+                Name = "UTBMS Litigation Starter",
+                Description = "Starter UTBMS-style litigation phase and task codes for v1 time entry."
+            };
+            db.TimeCodeSets.Add(codeSet);
+        }
+
+        codeSet.Name = "UTBMS Litigation Starter";
+        codeSet.Description = "Starter UTBMS-style litigation phase and task codes for v1 time entry.";
+        codeSet.IsActive = true;
+        codeSet.UpdatedAt = DateTimeOffset.UtcNow;
+
+        var phases = new (string Code, string Name)[]
+        {
+            ("L100", "Case Assessment, Development and Administration"),
+            ("L200", "Pre-Trial Pleadings and Motions"),
+            ("L300", "Discovery"),
+            ("L400", "Trial Preparation and Trial"),
+            ("L500", "Appeal")
+        };
+
+        for (var i = 0; i < phases.Length; i++)
+        {
+            var seed = phases[i];
+            var phase = codeSet.Phases.FirstOrDefault(x => x.Code == seed.Code);
+            if (phase is null)
+            {
+                phase = new TimePhase { Code = seed.Code, TimeCodeSet = codeSet };
+                codeSet.Phases.Add(phase);
+            }
+
+            phase.Name = seed.Name;
+            phase.SortOrder = i + 1;
+            phase.IsActive = true;
+        }
+
+        await db.SaveChangesAsync();
+
+        var phaseByCode = await db.TimePhases
+            .Where(x => x.TimeCodeSetId == codeSet.Id)
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.Code, StringComparer.OrdinalIgnoreCase);
+        var tasks = new (string PhaseCode, string Code, string Name)[]
+        {
+            ("L100", "L110", "Fact Investigation/Development"),
+            ("L100", "L120", "Analysis/Strategy"),
+            ("L100", "L130", "Experts/Consultants"),
+            ("L100", "L140", "Document/File Management"),
+            ("L200", "L210", "Pleadings"),
+            ("L200", "L220", "Preliminary Injunctions/Provisional Remedies"),
+            ("L200", "L230", "Court Mandated Conferences"),
+            ("L200", "L240", "Dispositive Motions"),
+            ("L300", "L310", "Written Discovery"),
+            ("L300", "L320", "Document Production"),
+            ("L300", "L330", "Depositions"),
+            ("L300", "L340", "Expert Discovery"),
+            ("L400", "L410", "Fact Witnesses"),
+            ("L400", "L420", "Expert Witnesses"),
+            ("L400", "L430", "Written Motions/Submissions"),
+            ("L400", "L440", "Trial Preparation and Support"),
+            ("L500", "L510", "Appellate Motions/Submissions"),
+            ("L500", "L520", "Appellate Briefs"),
+            ("L500", "L530", "Oral Argument")
+        };
+
+        for (var i = 0; i < tasks.Length; i++)
+        {
+            var seed = tasks[i];
+            if (await db.TimeTasks.AnyAsync(x => x.TimeCodeSetId == codeSet.Id && x.Code == seed.Code))
+            {
+                continue;
+            }
+
+            db.TimeTasks.Add(new TimeTask
+            {
+                TimeCodeSetId = codeSet.Id,
+                TimePhaseId = phaseByCode.TryGetValue(seed.PhaseCode, out var phase) ? phase.Id : null,
+                Code = seed.Code,
+                Name = seed.Name,
+                SortOrder = i + 1,
+                IsActive = true
+            });
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureStarterTimeEntriesAsync(CMIForgeDbContext db)
     {
         if (await db.TimeEntries.AnyAsync())
         {
@@ -333,13 +531,13 @@ public static class SeedData
         }
 
         var today = DateOnly.FromDateTime(DateTime.Today);
-        var seeds = new (Matter Matter, DateOnly WorkDate, int Minutes, bool Billable, string Status, string Narrative)[]
+        var seeds = new (Matter Matter, DateOnly WorkDate, int Minutes, bool Billable, string Status, string ClientNarrative, string InternalNotes)[]
         {
-            (matters[0], today.AddDays(-7), 72, true, TimeEntryStatuses.Approved, "Reviewed intake materials and mapped follow-up items."),
-            (matters[0], today.AddDays(-5), 45, true, TimeEntryStatuses.Submitted, "Prepared conflicts notes and matter-opening checklist."),
-            (matters[Math.Min(1, matters.Count - 1)], today.AddDays(-4), 90, true, TimeEntryStatuses.Draft, "Drafted approval summary and client onboarding notes."),
-            (matters[Math.Min(1, matters.Count - 1)], today.AddDays(-2), 30, false, TimeEntryStatuses.NoCharge, "Internal coordination on workflow routing."),
-            (matters[Math.Min(2, matters.Count - 1)], today.AddDays(-1), 120, true, TimeEntryStatuses.Approved, "Reviewed party relationships and prepared risk summary.")
+            (matters[0], today.AddDays(-7), 72, true, TimeEntryStatuses.Approved, "Reviewed intake materials and mapped follow-up items.", "Partner-ready summary drafted."),
+            (matters[0], today.AddDays(-5), 45, true, TimeEntryStatuses.Submitted, "Prepared conflicts notes and matter-opening checklist.", "Needs partner review."),
+            (matters[Math.Min(1, matters.Count - 1)], today.AddDays(-4), 90, true, TimeEntryStatuses.Draft, "Drafted approval summary and client onboarding notes.", "Clean up before submitting."),
+            (matters[Math.Min(1, matters.Count - 1)], today.AddDays(-2), 30, false, TimeEntryStatuses.Approved, "Coordinated internally on workflow routing.", "No charge internal coordination."),
+            (matters[Math.Min(2, matters.Count - 1)], today.AddDays(-1), 120, true, TimeEntryStatuses.Approved, "Reviewed party relationships and prepared risk summary.", "Conflict memo ready.")
         };
 
         var nextNumber = (await db.TimeEntries.MaxAsync(x => (int?)x.TimeEntryNumber) ?? 0) + 1;
@@ -360,14 +558,18 @@ public static class SeedData
                 Minutes = seed.Minutes,
                 IsBillable = seed.Billable,
                 Status = seed.Status,
-                Narrative = seed.Narrative
+                ClientNarrative = seed.ClientNarrative,
+                InternalNotes = seed.InternalNotes,
+                SubmittedAt = seed.Status is TimeEntryStatuses.Submitted or TimeEntryStatuses.Approved ? DateTimeOffset.UtcNow : null,
+                ApprovedAt = seed.Status == TimeEntryStatuses.Approved ? DateTimeOffset.UtcNow : null,
+                ApprovedByUserId = seed.Status == TimeEntryStatuses.Approved ? demoUser.Id : null
             });
         }
 
         await db.SaveChangesAsync();
     }
 
-    private static async Task EnsureStarterMarketingDemoDataAsync(MatterForgeDbContext db)
+    private static async Task EnsureStarterMarketingDemoDataAsync(CMIForgeDbContext db)
     {
         var form = await db.FormDefinitions
             .Include(x => x.Versions)
@@ -437,10 +639,10 @@ public static class SeedData
     }
 
     private static async Task<FormSubmission> EnsureDemoSubmissionAsync(
-        MatterForgeDbContext db,
+        CMIForgeDbContext db,
         FormDefinition form,
         FormVersion version,
-        MatterForgeUser? demoUser,
+        CMIForgeUser? demoUser,
         DemoSubmissionSeed seed,
         DateTimeOffset submittedAt)
     {
@@ -491,7 +693,7 @@ public static class SeedData
         return submission;
     }
 
-    private static async Task EnsureStarterConflictSearchesAsync(MatterForgeDbContext db, MatterForgeUser? demoUser)
+    private static async Task EnsureStarterConflictSearchesAsync(CMIForgeDbContext db, CMIForgeUser? demoUser)
     {
         var conflictSearchService = new ConflictSearchService(db);
         var arcadiaMatter = await db.Matters
@@ -547,7 +749,7 @@ public static class SeedData
         }
     }
 
-    private static async Task EnsureUserNamePartsAsync(MatterForgeDbContext db)
+    private static async Task EnsureUserNamePartsAsync(CMIForgeDbContext db)
     {
         var users = await db.Users.ToListAsync();
         foreach (var user in users)
@@ -566,7 +768,7 @@ public static class SeedData
         }
     }
 
-    private static async Task EnsureDemoConflictPartiesAsync(MatterForgeDbContext db, ConflictSearchService conflictSearchService)
+    private static async Task EnsureDemoConflictPartiesAsync(CMIForgeDbContext db, ConflictSearchService conflictSearchService)
     {
         var demoMatter = await EnsureDemoConflictMatterAsync(db, conflictSearchService);
 
@@ -683,7 +885,7 @@ public static class SeedData
         await db.SaveChangesAsync();
     }
 
-    private static async Task EnsureStarterContactsAsync(MatterForgeDbContext db, Matter demoMatter)
+    private static async Task EnsureStarterContactsAsync(CMIForgeDbContext db, Matter demoMatter)
     {
         if (demoMatter.Client is null)
         {
@@ -735,7 +937,7 @@ public static class SeedData
     }
 
     private static async Task<Contact> EnsureContactAsync(
-        MatterForgeDbContext db,
+        CMIForgeDbContext db,
         string firstName,
         string middleName,
         string lastName,
@@ -775,7 +977,7 @@ public static class SeedData
     }
 
     private static async Task EnsureClientContactAsync(
-        MatterForgeDbContext db,
+        CMIForgeDbContext db,
         Client client,
         Contact contact,
         string role,
@@ -798,7 +1000,7 @@ public static class SeedData
     }
 
     private static async Task EnsureMatterContactAsync(
-        MatterForgeDbContext db,
+        CMIForgeDbContext db,
         Matter matter,
         Contact contact,
         string role,
@@ -820,7 +1022,7 @@ public static class SeedData
         }
     }
 
-    private static async Task<Matter> EnsureDemoConflictMatterAsync(MatterForgeDbContext db, ConflictSearchService conflictSearchService)
+    private static async Task<Matter> EnsureDemoConflictMatterAsync(CMIForgeDbContext db, ConflictSearchService conflictSearchService)
     {
         const string clientName = "Arcadia Sample Holdings";
         const string matterName = "Demo Conflicts - Legacy Supply Dispute";
@@ -867,7 +1069,7 @@ public static class SeedData
     }
 
     private static async Task<Party> EnsurePartyAsync(
-        MatterForgeDbContext db,
+        CMIForgeDbContext db,
         string name,
         string partyType,
         string status,
@@ -905,7 +1107,7 @@ public static class SeedData
         return party;
     }
 
-    private static async Task EnsurePartyAliasAsync(MatterForgeDbContext db, Party party, string alias)
+    private static async Task EnsurePartyAliasAsync(CMIForgeDbContext db, Party party, string alias)
     {
         var normalizedAlias = ConflictSearchService.NormalizeName(alias);
         var exists = party.Aliases.Any(x => x.NormalizedAlias == normalizedAlias) ||
@@ -925,7 +1127,7 @@ public static class SeedData
     }
 
     private static async Task EnsureMatterPartyAsync(
-        MatterForgeDbContext db,
+        CMIForgeDbContext db,
         Matter matter,
         Party party,
         string role,
@@ -947,7 +1149,7 @@ public static class SeedData
     }
 
     private static async Task EnsureRelationshipAsync(
-        MatterForgeDbContext db,
+        CMIForgeDbContext db,
         Party fromParty,
         Party toParty,
         string relationshipType,
@@ -974,7 +1176,7 @@ public static class SeedData
         }
     }
 
-    private static async Task EnsureStarterFormAsync(MatterForgeDbContext db, bool seedSampleData)
+    private static async Task EnsureStarterFormAsync(CMIForgeDbContext db, bool seedSampleData)
     {
         var existingForm = await db.FormDefinitions
             .Include(x => x.Versions)
@@ -1036,7 +1238,7 @@ public static class SeedData
         await db.SaveChangesAsync();
     }
 
-    private static async Task EnsureClientLookupFieldAsync(MatterForgeDbContext db, FormDefinition form)
+    private static async Task EnsureClientLookupFieldAsync(CMIForgeDbContext db, FormDefinition form)
     {
         var latestVersion = form.Versions
             .Where(x => x.IsPublished)
@@ -1060,7 +1262,7 @@ public static class SeedData
         await db.SaveChangesAsync();
     }
 
-    private static async Task EnsureAssignedUserFieldAsync(MatterForgeDbContext db, FormDefinition form)
+    private static async Task EnsureAssignedUserFieldAsync(CMIForgeDbContext db, FormDefinition form)
     {
         var latestVersion = form.Versions
             .Where(x => x.IsPublished)
@@ -1108,7 +1310,7 @@ public static class SeedData
         await db.SaveChangesAsync();
     }
 
-    private static async Task EnsureStarterWorkflowAsync(MatterForgeDbContext db)
+    private static async Task EnsureStarterWorkflowAsync(CMIForgeDbContext db)
     {
         var form = await db.FormDefinitions
             .Include(x => x.Versions)
@@ -1174,7 +1376,7 @@ public static class SeedData
         await db.SaveChangesAsync();
     }
 
-    private static async Task<MatterForgeUser?> FindDemoUserAsync(MatterForgeDbContext db)
+    private static async Task<CMIForgeUser?> FindDemoUserAsync(CMIForgeDbContext db)
     {
         return await db.Users.FirstOrDefaultAsync(x =>
             x.DisplayName == DemoUserDisplayName ||
@@ -1227,7 +1429,7 @@ public static class SeedData
         }
     }
 
-    private static async Task EnsureExistingWorkflowTaskAssignmentsAsync(MatterForgeDbContext db, WorkflowDefinition workflow)
+    private static async Task EnsureExistingWorkflowTaskAssignmentsAsync(CMIForgeDbContext db, WorkflowDefinition workflow)
     {
         foreach (var step in workflow.Steps)
         {
@@ -1244,7 +1446,7 @@ public static class SeedData
     }
 
     private static async Task<SecurityRole> EnsureRoleAsync(
-        MatterForgeDbContext db,
+        CMIForgeDbContext db,
         string name,
         string key,
         string description,
@@ -1266,7 +1468,7 @@ public static class SeedData
     }
 
     private static async Task<Team> EnsureTeamAsync(
-        MatterForgeDbContext db,
+        CMIForgeDbContext db,
         string name,
         string key,
         string description)
@@ -1285,7 +1487,7 @@ public static class SeedData
         return team;
     }
 
-    private static async Task EnsureRolePermissionsAsync(MatterForgeDbContext db, SecurityRole role, params string[] permissionKeys)
+    private static async Task EnsureRolePermissionsAsync(CMIForgeDbContext db, SecurityRole role, params string[] permissionKeys)
     {
         await db.SaveChangesAsync();
 
@@ -1307,7 +1509,7 @@ public static class SeedData
         }
     }
 
-    private static async Task EnsureUserRoleAsync(MatterForgeDbContext db, MatterForgeUser user, SecurityRole role)
+    private static async Task EnsureUserRoleAsync(CMIForgeDbContext db, CMIForgeUser user, SecurityRole role)
     {
         var exists = await db.UserRoles.AnyAsync(x => x.UserId == user.Id && x.SecurityRoleId == role.Id);
         if (!exists)
@@ -1320,7 +1522,7 @@ public static class SeedData
         }
     }
 
-    private static async Task EnsureTeamRoleAsync(MatterForgeDbContext db, Team team, SecurityRole role)
+    private static async Task EnsureTeamRoleAsync(CMIForgeDbContext db, Team team, SecurityRole role)
     {
         var exists = await db.TeamRoles.AnyAsync(x => x.TeamId == team.Id && x.SecurityRoleId == role.Id);
         if (!exists)
@@ -1333,7 +1535,7 @@ public static class SeedData
         }
     }
 
-    private static async Task EnsureTeamMemberAsync(MatterForgeDbContext db, Team team, MatterForgeUser user)
+    private static async Task EnsureTeamMemberAsync(CMIForgeDbContext db, Team team, CMIForgeUser user)
     {
         var exists = await db.TeamMembers.AnyAsync(x => x.TeamId == team.Id && x.UserId == user.Id);
         if (!exists)
@@ -1354,6 +1556,13 @@ public static class SeedData
         string Value,
         string ValueType,
         bool IsSecret = false);
+
+    private sealed record NotificationTemplateSeed(
+        string Key,
+        string Name,
+        string Description,
+        string Subject,
+        string Body);
 
     private sealed record DemoSubmissionSeed(
         string ClientName,

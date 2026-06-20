@@ -51,15 +51,15 @@ The live dev App Service currently expects:
 - `SubmissionAttachments__AccountName`
 - `ASPNETCORE_ENVIRONMENT`
 - `Authentication__Microsoft__Enabled`
-- `MatterForge__CurrentUserEmail`
-- `MatterForge__CurrentUserDisplayName`
-- `MatterForge__BootstrapAdminEmail`
-- `MatterForge__DemoMode`
-- `MatterForge__DemoResetEnabled`
-- `MatterForge__DemoResetIntervalHours`
-- `MatterForge__RunMigrationsOnStartup`
-- `MatterForge__RunSeedDataOnStartup`
-- `MatterForge__SeedSampleData`
+- `CMIForge__CurrentUserEmail`
+- `CMIForge__CurrentUserDisplayName`
+- `CMIForge__BootstrapAdminEmail`
+- `CMIForge__DemoMode`
+- `CMIForge__DemoResetEnabled`
+- `CMIForge__DemoResetIntervalHours`
+- `CMIForge__RunMigrationsOnStartup`
+- `CMIForge__RunSeedDataOnStartup`
+- `CMIForge__SeedSampleData`
 
 The intended Azure SQL connection string for the public demo App Service is:
 
@@ -91,7 +91,7 @@ The GitHub Actions workflow for the live dev web app is:
 
 That workflow publishes the ASP.NET Core app from:
 
-- `c#/MatterForge/MatterForge.csproj`
+- `c#/CMIForge/CMIForge.csproj`
 
 and deploys it to:
 
@@ -107,17 +107,21 @@ Typical setup flow:
 
 1. Download the publish profile from the Azure Portal for `cmiforge-dev-web-06161223`.
 2. Add it as the GitHub repository secret `AZURE_WEBAPP_PUBLISH_PROFILE_CMIFORGE_DEV`.
-3. Push changes to `main` that touch `c#/MatterForge/**`, or run the workflow manually.
+3. Push changes to `main` that touch `c#/CMIForge/**`, or run the workflow manually.
 
 ## Manual Dev Deploy
 
-From `c#/MatterForge`:
+From `c#/CMIForge`:
 
 ```powershell
 .\deploy\dev\deploy-dev.ps1
 ```
 
 That wrapper deploys to the fixed dev App Service resources and keeps the Azure SQL and Blob managed-identity settings consistent.
+
+By default the wrapper also applies EF migrations to `cmiforge-demo` before publishing. Use `-SkipDatabaseUpdate` only when the code change does not require schema changes or when the database update is being handled separately.
+
+If Azure SQL rejects the local migration connection because the current IP is not allowed, add a narrow temporary firewall rule for the current public IP, run the migration/deploy, then remove that rule immediately after verification.
 
 ## Public Site
 
@@ -169,11 +173,15 @@ Current subdomain map:
 
 Both `demo.cmiforge.com` and `app.cmiforge.com` are bound in Azure App Service with managed certificates. The public demo app was moved onto the existing `cmiforge-customer0-plan` (`B1`) to avoid paying for a second paid App Service plan just to support custom domains.
 
+## Current App Feature Smoke
+
+The current app build includes dashboard charts, workflow notification step fields, client photo OCR import drafting, floating live conflict previews, configurable conflict preview settings, conflict filters, searchable/sortable lists, entity notes, archive/unarchive behavior, enhancement requests, address autocomplete, and signup legal-agreement acceptance. After manual deploys, smoke these in the demo app before relying on the public demo for walkthroughs.
+
 ## Notes
 
 - The current production-worthy host for the existing CMIForge app is App Service, not Static Web Apps.
 - The Static Web App and Function App are in place as future split-architecture scaffolding.
-- The live demo remains App Service-hosted and uses `MatterForge__DemoMode=true` so the app resolves to `Ima User` without requiring visitors to sign in.
+- The live demo remains App Service-hosted and uses `CMIForge__DemoMode=true` so the app resolves to `Ima User` without requiring visitors to sign in.
 - Public demo data is isolated in `cmiforge-demo`, resets every 12 hours while the App Service process is awake, and can be manually reset from `System -> Demo Mode`.
 - Microsoft Entra login is supported by the app, but public demo mode intentionally bypasses the sign-in requirement for now.
 - `az staticwebapp functions link` still fails in this environment with `API version 2020-12-01 does not have operation group 'static_sites'`.

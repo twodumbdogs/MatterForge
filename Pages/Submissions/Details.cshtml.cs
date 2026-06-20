@@ -1,16 +1,16 @@
 using Azure;
 using System.Text.Json;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Submissions;
+namespace CMIForge.Pages.Submissions;
 
 public class DetailsModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     WorkflowService workflowService,
     CurrentUserService currentUserService,
     PermissionService permissionService,
@@ -20,6 +20,10 @@ public class DetailsModel(
     public FormSubmission? Submission { get; private set; }
 
     public List<SubmissionAnswer> Answers { get; private set; } = [];
+
+    public string SubmittedClientName { get; private set; } = string.Empty;
+
+    public string SubmittedMatterName { get; private set; } = string.Empty;
 
     public FormSchema? Schema { get; private set; }
 
@@ -42,6 +46,8 @@ public class DetailsModel(
     public bool CanManageAttachments { get; private set; }
 
     public bool CanEditReturned { get; private set; }
+
+    public bool CanCancel { get; private set; }
 
     public bool CanStartWorkflow { get; private set; }
 
@@ -114,11 +120,96 @@ public class DetailsModel(
 
     public async Task<IActionResult> OnPostStartWorkflowAsync(Guid id)
     {
-        var instance = await workflowService.EnsureStartedAsync(id);
-        if (instance is null)
+        var submission = await db.FormSubmissions.FirstOrDefaultAsync(x => x.Id == id);
+        if (submission is null)
         {
             return NotFound();
         }
+
+        if (!await CanAccessSubmissionAsync(submission))
+        {
+            return Forbid();
+        }
+
+        if (!await workflowService.CanStartAsync(submission))
+        {
+            ModelState.AddModelError(string.Empty, "No active workflow is available for this submission.");
+            await LoadSubmissionAsync(id);
+            return Page();
+        }
+
+        var instance = await workflowService.EnsureStartedAsync(id);
+        if (instance is null)
+        {
+            ModelState.AddModelError(string.Empty, "The workflow could not be started. Check that the form has an active workflow with at least one matching step.");
+            await LoadSubmissionAsync(id);
+            return Page();
+        }
+
+        await auditLogService.LogAsync(
+            "Workflow.Started",
+            "Submission",
+            id,
+            RecordNumbers.Submission(submission.SubmissionNumber),
+            "Started submission workflow.",
+            new { WorkflowInstanceId = instance.Id });
+
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostCancelAsync(Guid id)
+    {
+        var submission = await db.FormSubmissions
+            .Include(x => x.WorkflowInstances)
+            .Include(x => x.WorkflowTasks)
+            .FirstOrDefaultAsync(x => x.Id == id);
+        if (submission is null)
+        {
+            return NotFound();
+        }
+
+        if (!await CanCancelSubmissionAsync(submission))
+        {
+            return Forbid();
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        var oldStatus = submission.Status;
+        submission.Status = SubmissionStatuses.Cancelled;
+
+        var affectedInstances = submission.WorkflowInstances
+            .Where(x => x.Status is WorkflowStatuses.Active or WorkflowStatuses.Returned)
+            .ToList();
+        foreach (var instance in affectedInstances)
+        {
+            instance.Status = WorkflowStatuses.Cancelled;
+            instance.CompletedAt = DateTimeOffset.UtcNow;
+            db.SubmissionWorkflowEvents.Add(new SubmissionWorkflowEvent
+            {
+                SubmissionWorkflowInstanceId = instance.Id,
+                FormSubmissionId = submission.Id,
+                EventType = WorkflowStatuses.EventCancelled,
+                Message = "Submission cancelled.",
+                ActorUserId = currentUser?.Id
+            });
+        }
+
+        foreach (var task in submission.WorkflowTasks.Where(x => x.Status is WorkflowStatuses.TaskOpen or WorkflowStatuses.TaskReturned))
+        {
+            task.Status = WorkflowStatuses.TaskCancelled;
+            task.Outcome = WorkflowStatuses.TaskCancelled;
+            task.CompletedAt = DateTimeOffset.UtcNow;
+            task.CompletedByUserId = currentUser?.Id;
+        }
+
+        await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "Submission.Cancelled",
+            "Submission",
+            submission.Id,
+            RecordNumbers.Submission(submission.SubmissionNumber),
+            $"Cancelled submission that was {oldStatus}.",
+            new { OldStatus = oldStatus, NewStatus = submission.Status });
 
         return RedirectToPage(new { id });
     }
@@ -142,11 +233,8 @@ public class DetailsModel(
         }
 
         var schema = FormJson.DeserializeSchema(submission.FormVersion.SchemaJson);
-        Fields = Request.Form
-            .Where(x => x.Key.StartsWith("Fields[", StringComparison.Ordinal))
-            .ToDictionary(
-                x => x.Key["Fields[".Length..^1],
-                x => x.Value.LastOrDefault() ?? string.Empty);
+        Fields = ReadPostedValues(schema, Request.Form);
+        ModelState.Clear();
 
         foreach (var required in schema.Fields.Where(x => x.Required))
         {
@@ -193,12 +281,16 @@ public class DetailsModel(
             task.CompletedByUserId = null;
         }
 
-        db.SubmissionWorkflowEvents.Add(new SubmissionWorkflowEvent
+        foreach (var instance in returnedInstances)
         {
-            FormSubmissionId = submission.Id,
-            EventType = "Resubmitted",
-            Message = "Returned submission edited and resubmitted."
-        });
+            db.SubmissionWorkflowEvents.Add(new SubmissionWorkflowEvent
+            {
+                SubmissionWorkflowInstanceId = instance.Id,
+                FormSubmissionId = submission.Id,
+                EventType = "Resubmitted",
+                Message = "Returned submission edited and resubmitted."
+            });
+        }
 
         await db.SaveChangesAsync();
         await auditLogService.LogAsync(
@@ -423,6 +515,7 @@ public class DetailsModel(
             .Include(x => x.FormDefinition)
             .Include(x => x.FormVersion)
             .Include(x => x.SubmitterUser)
+            .Include(x => x.LeadPartner)
             .Include(x => x.Client)
             .Include(x => x.Matter)
             .FirstOrDefaultAsync(x => x.Id == id);
@@ -438,7 +531,9 @@ public class DetailsModel(
             !Submission.ClientId.HasValue &&
             !Submission.MatterId.HasValue &&
             await permissionService.HasAsync(PermissionKeys.SubmissionsConvert);
-        CanRunConflicts = await permissionService.HasAsync(PermissionKeys.ConflictsRun);
+        CanRunConflicts =
+            Submission.Status != SubmissionStatuses.Cancelled &&
+            await permissionService.HasAsync(PermissionKeys.ConflictsRun);
 
         WorkflowInstances = await db.SubmissionWorkflowInstances
             .Include(x => x.WorkflowDefinition)
@@ -476,6 +571,9 @@ public class DetailsModel(
         Schema = FormJson.DeserializeSchema(Submission.FormVersion.SchemaJson);
         var values = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(Submission.DataJson, FormJson.Options) ?? [];
         EditValues = values.ToDictionary(x => x.Key, x => SubmissionAnswerReader.FormatValue(x.Value));
+        var normalizedAnswers = SubmissionAnswerReader.Read(Submission.DataJson);
+        SubmittedClientName = SubmissionAnswerReader.FirstValue(normalizedAnswers, "clientName", "client", "companyName");
+        SubmittedMatterName = SubmissionAnswerReader.FirstValue(normalizedAnswers, "matterName", "matter");
 
         Answers = Schema.Fields
             .Select(field => new SubmissionAnswer(
@@ -489,9 +587,41 @@ public class DetailsModel(
             !Submission.MatterId.HasValue &&
             await CanAccessSubmissionAsync(Submission);
 
+        CanCancel = await CanCancelSubmissionAsync(Submission);
+
         CanStartWorkflow =
-            WorkflowInstances.Count == 0 &&
-            Submission.Status != SubmissionStatuses.Converted;
+            (WorkflowInstances.Count == 0 || WorkflowInstances.All(x => x.Status == WorkflowStatuses.Cancelled)) &&
+            await workflowService.CanStartAsync(Submission);
+    }
+
+    private async Task<bool> CanCancelSubmissionAsync(FormSubmission submission)
+    {
+        if (submission.Status is SubmissionStatuses.Converted or SubmissionStatuses.Cancelled)
+        {
+            return false;
+        }
+
+        if (!await CanAccessSubmissionAsync(submission))
+        {
+            return false;
+        }
+
+        if (await permissionService.HasAsync(PermissionKeys.SubmissionsApprove))
+        {
+            return true;
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        return currentUser is not null && submission.SubmitterUserId == currentUser.Id;
+    }
+
+    private static Dictionary<string, string> ReadPostedValues(FormSchema schema, IFormCollection form)
+    {
+        return schema.Fields.ToDictionary(
+            field => field.Key,
+            field => field.Type == FieldType.Address
+                ? FormAddressValue.Compose(FormAddressValue.FromForm(form, field.Key))
+                : form[$"Fields[{field.Key}]"].LastOrDefault() ?? string.Empty);
     }
 
     private async Task<bool> CanAccessSubmissionAsync(FormSubmission submission)

@@ -1,0 +1,29 @@
+@model CMIForge.Models.ListSearchViewModel
+@{
+    var routeValues = Model.RouteValues ?? new Dictionary<string, string>();
+    var clearRouteValues = routeValues
+        .Where(x => !x.Key.Equals(Model.QueryParameter, StringComparison.OrdinalIgnoreCase) &&
+                    !x.Key.Equals("pageNumber", StringComparison.OrdinalIgnoreCase))
+        .ToDictionary(x => x.Key, x => x.Value);
+}
+
+<form method="get" asp-page="@Model.PageName" class="mf-list-search" role="search">
+    @foreach (var routeValue in clearRouteValues)
+    {
+        <input type="hidden" name="@routeValue.Key" value="@routeValue.Value" />
+    }
+    <label class="visually-hidden" for="@($"{Model.QueryParameter}ListSearch")">@Model.Label</label>
+    <input
+        id="@($"{Model.QueryParameter}ListSearch")"
+        class="form-control form-control-sm"
+        type="search"
+        name="@Model.QueryParameter"
+        value="@Model.Search"
+        placeholder="@Model.Placeholder"
+        autocomplete="off" />
+    <button class="btn btn-sm btn-outline-primary" type="submit">Search</button>
+    @if (!string.IsNullOrWhiteSpace(Model.Search))
+    {
+        <a class="btn btn-sm btn-outline-secondary" asp-page="@Model.PageName" asp-all-route-data="clearRouteValues">Clear</a>
+    }
+</form>

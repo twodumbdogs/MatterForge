@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace MatterForge.Pages.Workflow;
+namespace CMIForge.Pages.Workflow;
 
 public class IndexModel : PageModel
 {

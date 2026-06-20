@@ -144,7 +144,7 @@
                 <article class="mf-conflict-preview-card ${riskClass(item.riskLevel)}">
                     <div class="d-flex justify-content-between gap-2">
                         <strong>${escapeHtml(item.matchedName)}</strong>
-                        <span>${item.score}</span>
+                        <span title="Match strength">${item.score}</span>
                     </div>
                     <small>${escapeHtml(item.riskLevel)} - ${escapeHtml(item.partyRole)}</small>
                     <p>${escapeHtml(item.matchType)} for "${escapeHtml(item.searchTerm)}"</p>
@@ -196,7 +196,7 @@
 
     const scheduleRefresh = () => {
         window.clearTimeout(timer);
-        timer = window.setTimeout(refreshPreview, 450);
+        timer = window.setTimeout(refreshPreview, 650);
     };
 
     sources.forEach((source) => {

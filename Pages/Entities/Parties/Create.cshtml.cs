@@ -1,15 +1,15 @@
 using System.ComponentModel.DataAnnotations;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Parties;
+namespace CMIForge.Pages.Entities.Parties;
 
-public class CreateModel(MatterForgeDbContext db) : PageModel
+public class CreateModel(CMIForgeDbContext db, AuditLogService auditLogService) : PageModel
 {
     [BindProperty]
     public PartyInput Input { get; set; } = new();
@@ -57,6 +57,13 @@ public class CreateModel(MatterForgeDbContext db) : PageModel
 
         db.Parties.Add(party);
         await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "Party.Created",
+            "Party",
+            party.Id,
+            party.PartyNumber.ToString("D8"),
+            $"Created party {party.Name}.",
+            new { party.PartyType, party.Status, AliasCount = party.Aliases.Count });
 
         return RedirectToPage("./Details", new { id = party.Id });
     }
@@ -84,3 +91,4 @@ public class PartyInput
 
     public string? Notes { get; set; }
 }
+

@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Time.DetailsModel
+@model CMIForge.Pages.Time.DetailsModel
 @{
     ViewData["Title"] = Model.Entry is null ? "Time Details" : $"Time {Model.Entry.TimeEntryNumber:D8}";
 }
@@ -21,9 +21,24 @@ else
             {
                 <a class="btn btn-primary" asp-page="./Create" asp-route-matterId="@Model.Entry.MatterId">Record more time</a>
             }
+            @if (Model.CanEdit)
+            {
+                <a class="btn btn-outline-primary" asp-page="./Edit" asp-route-id="@Model.Entry.Id">Edit</a>
+            }
+            @if (Model.CanApproveEntry)
+            {
+                <form method="post" asp-page-handler="Approve" asp-route-id="@Model.Entry.Id" class="d-inline">
+                    <button class="btn btn-success" type="submit">Approve</button>
+                </form>
+            }
             <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
         </div>
     </div>
+
+    @if (Model.Entry.IsLocked)
+    {
+        <div class="alert alert-info">This entry is locked because it has been approved or exported. Corrections should be made with an adjustment entry.</div>
+    }
 
     <div class="mf-panel">
         <dl class="row mb-0">
@@ -49,12 +64,24 @@ else
             <dd class="col-sm-9">@Model.Entry.WorkDate.ToString("D")</dd>
             <dt class="col-sm-3">Hours</dt>
             <dd class="col-sm-9">@((Model.Entry.Minutes / 60m).ToString("0.00"))</dd>
+            <dt class="col-sm-3">Phase</dt>
+            <dd class="col-sm-9">@(Model.Entry.TimePhase is null ? "None" : $"{Model.Entry.TimePhase.Code} - {Model.Entry.TimePhase.Name}")</dd>
+            <dt class="col-sm-3">Task</dt>
+            <dd class="col-sm-9">@(Model.Entry.TimeTask is null ? "None" : $"{Model.Entry.TimeTask.Code} - {Model.Entry.TimeTask.Name}")</dd>
             <dt class="col-sm-3">Billable</dt>
             <dd class="col-sm-9">@(Model.Entry.IsBillable ? "Yes" : "No")</dd>
             <dt class="col-sm-3">Status</dt>
             <dd class="col-sm-9">@Model.Entry.Status</dd>
-            <dt class="col-sm-3">Narrative</dt>
-            <dd class="col-sm-9">@Model.Entry.Narrative</dd>
+            <dt class="col-sm-3">Submitted</dt>
+            <dd class="col-sm-9">@(Model.Entry.SubmittedAt.HasValue ? UserDates.Format(Model.Entry.SubmittedAt.Value) : "Not submitted")</dd>
+            <dt class="col-sm-3">Approved</dt>
+            <dd class="col-sm-9">@(Model.Entry.ApprovedAt.HasValue ? $"{UserDates.Format(Model.Entry.ApprovedAt.Value)} by {Model.Entry.ApprovedByUser?.DisplayName ?? "System"}" : "Not approved")</dd>
+            <dt class="col-sm-3">Exported</dt>
+            <dd class="col-sm-9">@(Model.Entry.ExportedAt.HasValue ? $"{UserDates.Format(Model.Entry.ExportedAt.Value)} by {Model.Entry.ExportedByUser?.DisplayName ?? "System"}" : "Not exported")</dd>
+            <dt class="col-sm-3">Client narrative</dt>
+            <dd class="col-sm-9">@Model.Entry.ClientNarrative</dd>
+            <dt class="col-sm-3">Internal notes</dt>
+            <dd class="col-sm-9">@Model.Entry.InternalNotes</dd>
         </dl>
     </div>
 }

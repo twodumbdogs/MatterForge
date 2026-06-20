@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Entities.Matters.EditModel
+@model CMIForge.Pages.Entities.Matters.EditModel
 @{
     ViewData["Title"] = Model.Matter is null ? "Edit Matter" : $"Edit Matter {Model.Matter.MatterNumber:D8}";
     ViewData["ActiveEntityTab"] = "Matters";
@@ -52,6 +52,13 @@ else
                 <span asp-validation-for="Input.ResponsibleUserId" class="text-danger"></span>
             </div>
             <div class="col-md-6">
+                <label asp-for="Input.LeadPartnerId" class="form-label"></label>
+                <select asp-for="Input.LeadPartnerId" asp-items="Model.PartnerOptions" class="form-select">
+                    <option value="">Unassigned</option>
+                </select>
+                <span asp-validation-for="Input.LeadPartnerId" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
                 <label asp-for="Input.PracticeArea" class="form-label"></label>
                 <select asp-for="Input.PracticeArea" class="form-select">
                     <option>Corporate</option>
@@ -65,6 +72,24 @@ else
             <div class="col-md-6">
                 <label asp-for="Input.OpenedDate" class="form-label"></label>
                 <input asp-for="Input.OpenedDate" class="form-control" type="date" />
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.TimeIncrementMinutes" class="form-label"></label>
+                <select asp-for="Input.TimeIncrementMinutes" asp-items="Model.TimeIncrementOptions" class="form-select"></select>
+                <span asp-validation-for="Input.TimeIncrementMinutes" class="text-danger"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="Input.TimeCodeSetId" class="form-label"></label>
+                <select asp-for="Input.TimeCodeSetId" asp-items="Model.TimeCodeSetOptions" class="form-select">
+                    <option value="">No code set</option>
+                </select>
+                <span asp-validation-for="Input.TimeCodeSetId" class="text-danger"></span>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check mb-2">
+                    <input asp-for="Input.RequiresTimeApproval" class="form-check-input" />
+                    <label asp-for="Input.RequiresTimeApproval" class="form-check-label"></label>
+                </div>
             </div>
             <div class="col-12">
                 <label asp-for="Input.Notes" class="form-label"></label>

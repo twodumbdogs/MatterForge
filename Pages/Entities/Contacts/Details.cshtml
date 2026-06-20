@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Entities.Contacts.DetailsModel
+@model CMIForge.Pages.Entities.Contacts.DetailsModel
 @{
     ViewData["Title"] = Model.Contact is null ? "Contact Details" : $"Contact {Model.Contact.ContactNumber:D8}";
     ViewData["ActiveEntityTab"] = "Contacts";
@@ -15,9 +15,24 @@ else
         <div>
             <p class="mf-eyebrow">Contact <span>@Model.Contact.ContactNumber.ToString("D8")</span></p>
             <h1>@Model.Contact.DisplayName</h1>
-            <p class="text-muted">@Model.Contact.Organization</p>
+            <p class="text-muted">
+                @Model.Contact.Organization
+                @if (Model.Contact.IsArchived)
+                {
+                    <span class="badge text-bg-secondary ms-2">Archived</span>
+                }
+            </p>
         </div>
-        <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+        <div class="mf-hero-actions">
+            @if (Model.CanEditEntities)
+            {
+                <a class="btn btn-primary" asp-page="./Edit" asp-route-id="@Model.Contact.Id">Submit Change</a>
+                <form method="post" asp-page-handler="Archive" asp-route-id="@Model.Contact.Id" class="d-inline">
+                    <button class="btn btn-outline-secondary" type="submit">@(Model.Contact.IsArchived ? "Restore" : "Archive")</button>
+                </form>
+            }
+            <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+        </div>
     </div>
 
     <partial name="/Pages/Entities/_EntityTabs.cshtml" />
@@ -213,6 +228,42 @@ else
             </div>
         </div>
     </div>
+    @if (Model.PendingChanges.Count > 0)
+    {
+        <div class="mf-panel mt-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>Pending Changes</h2>
+                    <p class="text-muted mb-0">These updates have not been applied to the contact yet.</p>
+                </div>
+                <a class="btn btn-outline-primary" asp-page="/Entities/Approvals/Index">Review approvals</a>
+            </div>
+            <div class="table-responsive mt-3">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Requested</th>
+                            <th>Requested by</th>
+                            <th>Summary</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var change in Model.PendingChanges)
+                        {
+                            <tr>
+                                <td>@change.RequestedAt.ToString("MMM d, yyyy h:mm tt")</td>
+                                <td>@change.RequestedByUser?.DisplayName</td>
+                                <td>@change.Summary</td>
+                                <td>@change.RequestNotes</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    <partial name="/Pages/Entities/_EntityAuditHistory.cshtml" model="Model.AuditHistory" />
 }
 
 @section Scripts {

@@ -1,5 +1,5 @@
 @page "{submissionNumber:int}"
-@model MatterForge.Pages.Forms.SubmittedModel
+@model CMIForge.Pages.Forms.SubmittedModel
 @{
     ViewData["Title"] = "Submission received";
 }
@@ -14,7 +14,7 @@
 
 <div class="mf-panel">
     <p class="mb-2">Submission number</p>
-    <p class="display-6 mb-3"><code>@MatterForge.Services.RecordNumbers.Submission(Model.SubmissionNumber)</code></p>
+    <p class="display-6 mb-3"><code>@CMIForge.Services.RecordNumbers.Submission(Model.SubmissionNumber)</code></p>
     <p class="text-muted mb-0">If you need to add files or check status, ask a CMIForge user with submission access to open this request.</p>
 
     @if (Model.CanViewSubmissions)

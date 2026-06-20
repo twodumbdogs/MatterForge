@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Entities.Parties.IndexModel
+@model CMIForge.Pages.Entities.Parties.IndexModel
 @{
     ViewData["Title"] = "Parties";
     ViewData["ActiveEntityTab"] = "Parties";
@@ -11,39 +11,36 @@
         <h1>Parties</h1>
         <p class="text-muted">Searchable people, companies, aliases, and relationships used by conflict searches.</p>
     </div>
-    <a class="btn btn-primary" asp-page="./Create">Create party</a>
+    <div class="mf-heading-actions">
+        <partial name="/Pages/Shared/_ListSearch.cshtml" model='new CMIForge.Models.ListSearchViewModel(Model.Search, "Find party or alias...", "Search parties")' />
+        <a class="btn btn-primary" asp-page="./Create">Create party</a>
+    </div>
 </div>
 
 <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
 <div class="mf-panel">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div>
-            <strong>@(Model.Archived ? "Archived parties" : "Active parties")</strong>
-            <small class="d-block text-muted">Archived parties stay in conflict searches and can be restored from their detail page.</small>
-        </div>
-        <div class="btn-group btn-group-sm" role="group" aria-label="Party archive filter">
-            <a class="btn @(Model.Archived ? "btn-outline-secondary" : "btn-primary")" asp-page="./Index">Active</a>
-            <a class="btn @(Model.Archived ? "btn-primary" : "btn-outline-secondary")" asp-page="./Index" asp-route-archived="true">Archived</a>
-        </div>
+    <div class="mb-3">
+        <strong>Active parties</strong>
+        <small class="d-block text-muted">Archived parties stay in conflict searches and can be restored from System &gt; Archive.</small>
     </div>
 
     @if (Model.Parties.Count == 0)
     {
-        <p class="text-muted mb-0">No @(Model.Archived ? "archived" : "active") parties found.</p>
+        <p class="text-muted mb-0">No active parties found.</p>
     }
     else
     {
         <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle mf-compact-table" data-no-sort>
                 <thead>
                     <tr>
-                        <th>Number</th>
-                        <th>Party</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Aliases</th>
-                        <th>Matter links</th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "number")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="number" asp-route-sortDirection="@Model.NextSortDirection("number")">Number</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "party")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="party" asp-route-sortDirection="@Model.NextSortDirection("party")">Party</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "type")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="type" asp-route-sortDirection="@Model.NextSortDirection("type")">Type</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "status")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="status" asp-route-sortDirection="@Model.NextSortDirection("status")">Status</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "aliases")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="aliases" asp-route-sortDirection="@Model.NextSortDirection("aliases")">Aliases</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "matter-links")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="matter-links" asp-route-sortDirection="@Model.NextSortDirection("matter-links")">Matter links</a></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -51,10 +48,9 @@
                     {
                         <tr>
                             <td><a asp-page="./Details" asp-route-id="@party.Id"><code>@party.PartyNumber.ToString("D8")</code></a></td>
-                            <td>
+                            <td class="mf-truncate-cell">
                                 <a class="mf-record-link" asp-page="./Details" asp-route-id="@party.Id">
                                     <strong>@party.Name</strong>
-                                    <small class="d-block text-muted">@party.NormalizedName</small>
                                 </a>
                             </td>
                             <td>@party.PartyType</td>
@@ -66,5 +62,6 @@
                 </tbody>
             </table>
         </div>
+        <partial name="/Pages/Shared/_RecordPagination.cshtml" model='new CMIForge.Models.RecordPaginationViewModel(Model.Pagination, "active parties", Model.RouteValues)' />
     }
 </div>

@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class SubmissionWorkflowEvent
 {
@@ -18,7 +18,7 @@ public class SubmissionWorkflowEvent
 
     public Guid? ActorUserId { get; set; }
 
-    public MatterForgeUser? ActorUser { get; set; }
+    public CMIForgeUser? ActorUser { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

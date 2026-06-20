@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Submissions.IndexModel
+@model CMIForge.Pages.Submissions.IndexModel
 @{
     ViewData["Title"] = "Submissions";
 }
@@ -9,29 +9,32 @@
         <p class="mf-eyebrow">Intake queue</p>
         <h1>Submissions</h1>
     </div>
-    @if (Model.CanSubmitForms && Model.PublishedForms.Count == 1)
-    {
-        <a class="btn btn-primary" asp-page="/Forms/Submit" asp-route-id="@Model.PublishedForms[0].Id">New</a>
-    }
-    else if (Model.CanSubmitForms && Model.PublishedForms.Count > 1)
-    {
-        <div class="dropdown">
-            <button class="btn btn-primary dropdown-toggle" type="button" id="newSubmissionDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                New
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="newSubmissionDropdown">
-                @foreach (var form in Model.PublishedForms)
-                {
-                    <li>
-                        <a class="dropdown-item" asp-page="/Forms/Submit" asp-route-id="@form.Id">
-                            @form.Name
-                            <small class="d-block text-muted">v@form.VersionNumber</small>
-                        </a>
-                    </li>
-                }
-            </ul>
-        </div>
-    }
+    <div class="mf-heading-actions">
+        <partial name="/Pages/Shared/_ListSearch.cshtml" model='new CMIForge.Models.ListSearchViewModel(Model.Search, "Find submission...", "Search submissions", RouteValues: new Dictionary<string, string> { ["View"] = Model.View })' />
+        @if (Model.CanSubmitForms && Model.PublishedForms.Count == 1)
+        {
+            <a class="btn btn-primary" asp-page="/Forms/Submit" asp-route-id="@Model.PublishedForms[0].Id">New</a>
+        }
+        else if (Model.CanSubmitForms && Model.PublishedForms.Count > 1)
+        {
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" type="button" id="newSubmissionDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    New
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="newSubmissionDropdown">
+                    @foreach (var form in Model.PublishedForms)
+                    {
+                        <li>
+                            <a class="dropdown-item" asp-page="/Forms/Submit" asp-route-id="@form.Id">
+                                @form.Name
+                                <small class="d-block text-muted">v@form.VersionNumber</small>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
 </div>
 
 <div class="mf-panel">
@@ -54,26 +57,31 @@
     else
     {
         <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle" data-no-sort>
                 <thead>
                     <tr>
-                        <th>Number</th>
-                        <th>Client</th>
-                        <th>Matter</th>
-                        <th>Submitted by</th>
-                        <th>Status</th>
-                        <th>Submitted</th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "number")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="number" asp-route-sortDirection="@Model.NextSortDirection("number")">Number</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "client")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="client" asp-route-sortDirection="@Model.NextSortDirection("client")">Client</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "matter")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="matter" asp-route-sortDirection="@Model.NextSortDirection("matter")">Matter</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "submitter")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="submitter" asp-route-sortDirection="@Model.NextSortDirection("submitter")">Submitted by</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "status")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="status" asp-route-sortDirection="@Model.NextSortDirection("status")">Status</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "submitted")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="submitted" asp-route-sortDirection="@Model.NextSortDirection("submitted")">Submitted</a></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var submission in Model.Submissions)
                     {
                         <tr>
-                            <td><a asp-page="./Details" asp-route-id="@submission.Id"><code>@MatterForge.Services.RecordNumbers.Submission(submission.SubmissionNumber)</code></a></td>
+                            <td><a asp-page="./Details" asp-route-id="@submission.Id"><code>@CMIForge.Services.RecordNumbers.Submission(submission.SubmissionNumber)</code></a></td>
                             <td>
-                                @if (submission.Client is not null)
+                                @if (submission.ClientId.HasValue)
                                 {
-                                    <a asp-page="/Entities/Clients/Details" asp-route-id="@submission.Client.Id">@submission.Client.Name</a>
+                                    <a asp-page="/Entities/Clients/Details" asp-route-id="@submission.ClientId">@submission.ClientName</a>
+                                }
+                                else if (!string.IsNullOrWhiteSpace(submission.SubmittedClientName))
+                                {
+                                    <span class="mf-submitted-value">@submission.SubmittedClientName</span>
+                                    <small class="d-block text-muted">Submitted value</small>
                                 }
                                 else
                                 {
@@ -81,9 +89,14 @@
                                 }
                             </td>
                             <td>
-                                @if (submission.Matter is not null)
+                                @if (submission.MatterId.HasValue)
                                 {
-                                    <a asp-page="/Entities/Matters/Details" asp-route-id="@submission.Matter.Id">@submission.Matter.Name</a>
+                                    <a asp-page="/Entities/Matters/Details" asp-route-id="@submission.MatterId">@submission.MatterName</a>
+                                }
+                                else if (!string.IsNullOrWhiteSpace(submission.SubmittedMatterName))
+                                {
+                                    <span class="mf-submitted-value">@submission.SubmittedMatterName</span>
+                                    <small class="d-block text-muted">Submitted value</small>
                                 }
                                 else
                                 {
@@ -91,21 +104,37 @@
                                 }
                             </td>
                             <td>
-                                @if (submission.SubmitterUser is not null)
+                                @if (submission.SubmitterUserId.HasValue)
                                 {
-                                    <a asp-page="/Entities/Users/Details" asp-route-id="@submission.SubmitterUser.Id">@submission.SubmitterUser.DisplayName</a>
+                                    <a asp-page="/Entities/Users/Details" asp-route-id="@submission.SubmitterUserId">@submission.SubmitterName</a>
                                 }
                                 else
                                 {
                                     @submission.SubmitterName
                                 }
                             </td>
-                            <td><span class="badge text-bg-success">@submission.Status</span></td>
+                            <td><span class="badge @StatusClass(submission.Status)">@submission.Status</span></td>
                             <td>@UserDates.Format(submission.SubmittedAt)</td>
                         </tr>
                     }
                 </tbody>
             </table>
         </div>
+        <partial name="_RecordPagination" model="@(new CMIForge.Models.RecordPaginationViewModel(Model.Pagination, "submissions", Model.RouteValues))" />
     }
 </div>
+
+@functions {
+    private static string StatusClass(string status)
+    {
+        return status switch
+        {
+            CMIForge.Services.SubmissionStatuses.Approved => "text-bg-success",
+            CMIForge.Services.SubmissionStatuses.Returned => "text-bg-warning",
+            CMIForge.Services.SubmissionStatuses.Cancelled => "text-bg-danger",
+            CMIForge.Services.SubmissionStatuses.Converted => "text-bg-dark",
+            CMIForge.Services.SubmissionStatuses.InReview => "text-bg-primary",
+            _ => "text-bg-secondary"
+        };
+    }
+}

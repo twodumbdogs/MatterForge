@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Entities.Parties.DetailsModel
+@model CMIForge.Pages.Entities.Parties.DetailsModel
 @{
     ViewData["Title"] = Model.Party is null ? "Party Details" : $"Party {Model.Party.PartyNumber:D8}";
     ViewData["ActiveEntityTab"] = "Parties";
@@ -209,6 +209,7 @@ else
     </div>
 
     <partial name="/Pages/Entities/_EntityNotes.cshtml" model="Model.Notes" />
+    <partial name="/Pages/Entities/_EntityAuditHistory.cshtml" model="Model.AuditHistory" />
 }
 
 @section Scripts {

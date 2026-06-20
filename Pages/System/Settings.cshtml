@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.System.SettingsModel
+@model CMIForge.Pages.System.SettingsModel
 @{
     ViewData["Title"] = "System Settings";
     string? currentCategory = null;
@@ -71,14 +71,14 @@
                     }
                 </div>
                 <div class="col-lg-7">
-                    @if (setting.ValueType == MatterForge.Models.SystemSettingValueTypes.Boolean)
+                    @if (setting.ValueType == CMIForge.Models.SystemSettingValueTypes.Boolean)
                     {
                         <select asp-for="Settings[i].Value" class="form-select" disabled="@(Model.IsDemoMode || !setting.IsEditable)">
                             <option value="true">True</option>
                             <option value="false">False</option>
                         </select>
                     }
-                    else if (setting.ValueType == MatterForge.Models.SystemSettingValueTypes.Integer)
+                    else if (setting.ValueType == CMIForge.Models.SystemSettingValueTypes.Integer)
                     {
                         <input asp-for="Settings[i].Value" class="form-control" inputmode="numeric" disabled="@(Model.IsDemoMode || !setting.IsEditable)" />
                     }

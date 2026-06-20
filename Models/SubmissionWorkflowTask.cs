@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class SubmissionWorkflowTask
 {
@@ -18,7 +18,7 @@ public class SubmissionWorkflowTask
 
     public Guid? AssignedUserId { get; set; }
 
-    public MatterForgeUser? AssignedUser { get; set; }
+    public CMIForgeUser? AssignedUser { get; set; }
 
     public Guid? AssignedTeamId { get; set; }
 
@@ -36,5 +36,5 @@ public class SubmissionWorkflowTask
 
     public Guid? CompletedByUserId { get; set; }
 
-    public MatterForgeUser? CompletedByUser { get; set; }
+    public CMIForgeUser? CompletedByUser { get; set; }
 }

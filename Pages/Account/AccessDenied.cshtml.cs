@@ -1,7 +1,7 @@
-using MatterForge.Services;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace MatterForge.Pages.Account;
+namespace CMIForge.Pages.Account;
 
 public class AccessDeniedModel(CurrentUserService currentUserService) : PageModel
 {

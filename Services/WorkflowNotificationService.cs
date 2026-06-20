@@ -1,14 +1,12 @@
-using System.Net;
-using System.Net.Mail;
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public sealed record WorkflowNotificationResult(bool Sent, string EventType, string Message);
 
-public class WorkflowNotificationService(MatterForgeDbContext db)
+public class WorkflowNotificationService(CMIForgeDbContext db, IConfiguration configuration)
 {
     public async Task<WorkflowNotificationResult> ProcessAsync(
         SubmissionWorkflowInstance instance,
@@ -25,80 +23,79 @@ public class WorkflowNotificationService(MatterForgeDbContext db)
             return new WorkflowNotificationResult(false, WorkflowStatuses.EventNotificationSkipped, skipped);
         }
 
-        var settings = await LoadSettingsAsync();
-        if (!IsEnabled(settings))
+        var tenantSettings = await LoadTenantEmailSettingsAsync();
+        if (!IsEnabled(tenantSettings))
         {
             var skipped = $"Notification step '{step.Name}' prepared for {recipients.Count} recipient(s). Email notifications are disabled.";
             AddEvent(instance.Id, submission.Id, WorkflowStatuses.EventNotificationSkipped, skipped, actorUserId);
             return new WorkflowNotificationResult(false, WorkflowStatuses.EventNotificationSkipped, skipped);
         }
 
-        var host = Setting(settings, "Email.SmtpHost");
-        var fromEmail = Setting(settings, "Email.FromEmail");
-        if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(fromEmail))
+        var fromEmail = Setting(tenantSettings, "Email.FromEmail", PlatformSetting("Notifications:FromEmail", "Email:FromEmail"));
+        var mailboxAddress = Setting(tenantSettings, "Email.MailboxAddress", fromEmail);
+        if (string.IsNullOrWhiteSpace(mailboxAddress) || string.IsNullOrWhiteSpace(fromEmail))
         {
-            var skipped = $"Notification step '{step.Name}' skipped because SMTP host/from settings are incomplete.";
+            var skipped = $"Notification step '{step.Name}' skipped because the tenant email sender is not configured.";
             AddEvent(instance.Id, submission.Id, WorkflowStatuses.EventNotificationSkipped, skipped, actorUserId);
             return new WorkflowNotificationResult(false, WorkflowStatuses.EventNotificationSkipped, skipped);
         }
 
         try
         {
-            using var message = new MailMessage
+            var template = step.NotificationTemplateId.HasValue
+                ? await db.WorkflowNotificationTemplates
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Id == step.NotificationTemplateId.Value && x.IsActive)
+                : null;
+            var subject = RenderTemplate(
+                string.IsNullOrWhiteSpace(template?.Subject ?? step.NotificationSubject)
+                    ? $"CMIForge workflow notification: {workflow.Name}"
+                    : template?.Subject ?? step.NotificationSubject,
+                submission,
+                workflow,
+                step);
+            var body = RenderTemplate(
+                string.IsNullOrWhiteSpace(template?.Body ?? step.NotificationBody)
+                    ? $"{workflow.Name} reached workflow step '{step.Name}' for submission {RecordNumbers.Submission(submission.SubmissionNumber)}."
+                    : template?.Body ?? step.NotificationBody,
+                submission,
+                workflow,
+                step);
+            var replyToEmail = Setting(tenantSettings, "Email.ReplyToEmail", fromEmail);
+
+            db.EmailOutboxMessages.Add(new EmailOutboxMessage
             {
-                From = new MailAddress(fromEmail, Setting(settings, "Email.FromName", ProductInfo.Name)),
-                Subject = RenderTemplate(
-                    string.IsNullOrWhiteSpace(step.NotificationSubject)
-                        ? $"CMIForge workflow notification: {workflow.Name}"
-                        : step.NotificationSubject,
-                    submission,
-                    workflow,
-                    step),
-                Body = RenderTemplate(
-                    string.IsNullOrWhiteSpace(step.NotificationBody)
-                        ? $"{workflow.Name} reached workflow step '{step.Name}' for submission {RecordNumbers.Submission(submission.SubmissionNumber)}."
-                        : step.NotificationBody,
-                    submission,
-                    workflow,
-                    step),
-                IsBodyHtml = false
-            };
+                MailboxAddress = mailboxAddress,
+                FromEmail = fromEmail,
+                FromName = Setting(tenantSettings, "Email.FromName", ProductInfo.Name),
+                ReplyToEmail = replyToEmail,
+                ToRecipients = string.Join(';', recipients),
+                Subject = subject,
+                Body = body,
+                IsBodyHtml = false,
+                FormSubmissionId = submission.Id,
+                SubmissionWorkflowInstanceId = instance.Id,
+                WorkflowStepId = step.Id
+            });
 
-            foreach (var recipient in recipients)
-            {
-                message.To.Add(recipient);
-            }
-
-            using var client = new SmtpClient(host, ParseInt(Setting(settings, "Email.SmtpPort"), 587))
-            {
-                EnableSsl = ParseBool(Setting(settings, "Email.SmtpUseSsl"), true)
-            };
-
-            var username = Setting(settings, "Email.SmtpUsername");
-            if (!string.IsNullOrWhiteSpace(username))
-            {
-                client.Credentials = new NetworkCredential(username, string.Empty);
-            }
-
-            await client.SendMailAsync(message);
-
-            var sent = $"Notification step '{step.Name}' sent to {recipients.Count} recipient(s).";
-            AddEvent(instance.Id, submission.Id, WorkflowStatuses.EventNotificationSent, sent, actorUserId);
-            return new WorkflowNotificationResult(true, WorkflowStatuses.EventNotificationSent, sent);
+            var queued = $"Notification step '{step.Name}' queued for {recipients.Count} recipient(s).";
+            AddEvent(instance.Id, submission.Id, WorkflowStatuses.EventNotificationQueued, queued, actorUserId);
+            return new WorkflowNotificationResult(true, WorkflowStatuses.EventNotificationQueued, queued);
         }
-        catch (Exception ex) when (ex is SmtpException or InvalidOperationException or FormatException)
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException)
         {
-            var failed = $"Notification step '{step.Name}' could not send: {ex.Message}";
+            var failed = $"Notification step '{step.Name}' could not be queued: {ex.Message}";
             AddEvent(instance.Id, submission.Id, WorkflowStatuses.EventNotificationFailed, failed, actorUserId);
             return new WorkflowNotificationResult(false, WorkflowStatuses.EventNotificationFailed, failed);
         }
     }
 
-    private async Task<Dictionary<string, string>> LoadSettingsAsync()
+    private async Task<Dictionary<string, string>> LoadTenantEmailSettingsAsync()
     {
         return await db.SystemSettings
             .AsNoTracking()
-            .Where(x => x.Category == "Email" || x.Key.StartsWith("Email."))
+            .Where(x => (x.Category == "Email" || x.Key.StartsWith("Email.")) &&
+                !x.Key.StartsWith("Email.Smtp"))
             .ToDictionaryAsync(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -112,15 +109,27 @@ public class WorkflowNotificationService(MatterForgeDbContext db)
 
         foreach (var token in tokens)
         {
-            if (token.Equals("assigned", StringComparison.OrdinalIgnoreCase))
+            if (WorkflowNotificationRecipientTokens.IsAssigned(token))
             {
                 await AddAssignedRecipientsAsync(step, recipients);
                 continue;
             }
 
-            if (token.Equals("submitter", StringComparison.OrdinalIgnoreCase))
+            if (WorkflowNotificationRecipientTokens.IsSubmitter(token))
             {
                 await AddSubmitterRecipientAsync(submission, recipients);
+                continue;
+            }
+
+            if (WorkflowNotificationRecipientTokens.TryReadUserId(token, out var userId))
+            {
+                await AddUserRecipientAsync(userId, recipients);
+                continue;
+            }
+
+            if (WorkflowNotificationRecipientTokens.TryReadContactId(token, out var contactId))
+            {
+                await AddContactRecipientAsync(contactId, recipients);
                 continue;
             }
 
@@ -131,6 +140,24 @@ public class WorkflowNotificationService(MatterForgeDbContext db)
         }
 
         return recipients.OrderBy(x => x).ToList();
+    }
+
+    private async Task AddUserRecipientAsync(Guid userId, HashSet<string> recipients)
+    {
+        var email = await db.Users
+            .Where(x => x.Id == userId && x.IsActive && !x.IsArchived)
+            .Select(x => x.Email)
+            .FirstOrDefaultAsync();
+        AddEmail(email, recipients);
+    }
+
+    private async Task AddContactRecipientAsync(Guid contactId, HashSet<string> recipients)
+    {
+        var email = await db.Contacts
+            .Where(x => x.Id == contactId && !x.IsArchived)
+            .Select(x => x.Email)
+            .FirstOrDefaultAsync();
+        AddEmail(email, recipients);
     }
 
     private async Task AddAssignedRecipientsAsync(WorkflowStep step, HashSet<string> recipients)
@@ -190,14 +217,14 @@ public class WorkflowNotificationService(MatterForgeDbContext db)
         return settings.TryGetValue(key, out var value) ? value.Trim() : fallback;
     }
 
+    private string PlatformSetting(string key, string legacyKey)
+    {
+        return (configuration[key] ?? configuration[legacyKey] ?? string.Empty).Trim();
+    }
+
     private static bool ParseBool(string value, bool fallback)
     {
         return bool.TryParse(value, out var parsed) ? parsed : fallback;
-    }
-
-    private static int ParseInt(string value, int fallback)
-    {
-        return int.TryParse(value, out var parsed) ? parsed : fallback;
     }
 
     private static string RenderTemplate(string template, FormSubmission submission, WorkflowDefinition workflow, WorkflowStep step)
@@ -220,5 +247,35 @@ public class WorkflowNotificationService(MatterForgeDbContext db)
             Message = message,
             ActorUserId = actorUserId
         });
+    }
+}
+
+public static class WorkflowNotificationRecipientTokens
+{
+    public const string Assigned = "assigned";
+    public const string Submitter = "submitter";
+    private const string UserPrefix = "user:";
+    private const string ContactPrefix = "contact:";
+
+    public static string User(Guid id) => $"{UserPrefix}{id:D}";
+
+    public static string Contact(Guid id) => $"{ContactPrefix}{id:D}";
+
+    public static bool IsAssigned(string? token) => token?.Equals(Assigned, StringComparison.OrdinalIgnoreCase) == true;
+
+    public static bool IsSubmitter(string? token) => token?.Equals(Submitter, StringComparison.OrdinalIgnoreCase) == true;
+
+    public static bool TryReadUserId(string? token, out Guid id)
+    {
+        id = Guid.Empty;
+        return token?.StartsWith(UserPrefix, StringComparison.OrdinalIgnoreCase) == true &&
+            Guid.TryParse(token[UserPrefix.Length..], out id);
+    }
+
+    public static bool TryReadContactId(string? token, out Guid id)
+    {
+        id = Guid.Empty;
+        return token?.StartsWith(ContactPrefix, StringComparison.OrdinalIgnoreCase) == true &&
+            Guid.TryParse(token[ContactPrefix.Length..], out id);
     }
 }

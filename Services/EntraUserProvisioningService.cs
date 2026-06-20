@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using Azure.Core;
 using Azure.Identity;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public sealed record EntraCreateUserRequest(
     string FirstName,

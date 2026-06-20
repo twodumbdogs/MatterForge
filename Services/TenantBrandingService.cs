@@ -1,28 +1,28 @@
-using MatterForge.Data;
+using CMIForge.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
-public class TenantBrandingService(MatterForgeDbContext db, IConfiguration configuration)
+public class TenantBrandingService(CMIForgeDbContext db, IConfiguration configuration)
 {
     public const string FirmNameSettingKey = "Branding.FirmName";
 
     public async Task<string> GetDisplayNameAsync()
     {
-        var configuredName = configuration["MatterForge:BrandName"];
-        if (!string.IsNullOrWhiteSpace(configuredName))
-        {
-            return configuredName.Trim();
-        }
-
         var settingName = await db.SystemSettings
             .AsNoTracking()
             .Where(x => x.Key == FirmNameSettingKey)
             .Select(x => x.Value)
             .FirstOrDefaultAsync();
 
-        return string.IsNullOrWhiteSpace(settingName)
+        if (!string.IsNullOrWhiteSpace(settingName))
+        {
+            return settingName.Trim();
+        }
+
+        var configuredName = configuration["CMIForge:BrandName"];
+        return string.IsNullOrWhiteSpace(configuredName)
             ? ProductInfo.Name
-            : settingName.Trim();
+            : configuredName.Trim();
     }
 }

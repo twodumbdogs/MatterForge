@@ -1,14 +1,14 @@
 using System;
-using MatterForge.Data;
+using CMIForge.Data;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace MatterForge.Migrations
+namespace CMIForge.Migrations
 {
     /// <inheritdoc />
-    [DbContext(typeof(MatterForgeDbContext))]
+    [DbContext(typeof(CMIForgeDbContext))]
     [Migration("20260618211455_AddEntityNotes")]
     public partial class AddEntityNotes : Migration
     {

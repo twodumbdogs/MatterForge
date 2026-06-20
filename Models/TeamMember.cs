@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class TeamMember
 {
@@ -10,7 +10,7 @@ public class TeamMember
 
     public Guid UserId { get; set; }
 
-    public MatterForgeUser? User { get; set; }
+    public CMIForgeUser? User { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

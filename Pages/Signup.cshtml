@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.SignupModel
+@model CMIForge.Pages.SignupModel
 @{
     ViewData["Title"] = "Request CMIForge";
 }
@@ -51,9 +51,9 @@
                 <div class="col-md-6">
                     <label asp-for="Input.Plan" class="form-label"></label>
                     <select asp-for="Input.Plan" class="form-select">
-                        <option value="@MatterForge.Models.TenantProvisioningPlans.Community">Community</option>
-                        <option value="@MatterForge.Models.TenantProvisioningPlans.Professional">Professional</option>
-                        <option value="@MatterForge.Models.TenantProvisioningPlans.Enterprise">Enterprise</option>
+                        <option value="@CMIForge.Models.TenantProvisioningPlans.Community">Community</option>
+                        <option value="@CMIForge.Models.TenantProvisioningPlans.Professional">Professional</option>
+                        <option value="@CMIForge.Models.TenantProvisioningPlans.Enterprise">Enterprise</option>
                     </select>
                     <span asp-validation-for="Input.Plan" class="text-danger"></span>
                 </div>
@@ -77,6 +77,17 @@
                     <label asp-for="Input.Notes" class="form-label">Anything we should know?</label>
                     <textarea asp-for="Input.Notes" class="form-control" rows="4" placeholder="Current intake pain, expected users, or setup goals."></textarea>
                     <span asp-validation-for="Input.Notes" class="text-danger"></span>
+                </div>
+
+                <div class="col-12">
+                    <div class="form-check">
+                        <input asp-for="Input.AcceptLegalAgreement" class="form-check-input" />
+                        <label asp-for="Input.AcceptLegalAgreement" class="form-check-label">
+                            I agree to the
+                            <a asp-page="/System/Terms" target="_blank" rel="noopener noreferrer">CMIForge SaaS Terms, Legal Use, and License Agreement</a>.
+                        </label>
+                    </div>
+                    <span asp-validation-for="Input.AcceptLegalAgreement" class="text-danger d-block"></span>
                 </div>
             </div>
 

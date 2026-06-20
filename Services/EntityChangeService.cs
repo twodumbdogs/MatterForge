@@ -1,12 +1,13 @@
 using System.Text.Json;
-using MatterForge.Models;
+using CMIForge.Models;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public static class EntityChangeService
 {
     public const string ClientEntityType = "Client";
     public const string MatterEntityType = "Matter";
+    public const string ContactEntityType = "Contact";
 
     public static ClientChangeSnapshot ToSnapshot(Client client)
     {
@@ -37,7 +38,33 @@ public static class EntityChangeService
             Status = matter.Status,
             OpenedDate = matter.OpenedDate,
             ResponsibleUserId = matter.ResponsibleUserId,
+            LeadPartnerId = matter.LeadPartnerId,
+            RequiresTimeApproval = matter.RequiresTimeApproval,
+            TimeIncrementMinutes = matter.TimeIncrementMinutes,
+            TimeCodeSetId = matter.TimeCodeSetId,
             Notes = matter.Notes
+        };
+    }
+
+    public static ContactChangeSnapshot ToSnapshot(Contact contact)
+    {
+        return new ContactChangeSnapshot
+        {
+            FirstName = contact.FirstName,
+            MiddleName = contact.MiddleName,
+            LastName = contact.LastName,
+            Organization = contact.Organization,
+            Title = contact.Title,
+            Email = contact.Email,
+            Phone = contact.Phone,
+            MobilePhone = contact.MobilePhone,
+            AddressLine1 = contact.AddressLine1,
+            AddressLine2 = contact.AddressLine2,
+            City = contact.City,
+            State = contact.State,
+            PostalCode = contact.PostalCode,
+            Country = contact.Country,
+            Notes = contact.Notes
         };
     }
 
@@ -105,8 +132,35 @@ public static class EntityChangeService
         matter.Status = proposed.Status.Trim();
         matter.OpenedDate = proposed.OpenedDate;
         matter.ResponsibleUserId = proposed.ResponsibleUserId;
+        matter.LeadPartnerId = proposed.LeadPartnerId;
+        matter.RequiresTimeApproval = proposed.RequiresTimeApproval;
+        matter.TimeIncrementMinutes = TimeIncrementRules.Normalize(proposed.TimeIncrementMinutes) == TimeIncrementRules.ActualMinutes && proposed.TimeIncrementMinutes is null
+            ? null
+            : proposed.TimeIncrementMinutes;
+        matter.TimeCodeSetId = proposed.TimeCodeSetId;
         matter.Notes = proposed.Notes.Trim();
         matter.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public static void Apply(Contact contact, ContactChangeSnapshot proposed)
+    {
+        contact.FirstName = proposed.FirstName.Trim();
+        contact.MiddleName = proposed.MiddleName.Trim();
+        contact.LastName = proposed.LastName.Trim();
+        contact.Organization = proposed.Organization.Trim();
+        contact.DisplayName = BuildContactDisplayName(contact.FirstName, contact.MiddleName, contact.LastName, contact.Organization);
+        contact.Title = proposed.Title.Trim();
+        contact.Email = proposed.Email.Trim();
+        contact.Phone = proposed.Phone.Trim();
+        contact.MobilePhone = proposed.MobilePhone.Trim();
+        contact.AddressLine1 = proposed.AddressLine1.Trim();
+        contact.AddressLine2 = proposed.AddressLine2.Trim();
+        contact.City = proposed.City.Trim();
+        contact.State = proposed.State.Trim();
+        contact.PostalCode = proposed.PostalCode.Trim();
+        contact.Country = proposed.Country.Trim();
+        contact.Notes = proposed.Notes.Trim();
+        contact.UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     private static string SplitPropertyName(string value)
@@ -128,5 +182,16 @@ public static class EntityChangeService
         }
 
         return new string(words.ToArray());
+    }
+
+    private static string BuildContactDisplayName(string firstName, string middleName, string lastName, string organization)
+    {
+        var personName = string.Join(" ", new[] { firstName, middleName, lastName }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+        if (!string.IsNullOrWhiteSpace(personName))
+        {
+            return personName;
+        }
+
+        return string.IsNullOrWhiteSpace(organization) ? "Unnamed Contact" : organization;
     }
 }

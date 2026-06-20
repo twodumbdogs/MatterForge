@@ -1,12 +1,12 @@
 using System.Text;
 using System.Text.Json;
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
-public class CsvImportService(MatterForgeDbContext db, ProductPlanService productPlanService)
+public class CsvImportService(CMIForgeDbContext db, ProductPlanService productPlanService)
 {
     private static readonly JsonSerializerOptions SourceJsonOptions = new() { WriteIndented = false };
 
@@ -460,7 +460,7 @@ public class CsvImportService(MatterForgeDbContext db, ProductPlanService produc
         return true;
     }
 
-    private static MatterForgeUser? FindUser(List<MatterForgeUser> users, string value)
+    private static CMIForgeUser? FindUser(List<CMIForgeUser> users, string value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {

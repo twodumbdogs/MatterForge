@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class Matter
 {
@@ -20,7 +20,19 @@ public class Matter
 
     public Guid? ResponsibleUserId { get; set; }
 
-    public MatterForgeUser? ResponsibleUser { get; set; }
+    public CMIForgeUser? ResponsibleUser { get; set; }
+
+    public Guid? LeadPartnerId { get; set; }
+
+    public CMIForgeUser? LeadPartner { get; set; }
+
+    public bool RequiresTimeApproval { get; set; }
+
+    public int? TimeIncrementMinutes { get; set; }
+
+    public Guid? TimeCodeSetId { get; set; }
+
+    public TimeCodeSet? TimeCodeSet { get; set; }
 
     public string Notes { get; set; } = string.Empty;
 

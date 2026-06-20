@@ -1,7 +1,7 @@
-using MatterForge.Services;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace MatterForge.Pages.System;
+namespace CMIForge.Pages.System;
 
 public class DemoBlockedModel(DemoModeService demoModeService) : PageModel
 {

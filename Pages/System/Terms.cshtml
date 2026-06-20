@@ -1,4 +1,5 @@
 @page
+@using CMIForge.Models
 @{
     ViewData["Title"] = "Terms & Conditions";
 }
@@ -7,12 +8,12 @@
     <div>
         <p class="mf-eyebrow">System</p>
         <h1>Terms & Conditions</h1>
-        <p class="text-muted">Draft SaaS terms for CMIForge covering customer data handling, security expectations, support access, and standard cloud-service operations.</p>
+        <p class="text-muted">CMIForge SaaS terms, legal-use rules, license conditions, data handling commitments, and customer responsibilities.</p>
     </div>
 </div>
 
-<div class="alert alert-warning">
-    <strong>Draft language for product shaping.</strong> This page is a practical starting point and should be reviewed by counsel before public launch or customer contracting.
+<div class="alert alert-info">
+    <strong>@LegalAgreementVersions.CurrentTitle.</strong> By requesting, accessing, or using a CMIForge workspace, the customer agrees to these terms unless a separately signed agreement says otherwise.
 </div>
 
 <section class="mf-help-grid">
@@ -20,7 +21,12 @@
         <h2>Contents</h2>
         <nav class="nav flex-column mt-3">
             <a class="nav-link" href="#scope">Scope</a>
+            <a class="nav-link" href="#authority">Authority To Accept</a>
+            <a class="nav-link" href="#license">License</a>
+            <a class="nav-link" href="#legal-use">Legal Use</a>
+            <a class="nav-link" href="#no-advice">No Legal Advice</a>
             <a class="nav-link" href="#customer-data">Customer Data</a>
+            <a class="nav-link" href="#ai-assist">AI Assist</a>
             <a class="nav-link" href="#no-sale">No Sale Of Data</a>
             <a class="nav-link" href="#security">Security</a>
             <a class="nav-link" href="#access">Operational Access</a>
@@ -28,40 +34,89 @@
             <a class="nav-link" href="#retention">Retention And Deletion</a>
             <a class="nav-link" href="#confidentiality">Confidentiality</a>
             <a class="nav-link" href="#acceptable-use">Acceptable Use</a>
+            <a class="nav-link" href="#availability">Availability</a>
+            <a class="nav-link" href="#fees">Fees And Plans</a>
+            <a class="nav-link" href="#termination">Suspension And Termination</a>
+            <a class="nav-link" href="#disclaimers">Disclaimers</a>
+            <a class="nav-link" href="#liability">Liability</a>
+            <a class="nav-link" href="#indemnity">Indemnity</a>
             <a class="nav-link" href="#changes">Changes</a>
+            <a class="nav-link" href="#acceptance-record">Acceptance Record</a>
         </nav>
     </aside>
 
     <div class="mf-help-content">
         <section id="scope" class="mf-panel">
             <h2>Scope</h2>
-            <p>These Terms &amp; Conditions govern use of the CMIForge software service, including related hosting, storage, support, maintenance, and administrative functions. They are intended to describe the baseline relationship between CMIForge as the service provider and the subscribing customer as the controller or owner of customer-entered data.</p>
-            <p class="mb-0">Unless a separately negotiated agreement says otherwise, these terms apply to use of the hosted CMIForge application, support interactions, product maintenance, and the handling of customer data within the service.</p>
+            <p>These Terms &amp; Conditions govern use of the CMIForge software service, including the hosted application, databases, storage, support, maintenance, product documentation, workflow tools, reporting tools, conflict-checking tools, time tools, and related administrative functions.</p>
+            <p class="mb-0">If the customer signs a separate written agreement with CMIForge, that signed agreement controls where it directly conflicts with these terms. Otherwise, these terms apply to customer workspace requests, trial use, paid use, demo use, support interactions, and ongoing platform access.</p>
+        </section>
+
+        <section id="authority" class="mf-panel">
+            <h2>Authority To Accept</h2>
+            <p>The person submitting a workspace request represents that they are authorized to request the workspace for the named customer, provide the customer information entered on the signup form, and accept these terms on the customer's behalf.</p>
+            <p class="mb-0">If the submitter is not authorized, they must not submit the request or use the service for that customer.</p>
+        </section>
+
+        <section id="license" class="mf-panel">
+            <h2>Limited SaaS License</h2>
+            <p>Subject to these terms, CMIForge grants the customer a limited, non-exclusive, non-transferable, revocable right to access and use the hosted CMIForge service for the customer's internal business operations during the applicable trial, subscription, or authorized access period.</p>
+            <ul>
+                <li>The customer receives access to the service, not ownership of CMIForge software, source code, infrastructure, product design, trademarks, or other platform intellectual property.</li>
+                <li>The customer may allow authorized users to access the workspace only for legitimate customer business purposes.</li>
+                <li>The customer must not copy, resell, sublicense, reverse engineer, scrape, benchmark for competitive purposes, or attempt to extract CMIForge source code, models, design assets, or non-public product logic.</li>
+            </ul>
+        </section>
+
+        <section id="legal-use" class="mf-panel">
+            <h2>Legal Use And Customer Responsibility</h2>
+            <p>CMIForge is designed to help organize legal intake, entities, matters, workflows, conflicts information, reporting, and related operational records. The customer is responsible for ensuring its use of the service is lawful, ethical, properly authorized, and consistent with professional obligations that apply to the customer.</p>
+            <ul>
+                <li>The customer is responsible for the accuracy, completeness, retention, review, and lawful processing of information entered into CMIForge.</li>
+                <li>The customer is responsible for supervising its users, assigning appropriate permissions, maintaining internal policies, and reviewing workflow outcomes before relying on them.</li>
+                <li>The customer must not use CMIForge to store or process information it has no right to collect, use, disclose, transfer, or retain.</li>
+            </ul>
+        </section>
+
+        <section id="no-advice" class="mf-panel">
+            <h2>No Legal Advice Or Legal Determination</h2>
+            <p>CMIForge is software. It does not provide legal advice, create an attorney-client relationship with any customer, make final conflicts determinations, approve legal work, determine privilege, or replace professional judgment.</p>
+            <p class="mb-0">Conflict results, match strength, risk labels, workflow statuses, time records, intake summaries, AI assist text, and reports are operational aids only. The customer remains responsible for human review, legal analysis, final decisions, and compliance with all applicable professional rules.</p>
         </section>
 
         <section id="customer-data" class="mf-panel">
             <h2>Customer Data</h2>
-            <p>The customer retains ownership of its customer data, including intake submissions, client records, matter records, party records, attachments, search history, workflow history, and user-entered content stored in CMIForge.</p>
+            <p>The customer retains ownership of its customer data, including intake submissions, client records, matter records, contact records, party records, attachments, search history, workflow history, time entries, audit history, notes, and user-entered content stored in CMIForge.</p>
             <ul>
-                <li>CMIForge processes customer data only to provide, secure, maintain, support, and improve the service.</li>
+                <li>CMIForge processes customer data only to provide, secure, maintain, support, troubleshoot, administer, and improve the service.</li>
                 <li>Customer data is not treated as a product asset that CMIForge owns outright.</li>
-                <li>Customer remains responsible for the legality, accuracy, and authorized use of the data it uploads or enters into the service.</li>
+                <li>The customer is responsible for the legality, accuracy, authorization, classification, and retention requirements of the data it uploads or enters into the service.</li>
+            </ul>
+        </section>
+
+        <section id="ai-assist" class="mf-panel">
+            <h2>AI Assist And Automated Features</h2>
+            <p>CMIForge may include AI-assisted or automated features, such as summaries, suggested classifications, match explanations, risk descriptions, search support, or productivity helpers. These features may be incomplete, inaccurate, or context-limited.</p>
+            <ul>
+                <li>AI assist output must be reviewed by an authorized human before use in client service, legal analysis, conflicts clearance, filings, billing, or business decisions.</li>
+                <li>AI assist output is not legal advice and should not be treated as a final professional judgment.</li>
+                <li>CMIForge may log prompts, outputs, metadata, and usage signals as needed to operate, troubleshoot, secure, and improve the feature, subject to the customer data commitments in these terms.</li>
             </ul>
         </section>
 
         <section id="no-sale" class="mf-panel">
-            <h2>No Sale Of Data</h2>
+            <h2>No Sale Of Customer Data</h2>
             <p>CMIForge does not sell customer data. CMIForge does not rent customer data, trade customer data for marketing benefit, or disclose customer data to third parties for their independent advertising or profiling purposes.</p>
-            <p class="mb-0">Disclosures made to hosting providers, storage providers, monitoring vendors, identity providers, support tools, backup tools, legal advisors, auditors, or other service providers acting on CMIForge's behalf are not considered a sale of customer data when used solely to operate the service.</p>
+            <p class="mb-0">Disclosures to hosting providers, storage providers, monitoring vendors, identity providers, email providers, support tools, backup tools, legal advisors, auditors, or other service providers acting on CMIForge's behalf are not considered a sale of customer data when used solely to operate, secure, support, or improve the service.</p>
         </section>
 
         <section id="security" class="mf-panel">
             <h2>Security</h2>
             <p>CMIForge will use commercially reasonable administrative, technical, and organizational safeguards designed to protect customer data from unauthorized access, use, alteration, or disclosure.</p>
             <ul>
-                <li>Security measures may include role-based access controls, authentication controls, encryption in transit, environment separation, logging, patching, and access review practices.</li>
-                <li>CMIForge may monitor service health, performance, errors, and security events for operational and protective purposes.</li>
-                <li>No hosted service can guarantee absolute security, and the customer acknowledges that residual risk exists in all cloud-based systems.</li>
+                <li>Security measures may include authentication controls, role-based access controls, encryption in transit, environment separation, logging, monitoring, patching, backups, and access review practices.</li>
+                <li>CMIForge may monitor service health, performance, errors, usage, and security events for operational and protective purposes.</li>
+                <li>No hosted service can guarantee absolute security. The customer acknowledges that residual risk exists in all cloud-based systems.</li>
             </ul>
         </section>
 
@@ -73,45 +128,91 @@
                 <li>CMIForge should use reasonable efforts to limit the scope and duration of access to what is required for the operational task.</li>
                 <li>Where practical, support and maintenance activity should prefer metadata, logs, configuration inspection, or least-privileged access before deeper content review.</li>
             </ul>
-            <p class="mb-0">If customer requests hands-on troubleshooting, the customer authorizes CMIForge to review relevant records, attachments, workflows, logs, or configuration needed to address the reported issue.</p>
+            <p class="mb-0">If the customer requests hands-on troubleshooting, migration assistance, or support investigation, the customer authorizes CMIForge to review relevant records, attachments, workflows, logs, configuration, and account details needed to address the request.</p>
         </section>
 
         <section id="subprocessors" class="mf-panel">
             <h2>Cloud Providers And Subprocessors</h2>
-            <p>CMIForge may use third-party infrastructure and service providers to deliver the platform, including hosting, database, storage, identity, email, telemetry, monitoring, and support tooling providers. In the current product shape, this may include Azure-based infrastructure and related cloud services.</p>
+            <p>CMIForge may use third-party infrastructure and service providers to deliver the platform, including hosting, database, storage, identity, email, telemetry, monitoring, backup, and support tooling providers. In the current product shape, this may include Azure-based infrastructure and related cloud services.</p>
             <ul>
                 <li>Such providers may process customer data only as needed to support the service.</li>
                 <li>CMIForge remains responsible for managing those providers in a manner consistent with its service obligations.</li>
-                <li>Customer understands that cloud operators and service vendors may technically have the ability to access underlying systems or stored data as part of infrastructure administration, incident response, or lawful process.</li>
+                <li>Cloud operators and service vendors may technically have the ability to access underlying systems or stored data as part of infrastructure administration, incident response, support, or lawful process.</li>
             </ul>
         </section>
 
         <section id="retention" class="mf-panel">
             <h2>Retention And Deletion</h2>
-            <p>Customer data will generally remain in the service until deleted by the customer, deleted by authorized workflow within the product, or removed according to termination, retention, or legal requirements.</p>
+            <p>Customer data will generally remain in the service until deleted by the customer, deleted by authorized workflow within the product, exported and removed during termination, or removed according to retention, backup, legal, or security requirements.</p>
             <ul>
-                <li>Backups, logs, cached copies, and disaster-recovery replicas may persist for a limited period after live deletion.</li>
-                <li>CMIForge may retain limited operational records needed for billing history, security investigation, abuse prevention, legal obligations, or dispute resolution.</li>
-                <li>Upon service termination, the parties should follow the applicable agreement for data export, deletion timing, and archival handling.</li>
+                <li>Backups, logs, cached copies, archive rows, search indexes, and disaster-recovery replicas may persist for a limited period after live deletion.</li>
+                <li>CMIForge may retain limited operational records needed for billing history, security investigation, abuse prevention, legal obligations, product analytics, audit trails, or dispute resolution.</li>
+                <li>Upon service termination, the parties should follow the applicable agreement or written termination process for data export, deletion timing, archival handling, and transition assistance.</li>
             </ul>
         </section>
 
         <section id="confidentiality" class="mf-panel">
             <h2>Confidentiality</h2>
-            <p>CMIForge will treat non-public customer data as confidential information and will not disclose it except as required to provide the service, as authorized by the customer, as required by law, or as necessary to protect the service, its users, or the public.</p>
-            <p class="mb-0">Customer is responsible for deciding what information is appropriate to place into the platform and for configuring internal access rights within the service.</p>
+            <p>CMIForge will treat non-public customer data as confidential information and will not disclose it except as required to provide the service, as authorized by the customer, as required by law, or as necessary to protect the service, its users, CMIForge, or the public.</p>
+            <p class="mb-0">The customer is responsible for deciding what information is appropriate to place into the platform and for configuring internal access rights within the service.</p>
         </section>
 
         <section id="acceptable-use" class="mf-panel">
             <h2>Acceptable Use</h2>
-            <p>The customer may not use CMIForge in a manner that is unlawful, infringes rights, compromises service security, or attempts to bypass access controls. CMIForge may suspend or limit access where reasonably necessary to investigate security issues, prevent abuse, or comply with legal obligations.</p>
-            <p class="mb-0">Customer remains responsible for its own user conduct, local compliance obligations, and internal governance over the content entered into the platform.</p>
+            <p>The customer may not use CMIForge in a manner that is unlawful, abusive, deceptive, infringing, harmful, or disruptive.</p>
+            <ul>
+                <li>The customer must not attempt to bypass access controls, probe or attack the service, introduce malicious code, overload the service, or interfere with other customers.</li>
+                <li>The customer must not use the service to violate privacy, confidentiality, intellectual property, export control, anti-spam, security, or professional-responsibility obligations.</li>
+                <li>CMIForge may suspend or limit access where reasonably necessary to investigate security issues, prevent abuse, comply with legal obligations, protect the platform, or reduce risk to customers.</li>
+            </ul>
+        </section>
+
+        <section id="availability" class="mf-panel">
+            <h2>Availability, Maintenance, And Beta Features</h2>
+            <p>CMIForge may perform maintenance, updates, migrations, security patches, feature releases, and operational changes that affect availability or behavior. CMIForge will use reasonable efforts to reduce unnecessary disruption.</p>
+            <p class="mb-0">Preview, beta, experimental, free, or demo features may change, break, be limited, or be removed without the same notice or support commitments as generally available paid features.</p>
+        </section>
+
+        <section id="fees" class="mf-panel">
+            <h2>Fees, Plans, And Limits</h2>
+            <p>Use of CMIForge may be subject to plan limits, subscription fees, usage limits, storage limits, user limits, feature limits, or other commercial terms communicated in the product, on the website, in an order form, or in a separate written agreement.</p>
+            <p class="mb-0">CMIForge may change packaging, pricing, limits, or included features over time. Material changes for active paid customers should be handled through reasonable notice, renewal terms, or customer communications.</p>
+        </section>
+
+        <section id="termination" class="mf-panel">
+            <h2>Suspension And Termination</h2>
+            <p>CMIForge may suspend or terminate access if the customer violates these terms, fails to pay applicable fees, creates security or legal risk, misuses the service, or uses the service in a way that may harm CMIForge, other customers, or third parties.</p>
+            <p class="mb-0">After termination, customer access may end and data may be deleted according to the applicable retention and termination process. Certain provisions, including confidentiality, ownership, payment obligations, disclaimers, liability limits, indemnity, and records of agreement acceptance, survive termination.</p>
+        </section>
+
+        <section id="disclaimers" class="mf-panel">
+            <h2>Disclaimers</h2>
+            <p>Except for commitments expressly stated in a signed agreement, CMIForge is provided on an "as is" and "as available" basis. CMIForge does not warrant that the service will be uninterrupted, error-free, secure against all threats, compatible with every customer system, or suitable for every professional or legal requirement.</p>
+            <p class="mb-0">CMIForge disclaims implied warranties to the fullest extent allowed by law, including implied warranties of merchantability, fitness for a particular purpose, title, and non-infringement.</p>
+        </section>
+
+        <section id="liability" class="mf-panel">
+            <h2>Limitation Of Liability</h2>
+            <p>To the fullest extent allowed by law, CMIForge will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, or for lost profits, lost revenue, lost data, business interruption, reputational harm, or substitute services, even if advised that such damages are possible.</p>
+            <p class="mb-0">Unless a signed agreement states otherwise, CMIForge's aggregate liability related to the service will be limited to the amounts paid by the customer for the service during the twelve months before the event giving rise to the claim, or one hundred dollars if no amounts were paid.</p>
+        </section>
+
+        <section id="indemnity" class="mf-panel">
+            <h2>Customer Indemnity</h2>
+            <p>The customer will defend and indemnify CMIForge from claims, damages, losses, liabilities, costs, and expenses arising from customer data, customer instructions, unauthorized or unlawful use of the service, violation of these terms, violation of law, or infringement of third-party rights by the customer or its users.</p>
+            <p class="mb-0">This does not require the customer to indemnify CMIForge for CMIForge's own gross negligence, willful misconduct, or obligations that cannot legally be shifted.</p>
         </section>
 
         <section id="changes" class="mf-panel">
             <h2>Changes To Terms</h2>
-            <p>CMIForge may revise these terms from time to time as the product matures, cloud architecture changes, security controls evolve, or legal requirements change. Material changes should be communicated through the service, release communications, or contract-update channels.</p>
-            <p class="mb-0"><strong>Last updated:</strong> June 17, 2026 · Product version <code>@MatterForge.Services.ProductInfo.Version</code></p>
+            <p>CMIForge may revise these terms as the product matures, cloud architecture changes, security controls evolve, laws change, or commercial packaging changes. Material changes should be communicated through the service, release communications, website updates, or contract-update channels.</p>
+            <p class="mb-0">Continued use of the service after updated terms become effective means the customer accepts the updated terms, unless a separate signed agreement provides a different update process.</p>
+        </section>
+
+        <section id="acceptance-record" class="mf-panel">
+            <h2>Acceptance Record</h2>
+            <p>When a workspace request is submitted, CMIForge may record the customer's acceptance of these terms, including the customer name, submitter name, submitter email, accepted agreement key, accepted agreement version, product version, acceptance timestamp, IP address, and browser user agent.</p>
+            <p class="mb-0"><strong>Agreement version:</strong> <code>@LegalAgreementVersions.CurrentVersion</code> · <strong>Last updated:</strong> June 19, 2026 · <strong>Product version:</strong> <code>@CMIForge.Services.ProductInfo.DisplayVersion</code></p>
         </section>
     </div>
 </section>

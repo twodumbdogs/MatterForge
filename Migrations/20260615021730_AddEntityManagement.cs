@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace MatterForge.Migrations
+namespace CMIForge.Migrations
 {
     /// <inheritdoc />
     public partial class AddEntityManagement : Migration
@@ -32,7 +32,7 @@ namespace MatterForge.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "MatterForgeUsers",
+                name: "CMIForgeUsers",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
@@ -45,7 +45,7 @@ namespace MatterForge.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MatterForgeUsers", x => x.Id);
+                    table.PrimaryKey("PK_CMIForgeUsers", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -73,9 +73,9 @@ namespace MatterForge.Migrations
                         principalTable: "Clients",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_Matters_MatterForgeUsers_ResponsibleUserId",
+                        name: "FK_Matters_CMIForgeUsers_ResponsibleUserId",
                         column: x => x.ResponsibleUserId,
-                        principalTable: "MatterForgeUsers",
+                        principalTable: "CMIForgeUsers",
                         principalColumn: "Id");
                 });
 
@@ -85,8 +85,8 @@ namespace MatterForge.Migrations
                 column: "ClientCode");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MatterForgeUsers_Email",
-                table: "MatterForgeUsers",
+                name: "IX_CMIForgeUsers_Email",
+                table: "CMIForgeUsers",
                 column: "Email",
                 unique: true);
 
@@ -116,7 +116,7 @@ namespace MatterForge.Migrations
                 name: "Clients");
 
             migrationBuilder.DropTable(
-                name: "MatterForgeUsers");
+                name: "CMIForgeUsers");
         }
     }
 }

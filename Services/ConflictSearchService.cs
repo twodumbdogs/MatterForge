@@ -1,13 +1,18 @@
 using System.Globalization;
 using System.Text;
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
-public class ConflictSearchService(MatterForgeDbContext db)
+public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveService archiveService)
 {
+    public ConflictSearchService(CMIForgeDbContext db)
+        : this(db, new ConflictSearchArchiveService(db))
+    {
+    }
+
     private static readonly HashSet<string> CorporateSuffixes = new(StringComparer.OrdinalIgnoreCase)
     {
         "a", "an", "the",
@@ -34,10 +39,14 @@ public class ConflictSearchService(MatterForgeDbContext db)
         var tokens = new string(chars)
             .Normalize(NormalizationForm.FormC)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(x => !CorporateSuffixes.Contains(x))
             .ToList();
 
-        return string.Join(' ', tokens);
+        if (tokens.Count > 1 && tokens.All(x => x.Length == 1))
+        {
+            return string.Concat(tokens);
+        }
+
+        return string.Join(' ', tokens.Where(x => !CorporateSuffixes.Contains(x)));
     }
 
     public static List<string> SplitSearchTerms(string searchTerms)
@@ -73,23 +82,31 @@ public class ConflictSearchService(MatterForgeDbContext db)
         return search;
     }
 
-    public async Task RunSearchAsync(ConflictSearch search)
+    public async Task RunSearchAsync(ConflictSearch search, bool includeHistory = true)
     {
+        if (search.ArchivedAt.HasValue)
+        {
+            await archiveService.RemoveArchiveAsync(search.Id);
+        }
+
         var terms = SplitSearchTerms(search.SearchTerms);
         search.NormalizedTerms = string.Join(Environment.NewLine, terms.Select(NormalizeName));
         search.Status = ConflictSearchStatuses.PendingReview;
         search.ReviewerDecision = ConflictSearchDecisions.Pending;
+        search.ArchivedAt = null;
         search.UpdatedAt = DateTimeOffset.UtcNow;
 
         if (search.Id != Guid.Empty)
         {
-            var existingResults = await db.ConflictSearchResults
+            DetachTrackedResults(search.Id);
+            search.Results.Clear();
+            await db.ConflictSearchResults
                 .Where(x => x.ConflictSearchId == search.Id)
-                .ToListAsync();
-            db.ConflictSearchResults.RemoveRange(existingResults);
+                .ExecuteDeleteAsync();
         }
 
         var parties = await db.Parties
+            .AsNoTracking()
             .Include(x => x.Aliases)
             .Include(x => x.MatterParties)
                 .ThenInclude(x => x.Matter)
@@ -99,6 +116,7 @@ public class ConflictSearchService(MatterForgeDbContext db)
         var partiesById = parties.ToDictionary(x => x.Id);
 
         var relationships = await db.PartyRelationships
+            .AsNoTracking()
             .Include(x => x.FromParty)
             .Include(x => x.ToParty)
             .ToListAsync();
@@ -151,18 +169,34 @@ public class ConflictSearchService(MatterForgeDbContext db)
             }
         }
 
-        await AddHistoricalResultsAsync(results, search, terms);
+        if (includeHistory)
+        {
+            await AddHistoricalResultsAsync(results, search, terms);
+        }
 
         search.Results.Clear();
         foreach (var result in results.Values.OrderByDescending(x => x.Score).ThenBy(x => x.MatchedName))
         {
-            result.RiskLevel = DetermineRiskLevel(result.Score, result.PartyRole, result.MatchType);
+            result.RiskLevel = DetermineRiskLevel(result);
             result.Explanation = BuildExplanation(result);
             result.AiAssessment = BuildAiAssessment(result);
             search.Results.Add(result);
         }
 
         search.AiSummary = BuildAiSummary(search, terms);
+    }
+
+    private void DetachTrackedResults(Guid searchId)
+    {
+        var trackedResults = db.ChangeTracker
+            .Entries<ConflictSearchResult>()
+            .Where(x => x.Entity.ConflictSearchId == searchId)
+            .ToList();
+
+        foreach (var entry in trackedResults)
+        {
+            entry.State = EntityState.Detached;
+        }
     }
 
     public async Task<ConflictPreview> PreviewAsync(string searchTerms, int maxResults = 8)
@@ -262,7 +296,9 @@ public class ConflictSearchService(MatterForgeDbContext db)
 
     public async Task ApplyReviewDecisionAsync(Guid searchId, string decision, string notes, Guid? reviewedByUserId)
     {
-        var search = await db.ConflictSearches.FirstOrDefaultAsync(x => x.Id == searchId);
+        var search = await db.ConflictSearches
+            .Include(x => x.Results)
+            .FirstOrDefaultAsync(x => x.Id == searchId);
         if (search is null)
         {
             return;
@@ -274,6 +310,18 @@ public class ConflictSearchService(MatterForgeDbContext db)
         search.ReviewedByUserId = reviewedByUserId;
         search.ReviewedAt = DateTimeOffset.UtcNow;
         search.UpdatedAt = DateTimeOffset.UtcNow;
+
+        if (search.ReviewerDecision == ConflictSearchDecisions.Clear)
+        {
+            foreach (var result in search.Results.Where(x => x.ClearanceStatus == ConflictSearchDecisions.Pending))
+            {
+                result.ClearanceStatus = ConflictSearchDecisions.Clear;
+                result.ClearedByUserId = reviewedByUserId;
+                result.ClearedAt = DateTimeOffset.UtcNow;
+            }
+
+            await archiveService.ArchiveIfClearedAsync(search.Id);
+        }
 
         await db.SaveChangesAsync();
     }
@@ -391,6 +439,11 @@ public class ConflictSearchService(MatterForgeDbContext db)
         }
 
         search.UpdatedAt = DateTimeOffset.UtcNow;
+
+        if (aggregateDecision == ConflictSearchDecisions.Clear)
+        {
+            await archiveService.ArchiveIfClearedAsync(search.Id);
+        }
     }
 
     private static string StatusForDecision(string decision)
@@ -583,6 +636,52 @@ public class ConflictSearchService(MatterForgeDbContext db)
                     "Prior result clearance notes",
                     "Prior result notes match",
                     "Prior result history",
+                searchableText));
+        }
+
+        var archivedResultRows = await db.ConflictSearchHitArchives
+            .AsNoTracking()
+            .Where(x => x.ConflictSearchId != search.Id && x.ClearanceNotes != string.Empty)
+            .Select(x => new
+            {
+                x.SearchNumber,
+                SearchName = x.ConflictSearchArchive == null ? string.Empty : x.ConflictSearchArchive.SearchName,
+                x.SearchTerm,
+                x.MatchedName,
+                x.PartyRole,
+                x.ClearanceStatus,
+                x.ClearanceNotes,
+                x.MatterId,
+                x.ClientId,
+                x.PartyName,
+                x.MatterName,
+                x.ClientName
+            })
+            .ToListAsync();
+
+        foreach (var row in archivedResultRows)
+        {
+            var searchableText = JoinSearchableText(
+                row.ClearanceNotes,
+                row.ClearanceStatus,
+                row.SearchTerm,
+                row.MatchedName,
+                row.PartyRole,
+                row.PartyName,
+                row.MatterName,
+                row.ClientName);
+
+            AddHistoricalTextMatches(
+                results,
+                search.Id,
+                terms,
+                new HistoricalConflictText(
+                    row.MatterId,
+                    row.ClientId,
+                    $"Archived search {RecordNumbers.ConflictSearch(row.SearchNumber)} result: {row.MatchedName}",
+                    "Archived result clearance notes",
+                    "Archived result notes match",
+                    "Prior result history",
                     searchableText));
         }
     }
@@ -631,14 +730,19 @@ public class ConflictSearchService(MatterForgeDbContext db)
         string matchedOn,
         string matchType)
     {
-        normalizedCandidate = string.IsNullOrWhiteSpace(normalizedCandidate)
-            ? NormalizeName(matchedName)
-            : normalizedCandidate;
+        var recalculatedCandidate = NormalizeName(matchedName);
+        normalizedCandidate = string.IsNullOrWhiteSpace(recalculatedCandidate)
+            ? normalizedCandidate
+            : recalculatedCandidate;
 
         var score = CalculateScore(normalizedTerm, normalizedCandidate);
-        if (score >= 98)
+        if (score >= 100)
         {
             matchType = "Exact normalized match";
+        }
+        else if (CanUsePhraseContainment(normalizedTerm, normalizedCandidate) && score >= 88)
+        {
+            matchType = "Strong phrase match";
         }
         else if (score >= 80)
         {
@@ -664,21 +768,44 @@ public class ConflictSearchService(MatterForgeDbContext db)
             return 100;
         }
 
-        if (normalizedCandidate.Contains(normalizedTerm, StringComparison.OrdinalIgnoreCase) ||
-            normalizedTerm.Contains(normalizedCandidate, StringComparison.OrdinalIgnoreCase))
-        {
-            return 85;
-        }
-
         var termTokens = normalizedTerm.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var candidateTokens = normalizedCandidate.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var overlap = termTokens.Intersect(candidateTokens, StringComparer.OrdinalIgnoreCase).Count();
-        var tokenScore = termTokens.Count == 0 ? 0 : (int)Math.Round((double)overlap / termTokens.Count * 80);
+        var termCoverage = termTokens.Count == 0 ? 0 : (double)overlap / termTokens.Count;
+        var candidateCoverage = candidateTokens.Count == 0 ? 0 : (double)overlap / candidateTokens.Count;
+
+        var containsScore = 0;
+        if (CanUsePhraseContainment(normalizedTerm, normalizedCandidate))
+        {
+            var phraseCoverage = Math.Max(termCoverage, candidateCoverage);
+            containsScore = 88 + (int)Math.Round(Math.Min(1, phraseCoverage) * 6);
+        }
+
+        var tokenScore = (int)Math.Round(((termCoverage * 0.7) + (candidateCoverage * 0.3)) * 92);
 
         var trigramScore = (int)Math.Round(TrigramSimilarity(normalizedTerm, normalizedCandidate) * 100);
         var editScore = (int)Math.Round(LevenshteinRatio(normalizedTerm, normalizedCandidate) * 100);
 
-        return Math.Max(tokenScore, Math.Max(trigramScore, editScore));
+        var score = Math.Max(containsScore, Math.Max(tokenScore, Math.Max(trigramScore, editScore)));
+        return Math.Clamp(score, 0, 99);
+    }
+
+    private static bool IsPhraseContainment(string normalizedTerm, string normalizedCandidate)
+    {
+        return normalizedCandidate.Contains(normalizedTerm, StringComparison.OrdinalIgnoreCase) ||
+            normalizedTerm.Contains(normalizedCandidate, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool CanUsePhraseContainment(string normalizedTerm, string normalizedCandidate)
+    {
+        return CompactLength(normalizedTerm) >= 3 &&
+            CompactLength(normalizedCandidate) >= 3 &&
+            IsPhraseContainment(normalizedTerm, normalizedCandidate);
+    }
+
+    private static int CompactLength(string value)
+    {
+        return value.Count(char.IsLetterOrDigit);
     }
 
     private static double TrigramSimilarity(string left, string right)
@@ -796,20 +923,32 @@ public class ConflictSearchService(MatterForgeDbContext db)
         }
     }
 
-    private static string DetermineRiskLevel(int score, string partyRole, string matchType)
+    private static string DetermineRiskLevel(ConflictSearchResult result)
     {
-        var isAdverse = partyRole is PartyRoles.AdverseParty or PartyRoles.OpposingCounsel;
-        if ((isAdverse && score >= 80) || score >= 98)
+        var isAdverse = result.PartyRole is PartyRoles.AdverseParty or PartyRoles.OpposingCounsel;
+        var hasLinkedContext = result.MatterId.HasValue || result.ClientId.HasValue;
+        var isRelationship = result.MatchType.Contains("Relationship", StringComparison.OrdinalIgnoreCase) ||
+            result.MatchedOn.Contains("relationship", StringComparison.OrdinalIgnoreCase);
+        var isPriorHistory = result.PartyRole.StartsWith("Prior ", StringComparison.OrdinalIgnoreCase);
+
+        var contextualBoost = 0;
+        contextualBoost += isAdverse ? 15 : 0;
+        contextualBoost += hasLinkedContext ? 6 : 0;
+        contextualBoost += isRelationship ? 6 : 0;
+        contextualBoost += isPriorHistory ? 4 : 0;
+        var contextualRiskScore = result.Score + contextualBoost;
+
+        if (result.Score >= 100 || (isAdverse && result.Score >= 80) || (contextualBoost > 0 && contextualRiskScore >= 98))
         {
             return ConflictRiskLevels.Critical;
         }
 
-        if (score >= 85 || (isAdverse && score >= 65))
+        if (result.Score >= 90 || contextualRiskScore >= 85)
         {
             return ConflictRiskLevels.High;
         }
 
-        if (score >= 65 || matchType.Contains("Relationship", StringComparison.OrdinalIgnoreCase))
+        if (result.Score >= 65 || contextualRiskScore >= 65 || isRelationship || isPriorHistory)
         {
             return ConflictRiskLevels.Medium;
         }
@@ -822,11 +961,11 @@ public class ConflictSearchService(MatterForgeDbContext db)
         if (result.PartyId is null && result.PartyRole.StartsWith("Prior ", StringComparison.OrdinalIgnoreCase))
         {
             var contextText = result.MatterId.HasValue ? " with linked matter context" : string.Empty;
-            return $"{result.MatchType} for \"{result.SearchTerm}\" in \"{result.MatchedName}\"{contextText}. Score: {result.Score}.";
+            return $"{result.MatchType} for \"{result.SearchTerm}\" in \"{result.MatchedName}\"{contextText}. Match strength: {result.Score}/100.";
         }
 
         var matterText = result.MatterId.HasValue ? " on a linked matter" : string.Empty;
-        return $"{result.MatchType} for \"{result.SearchTerm}\" against \"{result.MatchedName}\"{matterText}. Role: {result.PartyRole}. Score: {result.Score}.";
+        return $"{result.MatchType} for \"{result.SearchTerm}\" against \"{result.MatchedName}\"{matterText}. Role: {result.PartyRole}. Match strength: {result.Score}/100.";
     }
 
     private static string BuildAiAssessment(ConflictSearchResult result)
@@ -839,7 +978,7 @@ public class ConflictSearchService(MatterForgeDbContext db)
             _ => "Low-confidence candidate; useful mainly as a safety net."
         };
 
-        return $"AI assist: {action} The hit came from {result.MatchedOn.ToLowerInvariant()} with a {result.Score}% match score.";
+        return $"AI assist: {action} The hit came from {result.MatchedOn.ToLowerInvariant()} with {result.Score}/100 match strength.";
     }
 
     private static string BuildAiSummary(ConflictSearch search, List<string> terms)

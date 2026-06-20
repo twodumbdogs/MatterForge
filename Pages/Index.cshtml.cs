@@ -1,13 +1,13 @@
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 
-namespace MatterForge.Pages;
+namespace CMIForge.Pages;
 
-public class IndexModel(MatterForgeDbContext db, ProductPlanService productPlanService) : PageModel
+public class IndexModel(CMIForgeDbContext db, ProductPlanService productPlanService) : PageModel
 {
     public int FormCount { get; private set; }
 
@@ -43,47 +43,61 @@ public class IndexModel(MatterForgeDbContext db, ProductPlanService productPlanS
 
     public async Task OnGetAsync()
     {
-        FormCount = await db.FormDefinitions.CountAsync(x => x.IsActive);
-        SubmissionCount = await db.FormSubmissions.CountAsync();
-        PublishedVersionCount = await db.FormVersions.CountAsync(x => x.IsPublished);
-        TimeEntryCount = await db.TimeEntries.CountAsync();
-        TimeHours = await db.TimeEntries.SumAsync(x => (decimal?)x.Minutes) / 60m ?? 0m;
+        FormCount = await db.FormDefinitions.AsNoTracking().CountAsync(x => x.IsActive);
+        SubmissionCount = await db.FormSubmissions.AsNoTracking().CountAsync();
+        PublishedVersionCount = await db.FormVersions.AsNoTracking().CountAsync(x => x.IsPublished);
+        TimeEntryCount = await db.TimeEntries.AsNoTracking().CountAsync();
+        TimeHours = await db.TimeEntries.AsNoTracking().SumAsync(x => (decimal?)x.Minutes) / 60m ?? 0m;
         Usage = await productPlanService.GetUsageAsync();
-        OpenWorkflowTaskCount = await db.SubmissionWorkflowTasks.CountAsync(x => x.Status == WorkflowStatuses.TaskOpen);
-        ConflictSearchCount = await db.ConflictSearches.CountAsync();
+        OpenWorkflowTaskCount = await db.SubmissionWorkflowTasks.AsNoTracking().CountAsync(x => x.Status == WorkflowStatuses.TaskOpen);
+        ConflictSearchCount = await db.ConflictSearches.AsNoTracking().CountAsync();
         LatestForms = await db.FormDefinitions
+            .AsNoTracking()
             .Where(x => x.IsActive)
             .OrderByDescending(x => x.CreatedAt)
             .Take(5)
             .ToListAsync();
 
-        var submissionStatuses = await db.FormSubmissions
+        var submissionStatusRows = await db.FormSubmissions
+            .AsNoTracking()
             .GroupBy(x => x.Status)
-            .Select(x => new CountBucket(x.Key, x.Count()))
+            .Select(x => new { Label = x.Key, Count = x.Count() })
             .OrderByDescending(x => x.Count)
             .ToListAsync();
+        var submissionStatuses = submissionStatusRows
+            .Select(x => new CountBucket(x.Label, x.Count))
+            .ToList();
         SubmissionStatusSlices = BuildSlices(submissionStatuses, ["#255ea8", "#127a69", "#b7791f", "#7c3aed", "#dc2626", "#647084"]);
         SubmissionStatusGradient = BuildConicGradient(SubmissionStatusSlices);
 
-        var conflictStatuses = await db.ConflictSearches
+        var conflictStatusRows = await db.ConflictSearches
+            .AsNoTracking()
             .GroupBy(x => x.Status)
-            .Select(x => new CountBucket(x.Key, x.Count()))
+            .Select(x => new { Label = x.Key, Count = x.Count() })
             .OrderByDescending(x => x.Count)
             .ToListAsync();
+        var conflictStatuses = conflictStatusRows
+            .Select(x => new CountBucket(x.Label, x.Count))
+            .ToList();
         ConflictStatusSlices = BuildSlices(conflictStatuses, ["#127a69", "#b7791f", "#dc2626", "#255ea8", "#647084"]);
         ConflictStatusGradient = BuildConicGradient(ConflictStatusSlices);
 
-        var taskBuckets = await db.SubmissionWorkflowTasks
+        var taskRows = await db.SubmissionWorkflowTasks
+            .AsNoTracking()
             .Where(x => x.Status == WorkflowStatuses.TaskOpen)
             .GroupBy(x => x.WorkflowStep!.Name)
-            .Select(x => new CountBucket(x.Key, x.Count()))
+            .Select(x => new { Label = x.Key, Count = x.Count() })
             .OrderByDescending(x => x.Count)
             .Take(6)
             .ToListAsync();
+        var taskBuckets = taskRows
+            .Select(x => new CountBucket(x.Label, x.Count))
+            .ToList();
         WorkflowTaskBars = BuildBars(taskBuckets);
 
         var startDate = new DateTimeOffset(DateTimeOffset.UtcNow.UtcDateTime.Date.AddDays(-13), TimeSpan.Zero);
         var recentSubmissions = await db.FormSubmissions
+            .AsNoTracking()
             .Where(x => x.SubmittedAt >= startDate)
             .Select(x => x.SubmittedAt)
             .ToListAsync();

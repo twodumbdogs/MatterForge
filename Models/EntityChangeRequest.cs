@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class EntityChangeRequest
 {
@@ -26,11 +26,11 @@ public class EntityChangeRequest
 
     public Guid? RequestedByUserId { get; set; }
 
-    public MatterForgeUser? RequestedByUser { get; set; }
+    public CMIForgeUser? RequestedByUser { get; set; }
 
     public Guid? ReviewedByUserId { get; set; }
 
-    public MatterForgeUser? ReviewedByUser { get; set; }
+    public CMIForgeUser? ReviewedByUser { get; set; }
 
     public DateTimeOffset RequestedAt { get; set; } = DateTimeOffset.UtcNow;
 

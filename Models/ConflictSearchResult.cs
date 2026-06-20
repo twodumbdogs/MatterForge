@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class ConflictSearchResult
 {
@@ -44,7 +44,7 @@ public class ConflictSearchResult
 
     public Guid? ClearedByUserId { get; set; }
 
-    public MatterForgeUser? ClearedByUser { get; set; }
+    public CMIForgeUser? ClearedByUser { get; set; }
 
     public DateTimeOffset? ClearedAt { get; set; }
 

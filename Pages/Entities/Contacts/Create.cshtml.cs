@@ -1,13 +1,14 @@
 using System.ComponentModel.DataAnnotations;
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Contacts;
+namespace CMIForge.Pages.Entities.Contacts;
 
-public class CreateModel(MatterForgeDbContext db) : PageModel
+public class CreateModel(CMIForgeDbContext db, AuditLogService auditLogService) : PageModel
 {
     [BindProperty]
     public ContactInput Input { get; set; } = new();
@@ -47,6 +48,13 @@ public class CreateModel(MatterForgeDbContext db) : PageModel
 
         db.Contacts.Add(contact);
         await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "Contact.Created",
+            "Contact",
+            contact.Id,
+            contact.ContactNumber.ToString("D8"),
+            $"Created contact {contact.DisplayName}.",
+            new { contact.Organization, contact.Title, contact.Email, contact.Phone });
 
         return RedirectToPage("./Details", new { id = contact.Id });
     }
@@ -106,3 +114,4 @@ public class ContactInput
 
     public string? Notes { get; set; }
 }
+

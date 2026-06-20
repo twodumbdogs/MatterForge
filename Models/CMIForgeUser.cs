@@ -1,6 +1,6 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
-public class MatterForgeUser
+public class CMIForgeUser
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -35,6 +35,8 @@ public class MatterForgeUser
     public DateTimeOffset? LastLoginAt { get; set; }
 
     public List<Matter> ResponsibleMatters { get; set; } = [];
+
+    public List<Matter> LeadPartnerMatters { get; set; } = [];
 
     public List<TimeEntry> TimeEntries { get; set; } = [];
 

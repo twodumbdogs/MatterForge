@@ -1,15 +1,15 @@
 using System.ComponentModel.DataAnnotations;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Users;
+namespace CMIForge.Pages.Entities.Users;
 
 public class CreateModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     ProductPlanService productPlanService,
     AuditLogService auditLogService,
     EntraUserProvisioningService entraUserProvisioningService) : PageModel
@@ -73,6 +73,14 @@ public class CreateModel(
             }
         }
 
+        var partnerRole = Input.IsPartner
+            ? await db.SecurityRoles.FirstOrDefaultAsync(x => x.Key == SecurityRoleKeys.Partner && x.IsActive)
+            : null;
+        if (Input.IsPartner && partnerRole is null)
+        {
+            ModelState.AddModelError("Input.IsPartner", "The Partner role is not available yet. Refresh seed data and try again.");
+        }
+
         if (!ModelState.IsValid)
         {
             return Page();
@@ -101,7 +109,7 @@ public class CreateModel(
 
         var nextSystemId = (await db.Users.MaxAsync(x => (int?)x.SystemId) ?? 0) + 1;
 
-        var user = new MatterForgeUser
+        var user = new CMIForgeUser
         {
             SystemId = nextSystemId,
             FirstName = Input.FirstName.Trim(),
@@ -117,6 +125,14 @@ public class CreateModel(
         };
 
         db.Users.Add(user);
+        if (Input.IsPartner && partnerRole is not null)
+        {
+            db.UserRoles.Add(new UserRole
+            {
+                UserId = user.Id,
+                SecurityRoleId = partnerRole.Id
+            });
+        }
 
         await db.SaveChangesAsync();
         await auditLogService.LogAsync(
@@ -125,7 +141,7 @@ public class CreateModel(
             user.Id,
             user.SystemId.ToString("D8"),
             $"Created user {user.DisplayName}.",
-            new { user.Email, user.EntraUserPrincipalName, user.Title, user.IsActive });
+            new { user.Email, user.EntraUserPrincipalName, user.Title, user.IsActive, Input.IsPartner });
 
         if (entraResult is not null)
         {
@@ -167,4 +183,7 @@ public class UserInput
 
     [Display(Name = "Active")]
     public bool IsActive { get; set; } = true;
+
+    [Display(Name = "Partner")]
+    public bool IsPartner { get; set; }
 }

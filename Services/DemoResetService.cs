@@ -1,11 +1,11 @@
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public class DemoResetService(
-    IDbContextFactory<MatterForgeDbContext> dbFactory,
+    IDbContextFactory<CMIForgeDbContext> dbFactory,
     DemoModeService demoModeService,
     SubmissionAttachmentService attachmentService,
     ILogger<DemoResetService> logger)
@@ -111,7 +111,7 @@ public class DemoResetService(
         }
     }
 
-    private async Task<int> DeleteAttachmentsAsync(MatterForgeDbContext db, CancellationToken cancellationToken)
+    private async Task<int> DeleteAttachmentsAsync(CMIForgeDbContext db, CancellationToken cancellationToken)
     {
         var attachments = await db.SubmissionAttachments.ToListAsync(cancellationToken);
         foreach (var attachment in attachments)

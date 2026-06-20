@@ -1,15 +1,15 @@
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Security;
+namespace CMIForge.Pages.Security;
 
-public class IndexModel(MatterForgeDbContext db, PermissionService permissionService) : PageModel
+public class IndexModel(CMIForgeDbContext db, PermissionService permissionService) : PageModel
 {
-    public MatterForgeUser? CurrentUser { get; private set; }
+    public CMIForgeUser? CurrentUser { get; private set; }
 
     public List<Team> Teams { get; private set; } = [];
 

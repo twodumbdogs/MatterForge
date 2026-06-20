@@ -1,12 +1,12 @@
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public class DemoModeService(IConfiguration configuration)
 {
-    public bool IsEnabled => configuration.GetValue<bool>("MatterForge:DemoMode");
+    public bool IsEnabled => configuration.GetValue<bool>("CMIForge:DemoMode");
 
-    public bool ScheduledResetEnabled => configuration.GetValue("MatterForge:DemoResetEnabled", true);
+    public bool ScheduledResetEnabled => configuration.GetValue("CMIForge:DemoResetEnabled", true);
 
-    public double ResetIntervalHours => Math.Max(1, configuration.GetValue("MatterForge:DemoResetIntervalHours", 12.0));
+    public double ResetIntervalHours => Math.Max(1, configuration.GetValue("CMIForge:DemoResetIntervalHours", 12.0));
 
     public string BannerMessage =>
         $"Public demo mode is active. Demo data resets every {ResetIntervalHours:g} hours, abusive content is blocked, and admin/destructive changes are disabled.";

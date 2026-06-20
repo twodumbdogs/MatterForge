@@ -26,6 +26,14 @@ param(
     [bool]$RunMigrationsOnStartup = $false,
     [bool]$RunSeedDataOnStartup = $false,
     [bool]$SeedSampleData = $false,
+    [bool]$EmailNotificationsEnabled = $false,
+    [string]$EmailMailboxAddress,
+    [string]$EmailFromEmail,
+    [string]$EmailReplyToEmail,
+    [string]$EmailFromName,
+    [bool]$NotificationsGraphEnabled = $true,
+    [string]$NotificationsGraphTenantId,
+    [string]$NotificationsGraphManagedIdentityClientId,
     [switch]$AssignManagedIdentity,
     [switch]$SkipPublish,
     [switch]$SkipDeploy
@@ -127,12 +135,12 @@ $appSettings = @(
     "ASPNETCORE_ENVIRONMENT=Production",
     "SubmissionAttachments__ContainerName=$BlobContainerName",
     "SubmissionAttachments__UseManagedIdentity=$UseManagedIdentityForBlobStorage",
-    "MatterForge__DemoMode=$DemoMode",
-    "MatterForge__DemoResetEnabled=$DemoResetEnabled",
-    "MatterForge__DemoResetIntervalHours=$DemoResetIntervalHours",
-    "MatterForge__RunMigrationsOnStartup=$RunMigrationsOnStartup",
-    "MatterForge__RunSeedDataOnStartup=$RunSeedDataOnStartup",
-    "MatterForge__SeedSampleData=$SeedSampleData",
+    "CMIForge__DemoMode=$DemoMode",
+    "CMIForge__DemoResetEnabled=$DemoResetEnabled",
+    "CMIForge__DemoResetIntervalHours=$DemoResetIntervalHours",
+    "CMIForge__RunMigrationsOnStartup=$RunMigrationsOnStartup",
+    "CMIForge__RunSeedDataOnStartup=$RunSeedDataOnStartup",
+    "CMIForge__SeedSampleData=$SeedSampleData",
     "Authentication__Microsoft__Enabled=$EntraEnabled",
     "EntraProvisioning__Enabled=$EntraProvisioningEnabled"
 )
@@ -142,15 +150,15 @@ if (-not [string]::IsNullOrWhiteSpace($BlobAccountName)) {
 }
 
 if (-not [string]::IsNullOrWhiteSpace($CurrentUserEmail)) {
-    $appSettings += "MatterForge__CurrentUserEmail=$CurrentUserEmail"
+    $appSettings += "CMIForge__CurrentUserEmail=$CurrentUserEmail"
 }
 
 if (-not [string]::IsNullOrWhiteSpace($CurrentUserDisplayName)) {
-    $appSettings += "MatterForge__CurrentUserDisplayName=$CurrentUserDisplayName"
+    $appSettings += "CMIForge__CurrentUserDisplayName=$CurrentUserDisplayName"
 }
 
 if (-not [string]::IsNullOrWhiteSpace($BootstrapAdminEmail)) {
-    $appSettings += "MatterForge__BootstrapAdminEmail=$BootstrapAdminEmail"
+    $appSettings += "CMIForge__BootstrapAdminEmail=$BootstrapAdminEmail"
 }
 
 if (-not [string]::IsNullOrWhiteSpace($EntraTenantId)) {
@@ -171,6 +179,36 @@ if (-not [string]::IsNullOrWhiteSpace($EntraCallbackPath)) {
 
 if (-not [string]::IsNullOrWhiteSpace($EntraProvisioningDomain)) {
     $appSettings += "EntraProvisioning__Domain=$EntraProvisioningDomain"
+}
+
+if ($EmailNotificationsEnabled) {
+    $appSettings += "CMIForge__SystemSettings__Email.NotificationsEnabled=true"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($EmailMailboxAddress)) {
+    $appSettings += "CMIForge__SystemSettings__Email.MailboxAddress=$EmailMailboxAddress"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($EmailFromEmail)) {
+    $appSettings += "CMIForge__SystemSettings__Email.FromEmail=$EmailFromEmail"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($EmailReplyToEmail)) {
+    $appSettings += "CMIForge__SystemSettings__Email.ReplyToEmail=$EmailReplyToEmail"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($EmailFromName)) {
+    $appSettings += "CMIForge__SystemSettings__Email.FromName=$EmailFromName"
+}
+
+$appSettings += "Notifications__Graph__Enabled=$NotificationsGraphEnabled"
+
+if (-not [string]::IsNullOrWhiteSpace($NotificationsGraphTenantId)) {
+    $appSettings += "Notifications__Graph__TenantId=$NotificationsGraphTenantId"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($NotificationsGraphManagedIdentityClientId)) {
+    $appSettings += "Notifications__Graph__ManagedIdentityClientId=$NotificationsGraphManagedIdentityClientId"
 }
 
 if (-not [string]::IsNullOrWhiteSpace($SqlConnectionString)) {
@@ -195,13 +233,13 @@ az webapp config appsettings set `
     --only-show-errors | Out-Null
 
 if (-not $SkipPublish.IsPresent) {
-    Write-Host "Publishing MatterForge..." -ForegroundColor Cyan
+    Write-Host "Publishing CMIForge..." -ForegroundColor Cyan
     if (Test-Path $publishDir) {
         Remove-Item -LiteralPath $publishDir -Recurse -Force
     }
 
     dotnet publish `
-        (Join-Path $projectRoot "MatterForge.csproj") `
+        (Join-Path $projectRoot "CMIForge.csproj") `
         -c Release `
         -o $publishDir | Out-Null
 }

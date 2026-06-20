@@ -1,8 +1,8 @@
-using MatterForge.Services;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace MatterForge.Pages.Billing;
+namespace CMIForge.Pages.Billing;
 
 public class IndexModel(ProductPlanService productPlanService) : PageModel
 {

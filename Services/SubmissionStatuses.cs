@@ -1,4 +1,4 @@
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public static class SubmissionStatuses
 {
@@ -6,6 +6,7 @@ public static class SubmissionStatuses
     public const string InReview = "In Review";
     public const string Approved = "Approved";
     public const string Returned = "Returned";
+    public const string Cancelled = "Cancelled";
     public const string Converted = "Converted";
 
     public static readonly string[] All =
@@ -14,6 +15,7 @@ public static class SubmissionStatuses
         InReview,
         Approved,
         Returned,
+        Cancelled,
         Converted
     ];
 

@@ -1,10 +1,10 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Identity;
-using MatterForge.Models;
+using CMIForge.Models;
 using Microsoft.Extensions.Options;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public class SubmissionAttachmentService(IOptions<SubmissionAttachmentStorageOptions> options)
 {

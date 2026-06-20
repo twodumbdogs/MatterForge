@@ -1,16 +1,16 @@
 using System.Text.RegularExpressions;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Workflow.Definitions;
+namespace CMIForge.Pages.Workflow.Definitions;
 
 public partial class EditModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     ProductPlanService productPlanService,
     AuditLogService auditLogService) : PageModel
@@ -26,6 +26,10 @@ public partial class EditModel(
     public List<SelectListItem> UserOptions { get; private set; } = [];
 
     public List<SelectListItem> TeamOptions { get; private set; } = [];
+
+    public List<SelectListItem> NotificationRecipientOptions { get; private set; } = [];
+
+    public List<SelectListItem> NotificationTemplateOptions { get; private set; } = [];
 
     public List<SelectListItem> StepTypeOptions { get; } = WorkflowStepTypes.All
         .Select(x => new SelectListItem(x, x))
@@ -87,7 +91,9 @@ public partial class EditModel(
                     ConditionValue = x.ConditionValue,
                     NotificationSubject = x.NotificationSubject,
                     NotificationBody = x.NotificationBody,
-                    NotificationRecipients = x.NotificationRecipients
+                    NotificationRecipients = x.NotificationRecipients,
+                    NotificationRecipientTokens = WorkflowNotificationRecipientInput.Parse(x.NotificationRecipients),
+                    NotificationTemplateId = x.NotificationTemplateId
                 })
                 .ToList()
         };
@@ -188,7 +194,8 @@ public partial class EditModel(
             step.ConditionValue = stepInput.ConditionValue?.Trim() ?? string.Empty;
             step.NotificationSubject = stepInput.NotificationSubject?.Trim() ?? string.Empty;
             step.NotificationBody = stepInput.NotificationBody?.Trim() ?? string.Empty;
-            step.NotificationRecipients = stepInput.NotificationRecipients?.Trim() ?? string.Empty;
+            step.NotificationRecipients = WorkflowNotificationRecipientInput.Normalize(stepInput.NotificationRecipientTokens);
+            step.NotificationTemplateId = IsNotificationStep(stepInput) ? stepInput.NotificationTemplateId : null;
             step.UpdatedAt = DateTimeOffset.UtcNow;
         }
 
@@ -253,7 +260,11 @@ public partial class EditModel(
                 ModelState.AddModelError(string.Empty, $"Invalid routing condition for step {step.StepNumber}.");
             }
 
-            if (!IsNotificationStep(step))
+            if (IsNotificationStep(step))
+            {
+                ValidateNotificationRecipients(step);
+            }
+            else
             {
                 var outcomes = WorkflowOutcomeParser.FromDesignerText(step.Outcomes, step.ApprovalLabel, step.CompletionSubmissionStatus);
                 if (outcomes.Count == 0)
@@ -309,6 +320,44 @@ public partial class EditModel(
             .OrderBy(x => x.Name)
             .Select(x => new SelectListItem(x.Name, x.Id.ToString()))
             .ToListAsync();
+
+        NotificationRecipientOptions = await WorkflowNotificationRecipientInput.LoadOptionsAsync(db);
+
+        NotificationTemplateOptions = await db.WorkflowNotificationTemplates
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.Key == "workflow-step-update" ? 0 : 1)
+            .ThenBy(x => x.Name)
+            .Select(x => new SelectListItem(x.Name, x.Id.ToString()))
+            .ToListAsync();
+    }
+
+    private void ValidateNotificationRecipients(WorkflowStepInput step)
+    {
+        var selected = step.NotificationRecipientTokens
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+        if (selected.Count == 0)
+        {
+            ModelState.AddModelError(string.Empty, $"Select at least one notification recipient for step {step.StepNumber}.");
+            return;
+        }
+
+        var validTokens = NotificationRecipientOptions
+            .Select(x => x.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var token in selected)
+        {
+            if (!validTokens.Contains(token))
+            {
+                ModelState.AddModelError(string.Empty, $"Notification step {step.StepNumber} has an invalid recipient selection.");
+                return;
+            }
+        }
+
+        if (step.NotificationTemplateId.HasValue && NotificationTemplateOptions.All(x => x.Value != step.NotificationTemplateId.Value.ToString()))
+        {
+            ModelState.AddModelError(string.Empty, $"Notification step {step.StepNumber} has an invalid notification template.");
+        }
     }
 
     [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$")]

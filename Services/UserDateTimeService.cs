@@ -1,4 +1,4 @@
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public class UserDateTimeService(IHttpContextAccessor httpContextAccessor, IConfiguration configuration)
 {
@@ -18,7 +18,7 @@ public class UserDateTimeService(IHttpContextAccessor httpContextAccessor, IConf
     {
         var timeZoneId = httpContextAccessor.HttpContext?.Request.Cookies[TimeZoneCookieName];
         return TryFindTimeZone(timeZoneId) ??
-            TryFindTimeZone(configuration["MatterForge:DefaultTimeZone"]) ??
+            TryFindTimeZone(configuration["CMIForge:DefaultTimeZone"]) ??
             TimeZoneInfo.Local;
     }
 

@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Billing.IndexModel
+@model CMIForge.Pages.Billing.IndexModel
 @{
     ViewData["Title"] = "Plan";
     var lockedLabel = Model.LockedFeatureLabel();
@@ -9,7 +9,7 @@
     <div>
         <p class="mf-eyebrow">Plan</p>
         <h1>Plan Limits</h1>
-        <p class="text-muted">Current hardcoded plan: <strong>@Model.CurrentPlan.Name</strong> · @MatterForge.Services.ProductInfo.Version</p>
+        <p class="text-muted">Current hardcoded plan: <strong>@Model.CurrentPlan.Name</strong> · @CMIForge.Services.ProductInfo.DisplayVersion</p>
     </div>
 </div>
 
@@ -64,7 +64,7 @@
                     <dd class="col-5 text-end">@(plan.ClientLimit?.ToString("N0") ?? "Unlimited")</dd>
                 </dl>
                 <ul class="list-group list-group-flush">
-                    @if (plan.FeatureKeys.Count >= MatterForge.Services.ProductFeatureKeys.All.Count)
+                    @if (plan.FeatureKeys.Count >= CMIForge.Services.ProductFeatureKeys.All.Count)
                     {
                         <li class="list-group-item px-0 d-flex justify-content-between gap-2">
                             <span>All features</span>
@@ -76,7 +76,7 @@
                         @foreach (var feature in plan.FeatureKeys)
                         {
                             <li class="list-group-item px-0 d-flex justify-content-between gap-2">
-                                <span>@MatterForge.Services.ProductFeatureKeys.Label(feature)</span>
+                                <span>@CMIForge.Services.ProductFeatureKeys.Label(feature)</span>
                                 <span class="badge text-bg-success">Included</span>
                             </li>
                         }

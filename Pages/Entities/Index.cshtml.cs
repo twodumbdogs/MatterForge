@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace MatterForge.Pages.Entities;
+namespace CMIForge.Pages.Entities;
 
 public class IndexModel : PageModel
 {

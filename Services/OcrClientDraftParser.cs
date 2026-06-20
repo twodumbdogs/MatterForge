@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public sealed record OcrClientDraft(
     string Name,

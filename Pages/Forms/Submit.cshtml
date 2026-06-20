@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Forms.SubmitModel
+@model CMIForge.Pages.Forms.SubmitModel
 @{
     ViewData["Title"] = Model.Form?.Name ?? "Submit Form";
 }
@@ -12,13 +12,13 @@ else
 {
     <div class="mf-page-heading">
         <div>
-            <p class="mf-eyebrow">Form v@Model.VersionNumber</p>
+            <p class="mf-eyebrow">Form v@(Model.VersionNumber)</p>
             <h1>@Model.Form.Name</h1>
             <p class="text-muted">@Model.Form.Description</p>
         </div>
     </div>
 
-    <form method="post" class="mf-panel">
+    <form method="post" asp-page="./Submit" asp-route-id="@Model.Id" class="mf-panel" id="intake-submit-form">
         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
         <input type="hidden" asp-for="Id" />
 
@@ -30,6 +30,14 @@ else
             <span asp-validation-for="SubmitterUserId" class="text-danger"></span>
         </div>
 
+        <div class="mb-3">
+            <label asp-for="LeadPartnerId" class="form-label"></label>
+            <select asp-for="LeadPartnerId" asp-items="Model.PartnerOptions" class="form-select">
+                <option value="">Unassigned</option>
+            </select>
+            <span asp-validation-for="LeadPartnerId" class="text-danger"></span>
+        </div>
+
         @foreach (var field in Model.Schema.Fields)
         {
             <div class="mb-3">
@@ -37,10 +45,10 @@ else
                     {<span class="text-danger"> *</span>}</label>
                 @switch (field.Type)
                 {
-                    case MatterForge.Services.FieldType.TextArea:
+                    case CMIForge.Services.FieldType.TextArea:
                         <textarea class="form-control" id="@field.Key" name="Fields[@field.Key]" rows="4" data-conflict-source>@Model.PostedValues.GetValueOrDefault(field.Key)</textarea>
                         break;
-                    case MatterForge.Services.FieldType.Client:
+                    case CMIForge.Services.FieldType.Client:
                         <input class="form-control" id="@field.Key" name="Fields[@field.Key]" list="client-options-@field.Key" value="@Model.PostedValues.GetValueOrDefault(field.Key)" placeholder="Pick an existing client or type a new name" data-conflict-source />
                         <datalist id="client-options-@field.Key">
                             @foreach (var client in Model.ClientSuggestions)
@@ -50,7 +58,30 @@ else
                         </datalist>
                         <small class="text-muted">Choose an existing client name or enter a brand-new one.</small>
                         break;
-                    case MatterForge.Services.FieldType.Select:
+                    case CMIForge.Services.FieldType.Address:
+                        var address = CMIForge.Services.FormAddressValue.Parse(Model.PostedValues.GetValueOrDefault(field.Key));
+                        <div class="mf-address-field-grid" data-address-lookup-group>
+                            <div class="col-span-8">
+                                <input class="form-control" id="@field.Key" name="Fields[@field.Key].AddressLine1" value="@address.AddressLine1" placeholder="Address line 1" autocomplete="street-address" data-address-lookup-input data-address-field="line1" />
+                            </div>
+                            <div class="col-span-4">
+                                <input class="form-control" name="Fields[@field.Key].AddressLine2" value="@address.AddressLine2" placeholder="Suite, floor, etc." data-address-field="line2" />
+                            </div>
+                            <div class="col-span-4">
+                                <input class="form-control" name="Fields[@field.Key].City" value="@address.City" placeholder="City" data-address-field="city" />
+                            </div>
+                            <div class="col-span-3">
+                                <input class="form-control" name="Fields[@field.Key].State" value="@address.State" placeholder="State" data-address-field="state" />
+                            </div>
+                            <div class="col-span-2">
+                                <input class="form-control" name="Fields[@field.Key].PostalCode" value="@address.PostalCode" placeholder="Postal code" data-address-field="postalCode" />
+                            </div>
+                            <div class="col-span-3">
+                                <input class="form-control" name="Fields[@field.Key].Country" value="@address.Country" placeholder="Country" data-address-field="country" />
+                            </div>
+                        </div>
+                        break;
+                    case CMIForge.Services.FieldType.Select:
                         <select class="form-select" id="@field.Key" name="Fields[@field.Key]">
                             <option value="">Choose...</option>
                             @foreach (var option in field.Options)
@@ -59,17 +90,17 @@ else
                             }
                         </select>
                         break;
-                    case MatterForge.Services.FieldType.Checkbox:
+                    case CMIForge.Services.FieldType.Checkbox:
                         <div class="form-check">
                             <input class="form-check-input" id="@field.Key" name="Fields[@field.Key]" type="checkbox" value="true" checked="@(Model.PostedValues.GetValueOrDefault(field.Key) == "true")" />
                             <label class="form-check-label" for="@field.Key">Yes</label>
                         </div>
                         break;
-                    case MatterForge.Services.FieldType.Date:
+                    case CMIForge.Services.FieldType.Date:
                         <input class="form-control" id="@field.Key" name="Fields[@field.Key]" type="date" value="@Model.PostedValues.GetValueOrDefault(field.Key)" />
                         break;
-                    case MatterForge.Services.FieldType.Currency:
-                    case MatterForge.Services.FieldType.Number:
+                    case CMIForge.Services.FieldType.Currency:
+                    case CMIForge.Services.FieldType.Number:
                         <input class="form-control" id="@field.Key" name="Fields[@field.Key]" type="number" step="0.01" value="@Model.PostedValues.GetValueOrDefault(field.Key)" />
                         break;
                     default:
@@ -85,28 +116,38 @@ else
         </div>
     </form>
 
-    <div class="mf-conflict-preview mf-conflict-radar"
-         data-conflict-preview
-         data-conflict-popover
-         data-preview-url="@Url.Page("./Submit", "ConflictPreview", new { id = Model.Id })">
-        <div class="d-flex justify-content-between gap-3">
-            <div>
-                <p class="mf-eyebrow">Live Conflicts</p>
-                <h2>Conflict Radar</h2>
+    @if (Model.IsConflictPreviewEnabled)
+    {
+        <div class="mf-conflict-preview mf-conflict-radar"
+             data-conflict-preview
+             data-conflict-popover
+             data-preview-url="@Url.Page("./Submit", "ConflictPreview", new { id = Model.Id })">
+            <div class="d-flex justify-content-between gap-3">
+                <div>
+                    <p class="mf-eyebrow">Live Conflicts</p>
+                    <h2>Conflict Radar</h2>
+                </div>
+                <span class="mf-conflict-preview-status" data-conflict-status>Watching</span>
             </div>
-            <span class="mf-conflict-preview-status" data-conflict-status>Watching</span>
+            <p class="text-muted mt-2 mb-3">Watching the names, not judging your typing.</p>
+            <div class="mf-conflict-preview-summary" data-conflict-summary>
+                Focus a client, matter, contact, or party field to start the radar.
+            </div>
+            <div class="mf-conflict-preview-stats" data-conflict-stats hidden></div>
+            <div class="mf-conflict-preview-results" data-conflict-results></div>
+            <p class="text-muted small mt-3 mb-0">Early heads-up only. Submit the intake first, then run the formal conflict search from the saved submission.</p>
         </div>
-        <p class="text-muted mt-2 mb-3">Watching the names, not judging your typing.</p>
-        <div class="mf-conflict-preview-summary" data-conflict-summary>
-            Focus a client, matter, contact, or party field to start the radar.
-        </div>
-        <div class="mf-conflict-preview-stats" data-conflict-stats hidden></div>
-        <div class="mf-conflict-preview-results" data-conflict-results></div>
-        <p class="text-muted small mt-3 mb-0">Early heads-up only. Submit the intake first, then run the formal conflict search from the saved submission.</p>
-    </div>
+    }
 }
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
-    <script src="/js/conflict-preview.js"></script>
+    @if (Model.Schema?.Fields.Any(x => x.Type == CMIForge.Services.FieldType.Address) == true)
+    {
+        <script src="~/js/address-lookup.js" asp-append-version="true"></script>
+    }
+    @if (Model.IsConflictPreviewEnabled)
+    {
+        <script src="/js/conflict-preview.js"></script>
+    }
 }

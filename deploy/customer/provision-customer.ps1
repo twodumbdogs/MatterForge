@@ -31,6 +31,12 @@ param(
     [int]$DnsWaitSeconds = 120,
     [string]$EntraProvisioningDomain = "cmiforge.com",
     [bool]$EntraProvisioningEnabled = $false,
+    [bool]$EmailNotificationsEnabled = $true,
+    [string]$EmailMailboxAddress = "intake@cmiforge.com",
+    [string]$EmailFromEmail,
+    [string]$EmailReplyToEmail,
+    [string]$EmailFromName,
+    [string]$NotificationsGraphTenantId,
 
     [switch]$CreateInitialAdminUser,
     [switch]$ResetInitialAdminPassword,
@@ -490,6 +496,26 @@ if ([string]::IsNullOrWhiteSpace($StorageContainerName)) {
     $StorageContainerName = "$Subdomain-attachments"
 }
 
+if ([string]::IsNullOrWhiteSpace($FirmName)) {
+    $FirmName = $Subdomain
+}
+
+if ([string]::IsNullOrWhiteSpace($EmailFromEmail)) {
+    $EmailFromEmail = "$Subdomain@cmiforge.com"
+}
+
+if ([string]::IsNullOrWhiteSpace($EmailReplyToEmail)) {
+    $EmailReplyToEmail = $EmailFromEmail
+}
+
+if ([string]::IsNullOrWhiteSpace($EmailFromName)) {
+    $EmailFromName = $FirmName
+}
+
+if ([string]::IsNullOrWhiteSpace($NotificationsGraphTenantId)) {
+    $NotificationsGraphTenantId = $EntraTenantId
+}
+
 $Hostname = "$Subdomain.$DnsZoneName"
 $AsuidRecordName = "asuid.$Subdomain"
 $appConnectionString = "Server=tcp:$SqlServerName.database.windows.net,1433;Initial Catalog=$SqlDatabaseName;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120;"
@@ -513,6 +539,8 @@ Write-Host "Hostname: https://$Hostname"
 Write-Host "Web app: $WebAppName"
 Write-Host "SQL database: $SqlDatabaseName"
 Write-Host "Blob container: $StorageContainerName"
+Write-Host "Email from/reply-to: $EmailFromEmail"
+Write-Host "Email mailbox anchor: $EmailMailboxAddress"
 Write-Host ""
 
 try {
@@ -734,6 +762,13 @@ END
             -RunMigrationsOnStartup $false `
             -RunSeedDataOnStartup $true `
             -SeedSampleData $false `
+            -EmailNotificationsEnabled $EmailNotificationsEnabled `
+            -EmailMailboxAddress $EmailMailboxAddress `
+            -EmailFromEmail $EmailFromEmail `
+            -EmailReplyToEmail $EmailReplyToEmail `
+            -EmailFromName $EmailFromName `
+            -NotificationsGraphEnabled $true `
+            -NotificationsGraphTenantId $NotificationsGraphTenantId `
             -AssignManagedIdentity:($AssignManagedIdentity -or -not $SkipRoleAssignments) `
             -SkipPublish:$SkipPublish `
             -SkipDeploy:$SkipDeploy

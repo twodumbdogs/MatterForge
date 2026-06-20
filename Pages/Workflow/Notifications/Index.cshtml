@@ -1,0 +1,44 @@
+@page
+@model CMIForge.Pages.Workflow.Notifications.IndexModel
+@{
+    ViewData["Title"] = "Notification Templates";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Workflow builder</p>
+        <h1>Notification Templates</h1>
+    </div>
+    <div class="mf-hero-actions">
+        <a class="btn btn-outline-secondary" asp-page="/Workflow/Definitions/Index">Workflows</a>
+        <a class="btn btn-primary" asp-page="./Create">Create template</a>
+    </div>
+</div>
+
+<div class="mf-panel">
+    @if (Model.Templates.Count == 0)
+    {
+        <p class="text-muted mb-0">No notification templates have been created yet.</p>
+    }
+    else
+    {
+        <div class="mf-template-list">
+            @foreach (var template in Model.Templates)
+            {
+                <article class="mf-template-card">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <h2 class="h6 mb-0">@template.Name</h2>
+                            <span class="badge @(template.IsActive ? "text-bg-success" : "text-bg-secondary")">@(template.IsActive ? "Active" : "Inactive")</span>
+                        </div>
+                        <p class="text-muted mb-2">@template.Description</p>
+                        <div class="mf-template-subject">@template.Subject</div>
+                    </div>
+                    <div class="text-end">
+                        <a class="btn btn-sm btn-outline-primary" asp-page="./Edit" asp-route-id="@template.Id">Edit</a>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</div>

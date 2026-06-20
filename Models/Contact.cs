@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class Contact
 {
@@ -41,6 +41,8 @@ public class Contact
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    public bool IsArchived { get; set; }
 
     public List<ClientContact> ClientLinks { get; set; } = [];
 

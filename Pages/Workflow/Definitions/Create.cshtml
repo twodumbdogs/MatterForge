@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Workflow.Definitions.CreateModel
+@model CMIForge.Pages.Workflow.Definitions.CreateModel
 @{
     ViewData["Title"] = "Create Workflow";
 }
@@ -45,61 +45,111 @@
 
     <hr />
 
-    <h2 class="h5">Steps</h2>
-    <p class="text-muted">New submissions receive the first matching task from the workflow attached to their form version. Notification steps send or log an email notification, then continue to the next matching step.</p>
+    <div class="mf-workflow-builder-heading">
+        <div>
+            <h2 class="h5 mb-1">Steps</h2>
+            <p class="text-muted mb-0">New submissions receive the first matching task from the workflow attached to their form version.</p>
+        </div>
+    </div>
 
-    <div class="table-responsive mf-designer-table">
-        <table class="table align-middle">
-            <thead>
-                <tr>
-                    <th style="width: 90px;">Order</th>
-                    <th>Type</th>
-                    <th>Name</th>
-                    <th>User</th>
-                    <th>Team</th>
-                    <th>Notification</th>
-                    <th>Primary label</th>
-                    <th>Status</th>
-                    <th>Outcomes</th>
-                    <th>Run when</th>
-                    <th>Operator</th>
-                    <th>Value</th>
-                    <th>Instructions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @for (var i = 0; i < Model.Input.Steps.Count; i++)
-                {
-                    <tr>
-                        <td><input class="form-control" asp-for="Input.Steps[i].StepNumber" /></td>
-                        <td><select class="form-select" asp-for="Input.Steps[i].StepType" asp-items="Model.StepTypeOptions"></select></td>
-                        <td><input class="form-control" asp-for="Input.Steps[i].Name" /></td>
-                        <td>
-                            <select class="form-select" asp-for="Input.Steps[i].AssignedUserId" asp-items="Model.UserOptions">
-                                <option value="">Unassigned</option>
-                            </select>
-                        </td>
-                        <td>
-                            <select class="form-select" asp-for="Input.Steps[i].AssignedTeamId" asp-items="Model.TeamOptions">
-                                <option value="">No team</option>
-                            </select>
-                        </td>
-                        <td class="mf-workflow-notification-cell">
-                            <input class="form-control mb-2" asp-for="Input.Steps[i].NotificationRecipients" placeholder="assigned; submitter; user@firm.com" />
-                            <input class="form-control mb-2" asp-for="Input.Steps[i].NotificationSubject" placeholder="Subject" />
-                            <input class="form-control" asp-for="Input.Steps[i].NotificationBody" placeholder="Body with {{SubmissionNumber}}, {{WorkflowName}}, {{StepName}}" />
-                        </td>
-                        <td><input class="form-control" asp-for="Input.Steps[i].ApprovalLabel" /></td>
-                        <td><select class="form-select" asp-for="Input.Steps[i].CompletionSubmissionStatus" asp-items="Model.CompletionStatusOptions"></select></td>
-                        <td><input class="form-control" asp-for="Input.Steps[i].Outcomes" placeholder="Approve|Advance|In Review; Return|Return|Returned" title="@MatterForge.Services.WorkflowOutcomeParser.DesignerHelpText" /></td>
-                        <td><input class="form-control" asp-for="Input.Steps[i].ConditionFieldKey" placeholder="cdd" /></td>
-                        <td><select class="form-select" asp-for="Input.Steps[i].ConditionOperator" asp-items="Model.ConditionOperatorOptions"></select></td>
-                        <td><input class="form-control" asp-for="Input.Steps[i].ConditionValue" placeholder="Yes" /></td>
-                        <td><input class="form-control" asp-for="Input.Steps[i].Instructions" /></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+    <div class="mf-workflow-step-list">
+        @for (var i = 0; i < Model.Input.Steps.Count; i++)
+        {
+            <section class="mf-workflow-step-card" data-workflow-step-card>
+                <div class="mf-workflow-step-header">
+                    <div class="mf-workflow-step-number">
+                        <label asp-for="Input.Steps[i].StepNumber" class="form-label">Order</label>
+                        <input class="form-control" asp-for="Input.Steps[i].StepNumber" />
+                    </div>
+                    <div>
+                        <label asp-for="Input.Steps[i].Name" class="form-label">Step name</label>
+                        <input class="form-control" asp-for="Input.Steps[i].Name" placeholder="Review" />
+                    </div>
+                    <div>
+                        <label asp-for="Input.Steps[i].StepType" class="form-label">Type</label>
+                        <select class="form-select" asp-for="Input.Steps[i].StepType" asp-items="Model.StepTypeOptions" data-workflow-step-type></select>
+                    </div>
+                </div>
+
+                <div class="mf-workflow-step-grid">
+                    <div class="mf-workflow-step-section" data-workflow-approval-section>
+                        <div class="mf-section-label">Assignment</div>
+                        <div class="mf-form-grid two">
+                            <div>
+                                <label asp-for="Input.Steps[i].AssignedUserId" class="form-label">User</label>
+                                <select class="form-select" asp-for="Input.Steps[i].AssignedUserId" asp-items="Model.UserOptions">
+                                    <option value="">Unassigned</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label asp-for="Input.Steps[i].AssignedTeamId" class="form-label">Team</label>
+                                <select class="form-select" asp-for="Input.Steps[i].AssignedTeamId" asp-items="Model.TeamOptions">
+                                    <option value="">No team</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mf-workflow-step-section" data-workflow-notification-section>
+                        <div class="mf-section-label">Notification</div>
+                        <input type="hidden" asp-for="Input.Steps[i].NotificationSubject" />
+                        <input type="hidden" asp-for="Input.Steps[i].NotificationBody" />
+                        <div class="mf-form-grid two">
+                            <div>
+                                <label asp-for="Input.Steps[i].NotificationTemplateId" class="form-label">Template</label>
+                                <select class="form-select" asp-for="Input.Steps[i].NotificationTemplateId" asp-items="Model.NotificationTemplateOptions">
+                                    <option value="">Default workflow message</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label asp-for="Input.Steps[i].NotificationRecipientTokens" class="form-label">Recipients</label>
+                                <select class="form-select" asp-for="Input.Steps[i].NotificationRecipientTokens" asp-items="Model.NotificationRecipientOptions" multiple size="4"></select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mf-workflow-step-section" data-workflow-routing-section>
+                        <div class="mf-section-label">Approval outcome</div>
+                        <div class="mf-form-grid three">
+                            <div>
+                                <label asp-for="Input.Steps[i].ApprovalLabel" class="form-label">Primary label</label>
+                                <input class="form-control" asp-for="Input.Steps[i].ApprovalLabel" />
+                            </div>
+                            <div>
+                                <label asp-for="Input.Steps[i].CompletionSubmissionStatus" class="form-label">Status</label>
+                                <select class="form-select" asp-for="Input.Steps[i].CompletionSubmissionStatus" asp-items="Model.CompletionStatusOptions"></select>
+                            </div>
+                            <div>
+                                <label asp-for="Input.Steps[i].Outcomes" class="form-label">Outcomes</label>
+                                <input class="form-control" asp-for="Input.Steps[i].Outcomes" placeholder="Approve|Advance|In Review; Return|Return|Returned" title="@CMIForge.Services.WorkflowOutcomeParser.DesignerHelpText" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mf-workflow-step-section">
+                        <div class="mf-section-label">Routing</div>
+                        <div class="mf-form-grid four">
+                            <div>
+                                <label asp-for="Input.Steps[i].ConditionFieldKey" class="form-label">Run when</label>
+                                <input class="form-control" asp-for="Input.Steps[i].ConditionFieldKey" placeholder="cdd" />
+                            </div>
+                            <div>
+                                <label asp-for="Input.Steps[i].ConditionOperator" class="form-label">Operator</label>
+                                <select class="form-select" asp-for="Input.Steps[i].ConditionOperator" asp-items="Model.ConditionOperatorOptions"></select>
+                            </div>
+                            <div>
+                                <label asp-for="Input.Steps[i].ConditionValue" class="form-label">Value</label>
+                                <input class="form-control" asp-for="Input.Steps[i].ConditionValue" placeholder="Yes" />
+                            </div>
+                            <div>
+                                <label asp-for="Input.Steps[i].Instructions" class="form-label">Instructions</label>
+                                <input class="form-control" asp-for="Input.Steps[i].Instructions" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        }
     </div>
 
     <div class="d-flex gap-2">

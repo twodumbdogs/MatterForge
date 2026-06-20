@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.System.DemoModel
+@model CMIForge.Pages.System.DemoModel
 @{
     ViewData["Title"] = "Demo Mode";
 }
@@ -84,7 +84,7 @@
                             <td>@UserDates.FormatNullable(run.CompletedAt, fallback: "Running")</td>
                             <td>@run.Trigger</td>
                             <td>
-                                <span class="badge @(run.Status == MatterForge.Models.DemoResetRunStatuses.Succeeded ? "text-bg-success" : run.Status == MatterForge.Models.DemoResetRunStatuses.Failed ? "text-bg-danger" : run.Status == MatterForge.Models.DemoResetRunStatuses.Skipped ? "text-bg-secondary" : "text-bg-primary")">@run.Status</span>
+                                <span class="badge @(run.Status == CMIForge.Models.DemoResetRunStatuses.Succeeded ? "text-bg-success" : run.Status == CMIForge.Models.DemoResetRunStatuses.Failed ? "text-bg-danger" : run.Status == CMIForge.Models.DemoResetRunStatuses.Skipped ? "text-bg-secondary" : "text-bg-primary")">@run.Status</span>
                             </td>
                             <td>@run.DeletedRows.ToString("N0")</td>
                             <td>

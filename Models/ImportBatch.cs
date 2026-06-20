@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class ImportBatch
 {
@@ -24,7 +24,7 @@ public class ImportBatch
 
     public Guid? ImportedByUserId { get; set; }
 
-    public MatterForgeUser? ImportedByUser { get; set; }
+    public CMIForgeUser? ImportedByUser { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 

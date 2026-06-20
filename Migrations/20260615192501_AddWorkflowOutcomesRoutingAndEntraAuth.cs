@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace MatterForge.Migrations
+namespace CMIForge.Migrations
 {
     /// <inheritdoc />
     public partial class AddWorkflowOutcomesRoutingAndEntraAuth : Migration

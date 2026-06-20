@@ -1,0 +1,70 @@
+@page
+@model CMIForge.Pages.Workflow.Notifications.CreateModel
+@{
+    ViewData["Title"] = "Create Notification Template";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Workflow builder</p>
+        <h1>Create Notification Template</h1>
+    </div>
+</div>
+
+<form method="post" class="mf-panel">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="mf-template-editor">
+        <div class="mf-form-grid two">
+            <div>
+                <label asp-for="Input.Name" class="form-label"></label>
+                <input asp-for="Input.Name" class="form-control" placeholder="Workflow step update" />
+                <span asp-validation-for="Input.Name" class="text-danger"></span>
+            </div>
+            <div>
+                <label asp-for="Input.Key" class="form-label"></label>
+                <input asp-for="Input.Key" class="form-control" placeholder="workflow-step-update" />
+                <span asp-validation-for="Input.Key" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div>
+            <label asp-for="Input.Description" class="form-label"></label>
+            <textarea asp-for="Input.Description" class="form-control" rows="2"></textarea>
+        </div>
+
+        <div>
+            <label asp-for="Input.Subject" class="form-label"></label>
+            <input asp-for="Input.Subject" class="form-control" placeholder="Submission {{SubmissionNumber}} needs attention" />
+            <span asp-validation-for="Input.Subject" class="text-danger"></span>
+        </div>
+
+        <div>
+            <label asp-for="Input.Body" class="form-label"></label>
+            <textarea asp-for="Input.Body" class="form-control" rows="8"></textarea>
+            <span asp-validation-for="Input.Body" class="text-danger"></span>
+        </div>
+
+        <div class="mf-token-strip" aria-label="Available template tokens">
+            <code>{{SubmissionNumber}}</code>
+            <code>{{SubmissionStatus}}</code>
+            <code>{{SubmitterName}}</code>
+            <code>{{WorkflowName}}</code>
+            <code>{{StepName}}</code>
+        </div>
+
+        <div class="form-check">
+            <input asp-for="Input.IsActive" class="form-check-input" />
+            <label asp-for="Input.IsActive" class="form-check-label"></label>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-primary" type="submit">Create template</button>
+        <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

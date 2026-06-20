@@ -1,16 +1,16 @@
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.System;
+namespace CMIForge.Pages.System;
 
 public class DemoModel(
     DemoModeService demoModeService,
     DemoResetService demoResetService,
-    MatterForgeDbContext db) : PageModel
+    CMIForgeDbContext db) : PageModel
 {
     public List<DemoResetRun> RecentRuns { get; private set; } = [];
 

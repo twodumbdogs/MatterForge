@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Imports.IndexModel
+@model CMIForge.Pages.Imports.IndexModel
 @{
     ViewData["Title"] = "Import Center";
 }
@@ -16,7 +16,7 @@
 
 @if (Model.LatestBatch is not null)
 {
-    var batchAction = Model.LatestBatch.Status is MatterForge.Models.ImportBatchStatuses.ValidationPassed or MatterForge.Models.ImportBatchStatuses.ValidationIssues
+    var batchAction = Model.LatestBatch.Status is CMIForge.Models.ImportBatchStatuses.ValidationPassed or CMIForge.Models.ImportBatchStatuses.ValidationIssues
         ? "validation"
         : "import";
     <section class="alert @(Model.LatestBatch.ErrorRows > 0 ? "alert-warning" : "alert-success")">
@@ -294,18 +294,18 @@
     {
         return status switch
         {
-            MatterForge.Models.ImportBatchStatuses.Completed => "text-bg-success",
-            MatterForge.Models.ImportBatchStatuses.ValidationPassed => "text-bg-success",
-            MatterForge.Models.ImportRowStatuses.Imported => "text-bg-success",
-            MatterForge.Models.ImportRowStatuses.WouldImport => "text-bg-success",
-            MatterForge.Models.ImportRowStatuses.Updated => "text-bg-primary",
-            MatterForge.Models.ImportRowStatuses.WouldUpdate => "text-bg-primary",
-            MatterForge.Models.ImportRowStatuses.Skipped => "text-bg-secondary",
-            MatterForge.Models.ImportRowStatuses.WouldSkip => "text-bg-secondary",
-            MatterForge.Models.ImportBatchStatuses.CompletedWithErrors => "text-bg-warning",
-            MatterForge.Models.ImportBatchStatuses.ValidationIssues => "text-bg-warning",
-            MatterForge.Models.ImportRowStatuses.Error => "text-bg-danger",
-            MatterForge.Models.ImportBatchStatuses.Failed => "text-bg-danger",
+            CMIForge.Models.ImportBatchStatuses.Completed => "text-bg-success",
+            CMIForge.Models.ImportBatchStatuses.ValidationPassed => "text-bg-success",
+            CMIForge.Models.ImportRowStatuses.Imported => "text-bg-success",
+            CMIForge.Models.ImportRowStatuses.WouldImport => "text-bg-success",
+            CMIForge.Models.ImportRowStatuses.Updated => "text-bg-primary",
+            CMIForge.Models.ImportRowStatuses.WouldUpdate => "text-bg-primary",
+            CMIForge.Models.ImportRowStatuses.Skipped => "text-bg-secondary",
+            CMIForge.Models.ImportRowStatuses.WouldSkip => "text-bg-secondary",
+            CMIForge.Models.ImportBatchStatuses.CompletedWithErrors => "text-bg-warning",
+            CMIForge.Models.ImportBatchStatuses.ValidationIssues => "text-bg-warning",
+            CMIForge.Models.ImportRowStatuses.Error => "text-bg-danger",
+            CMIForge.Models.ImportBatchStatuses.Failed => "text-bg-danger",
             _ => "text-bg-secondary"
         };
     }

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public class FormSchema
 {
@@ -31,6 +31,7 @@ public enum FieldType
     Currency,
     Number,
     Client,
+    Address,
     Select,
     Checkbox
 }

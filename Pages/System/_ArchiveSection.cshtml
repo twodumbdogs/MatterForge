@@ -1,0 +1,47 @@
+@model CMIForge.Pages.System.ArchiveSectionViewModel
+
+<div class="mf-panel h-100">
+    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+            <h2>@Model.Title</h2>
+            <p class="text-muted mb-0">@Model.Rows.Count archived record@(Model.Rows.Count == 1 ? string.Empty : "s") shown.</p>
+        </div>
+    </div>
+
+    @if (Model.Rows.Count == 0)
+    {
+        <p class="text-muted mb-0">Nothing archived here.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Name</th>
+                        <th>Detail</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td><code>@row.Number</code></td>
+                            <td><strong>@row.Name</strong></td>
+                            <td>@row.Detail</td>
+                            <td class="text-end">
+                                <form method="post" asp-page-handler="Restore" class="d-inline">
+                                    <input type="hidden" name="Input.EntityType" value="@Model.EntityType" />
+                                    <input type="hidden" name="Input.EntityId" value="@row.Id" />
+                                    <button class="btn btn-sm btn-outline-primary" type="submit">Unarchive</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

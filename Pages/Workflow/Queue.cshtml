@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Workflow.QueueModel
+@model CMIForge.Pages.Workflow.QueueModel
 @{
     ViewData["Title"] = "Workflow Queue";
 }
@@ -14,10 +14,13 @@
             <small class="text-muted">Current user: @Model.CurrentUser.DisplayName</small>
         }
     </div>
-    @if (Model.CanDesignWorkflows)
-    {
-        <a class="btn btn-outline-primary" asp-page="/Workflow/Definitions/Index">Manage workflows</a>
-    }
+    <div class="mf-heading-actions">
+        <partial name="/Pages/Shared/_ListSearch.cshtml" model='new CMIForge.Models.ListSearchViewModel(Model.Search, "Find workflow task...", "Search workflow tasks", PageName: "./Queue", RouteValues: new Dictionary<string, string> { ["View"] = Model.View })' />
+        @if (Model.CanDesignWorkflows)
+        {
+            <a class="btn btn-outline-primary" asp-page="/Workflow/Definitions/Index">Manage workflows</a>
+        }
+    </div>
 </div>
 
 <div class="mf-panel">
@@ -43,15 +46,15 @@
     else
     {
         <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle" data-no-sort>
                 <thead>
                     <tr>
-                        <th>Submission</th>
-                        <th>Workflow</th>
-                        <th>Step</th>
-                        <th>Assigned to</th>
-                        <th>Status</th>
-                        <th>Started</th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "submission")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="submission" asp-route-sortDirection="@Model.NextSortDirection("submission")">Submission</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "workflow")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="workflow" asp-route-sortDirection="@Model.NextSortDirection("workflow")">Workflow</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "step")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="step" asp-route-sortDirection="@Model.NextSortDirection("step")">Step</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "assigned")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="assigned" asp-route-sortDirection="@Model.NextSortDirection("assigned")">Assigned to</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "status")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="status" asp-route-sortDirection="@Model.NextSortDirection("status")">Status</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "started")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="started" asp-route-sortDirection="@Model.NextSortDirection("started")">Started</a></th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -61,7 +64,7 @@
                         <tr>
                             <td>
                                 <a asp-page="/Submissions/Details" asp-route-id="@task.FormSubmissionId">
-                                    <code>@(task.FormSubmission is null ? string.Empty : MatterForge.Services.RecordNumbers.Submission(task.FormSubmission.SubmissionNumber))</code>
+                                    <code>@(task.FormSubmission is null ? string.Empty : CMIForge.Services.RecordNumbers.Submission(task.FormSubmission.SubmissionNumber))</code>
                                 </a>
                                 <strong class="d-block">@task.FormSubmission?.FormDefinition?.Name</strong>
                                 <small class="d-block text-muted">@task.FormSubmission?.SubmitterName</small>
@@ -95,13 +98,14 @@
                                 <form method="post" class="d-flex flex-column gap-2">
                                     <input type="hidden" name="taskId" value="@task.Id" />
                                     <input type="hidden" name="View" value="@Model.View" />
+                                    <input type="hidden" name="Search" value="@Model.Search" />
                                     <input name="Notes" class="form-control form-control-sm" placeholder="Optional note" />
                                     <div class="d-flex gap-2">
-                                        @foreach (var outcome in MatterForge.Services.WorkflowOutcomeParser.GetOutcomes(task.WorkflowStep!))
+                                        @foreach (var outcome in CMIForge.Services.WorkflowOutcomeParser.GetOutcomes(task.WorkflowStep!))
                                         {
-                                            var buttonClass = outcome.Action == MatterForge.Services.WorkflowOutcomeActions.Return
+                                            var buttonClass = outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Return
                                                 ? "btn-outline-warning"
-                                                : outcome.Action == MatterForge.Services.WorkflowOutcomeActions.Complete
+                                                : outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Complete
                                                     ? "btn-success"
                                                     : "btn-primary";
                                             <button class="btn btn-sm @buttonClass" name="outcomeKey" value="@outcome.Key" asp-page-handler="Outcome">@outcome.Label</button>
@@ -114,6 +118,7 @@
                 </tbody>
             </table>
         </div>
+        <partial name="_RecordPagination" model="@(new CMIForge.Models.RecordPaginationViewModel(Model.Pagination, "workflow tasks", Model.RouteValues, "./Queue"))" />
     }
 </div>
 
@@ -142,7 +147,7 @@
                             <td>@UserDates.Format(workflowEvent.CreatedAt)</td>
                             <td>
                                 <a asp-page="/Submissions/Details" asp-route-id="@workflowEvent.FormSubmissionId">
-                                    <code>@(workflowEvent.FormSubmission is null ? string.Empty : MatterForge.Services.RecordNumbers.Submission(workflowEvent.FormSubmission.SubmissionNumber))</code>
+                                    <code>@(workflowEvent.FormSubmission is null ? string.Empty : CMIForge.Services.RecordNumbers.Submission(workflowEvent.FormSubmission.SubmissionNumber))</code>
                                 </a>
                                 <small class="d-block text-muted">@workflowEvent.FormSubmission?.FormDefinition?.Name</small>
                             </td>

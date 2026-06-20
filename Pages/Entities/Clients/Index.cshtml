@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Entities.Clients.IndexModel
+@model CMIForge.Pages.Entities.Clients.IndexModel
 @{
     ViewData["Title"] = "Clients";
     ViewData["ActiveEntityTab"] = "Clients";
@@ -10,39 +10,36 @@
         <p class="mf-eyebrow">Entities</p>
         <h1>Clients</h1>
     </div>
-    <a class="btn btn-primary" asp-page="./Create">Create client</a>
+    <div class="mf-heading-actions">
+        <partial name="/Pages/Shared/_ListSearch.cshtml" model='new CMIForge.Models.ListSearchViewModel(Model.Search, "Find client...", "Search clients")' />
+        <a class="btn btn-primary" asp-page="./Create">Create client</a>
+    </div>
 </div>
 
 <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
 <div class="mf-panel">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div>
-            <strong>@(Model.Archived ? "Archived clients" : "Active clients")</strong>
-            <small class="d-block text-muted">Archived records stay searchable and can be restored from their detail page.</small>
-        </div>
-        <div class="btn-group btn-group-sm" role="group" aria-label="Client archive filter">
-            <a class="btn @(Model.Archived ? "btn-outline-secondary" : "btn-primary")" asp-page="./Index">Active</a>
-            <a class="btn @(Model.Archived ? "btn-primary" : "btn-outline-secondary")" asp-page="./Index" asp-route-archived="true">Archived</a>
-        </div>
+    <div class="mb-3">
+        <strong>Active clients</strong>
+        <small class="d-block text-muted">Archived records stay searchable and can be restored from System &gt; Archive.</small>
     </div>
 
     @if (Model.Clients.Count == 0)
     {
-        <p class="text-muted mb-0">No @(Model.Archived ? "archived" : "active") clients found.</p>
+        <p class="text-muted mb-0">No active clients found.</p>
     }
     else
     {
         <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table align-middle mf-compact-table" data-no-sort>
                 <thead>
                     <tr>
-                        <th>Number</th>
-                        <th>Name</th>
-                        <th>Status</th>
-                        <th>Primary contact</th>
-                        <th>Email</th>
-                        <th>Matters</th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "number")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="number" asp-route-sortDirection="@Model.NextSortDirection("number")">Number</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "name")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="name" asp-route-sortDirection="@Model.NextSortDirection("name")">Name</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "status")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="status" asp-route-sortDirection="@Model.NextSortDirection("status")">Status</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "primary")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="primary" asp-route-sortDirection="@Model.NextSortDirection("primary")">Primary contact</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "email")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="email" asp-route-sortDirection="@Model.NextSortDirection("email")">Email</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "matters")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="matters" asp-route-sortDirection="@Model.NextSortDirection("matters")">Matters</a></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -50,13 +47,7 @@
                     {
                         <tr>
                             <td><a asp-page="./Details" asp-route-id="@client.Id"><code>@client.ClientNumber.ToString("D8")</code></a></td>
-                            <td>
-                                <strong>@client.Name</strong>
-                                @if (!string.IsNullOrWhiteSpace(client.Notes))
-                                {
-                                    <small class="d-block text-muted">@client.Notes</small>
-                                }
-                            </td>
+                            <td class="mf-truncate-cell"><a asp-page="./Details" asp-route-id="@client.Id"><strong>@client.Name</strong></a></td>
                             <td><span class="badge text-bg-success">@client.Status</span></td>
                             <td>@client.PrimaryContact</td>
                             <td>@client.Email</td>
@@ -66,5 +57,6 @@
                 </tbody>
             </table>
         </div>
+        <partial name="/Pages/Shared/_RecordPagination.cshtml" model='new CMIForge.Models.RecordPaginationViewModel(Model.Pagination, "active clients", Model.RouteValues)' />
     }
 </div>

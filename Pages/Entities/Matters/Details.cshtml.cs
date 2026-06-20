@@ -1,21 +1,24 @@
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Matters;
+namespace CMIForge.Pages.Entities.Matters;
 
 public class DetailsModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     CurrentUserService currentUserService,
-    EntityNoteService entityNoteService) : PageModel
+    EntityNoteService entityNoteService,
+    AuditLogService auditLogService) : PageModel
 {
     public Matter? Matter { get; private set; }
 
     public List<EntityNote> Notes { get; private set; } = [];
+
+    public List<AuditLog> AuditHistory { get; private set; } = [];
 
     public List<EntityChangeRequest> PendingChanges { get; private set; } = [];
 
@@ -49,6 +52,7 @@ public class DetailsModel(
 
         var currentUser = await currentUserService.GetCurrentUserAsync();
         await entityNoteService.AddAsync(EntityNoteService.MatterEntityType, id, NewNote, currentUser?.Id);
+        await auditLogService.LogAsync("Matter.NoteAdded", "Matter", id, null, "Added matter discussion note.");
         return RedirectToPage(new { id });
     }
 
@@ -68,6 +72,13 @@ public class DetailsModel(
         matter.IsArchived = !matter.IsArchived;
         matter.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            matter.IsArchived ? "Matter.Archived" : "Matter.Restored",
+            "Matter",
+            matter.Id,
+            matter.MatterNumber.ToString("D8"),
+            $"{(matter.IsArchived ? "Archived" : "Restored")} matter {matter.Name}.");
+
         return RedirectToPage(new { id });
     }
 
@@ -81,12 +92,18 @@ public class DetailsModel(
         Matter = await db.Matters
             .Include(x => x.Client)
             .Include(x => x.ResponsibleUser)
+            .Include(x => x.LeadPartner)
+            .Include(x => x.TimeCodeSet)
             .Include(x => x.Parties)
                 .ThenInclude(x => x.Party)
             .Include(x => x.Contacts)
                 .ThenInclude(x => x.Contact)
             .Include(x => x.TimeEntries)
                 .ThenInclude(x => x.User)
+            .Include(x => x.TimeEntries)
+                .ThenInclude(x => x.TimePhase)
+            .Include(x => x.TimeEntries)
+                .ThenInclude(x => x.TimeTask)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (Matter is not null)
@@ -113,5 +130,9 @@ public class DetailsModel(
         Notes = Matter is null
             ? []
             : await entityNoteService.ListAsync(EntityNoteService.MatterEntityType, id);
+
+        AuditHistory = Matter is null
+            ? []
+            : await auditLogService.ListForEntityAsync("Matter", id);
     }
 }

@@ -1,16 +1,16 @@
 using System.ComponentModel.DataAnnotations;
 using System.Net.Mail;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.System;
+namespace CMIForge.Pages.System;
 
 public class SettingsModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     CurrentUserService currentUserService,
     DemoModeService demoModeService,
@@ -50,6 +50,7 @@ public class SettingsModel(
             .OrderBy(x => x.Category)
             .ThenBy(x => x.DisplayName)
             .ToListAsync();
+        ModelState.Clear();
 
         foreach (var setting in settings)
         {
@@ -115,8 +116,11 @@ public class SettingsModel(
 
     private async Task LoadSettingsAsync()
     {
+        await EnsureMissingSettingsAsync();
+
         Settings = await db.SystemSettings
             .AsNoTracking()
+            .Where(x => !x.Key.StartsWith("Email.Smtp"))
             .OrderBy(x => x.Category)
             .ThenBy(x => x.DisplayName)
             .Select(x => new SettingInput
@@ -134,6 +138,57 @@ public class SettingsModel(
                 UpdatedAt = x.UpdatedAt
             })
             .ToListAsync();
+    }
+
+    private async Task EnsureMissingSettingsAsync()
+    {
+        var defaults = new[]
+        {
+            new SettingDefault("Conflicts.LivePreviewEnabled", "Conflicts", "Live conflict preview", "Shows the conflict radar while users type client, matter, contact, or party names on intake forms.", "true", SystemSettingValueTypes.Boolean),
+            new SettingDefault("AddressLookup.Enabled", "Address Lookup", "Enable address lookup", "Turns address autocomplete suggestions on for client and contact address fields when a provider key is configured.", "false", SystemSettingValueTypes.Boolean),
+            new SettingDefault("AddressLookup.GeoapifyApiKey", "Address Lookup", "Geoapify API key", "Server-side Geoapify key used for address autocomplete. The key is never sent to browsers.", string.Empty, SystemSettingValueTypes.SecretReference, IsSecret: true),
+            new SettingDefault("AddressLookup.CountryFilter", "Address Lookup", "Country filter", "Optional ISO country code used to narrow address suggestions, such as us. Leave blank for worldwide lookup.", "us", SystemSettingValueTypes.Text),
+            new SettingDefault("AddressLookup.ResultLimit", "Address Lookup", "Suggestion limit", "Maximum address suggestions returned while a user types.", "5", SystemSettingValueTypes.Integer),
+            new SettingDefault("Email.NotificationsEnabled", "Email", "Enable email notifications", "Turns outbound workflow and system email notifications on or off.", "false", SystemSettingValueTypes.Boolean),
+            new SettingDefault("Email.MailboxAddress", "Email", "Mailbox anchor", "Shared mailbox CMIForge uses through Microsoft Graph when sending this tenant's outbound mail.", "intake@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingDefault("Email.FromEmail", "Email", "From email", "Tenant sender address used on outbound CMIForge notifications.", "customer0@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingDefault("Email.ReplyToEmail", "Email", "Reply-to email", "Tenant reply address used on outbound CMIForge notifications.", "customer0@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingDefault("Email.FromName", "Email", "From name", "Display name used as the sender for outbound CMIForge notifications.", "Customer 0", SystemSettingValueTypes.Text)
+        };
+
+        var changed = false;
+        foreach (var item in defaults)
+        {
+            var setting = await db.SystemSettings.FirstOrDefaultAsync(x => x.Key == item.Key);
+            if (setting is null)
+            {
+                setting = new SystemSetting
+                {
+                    Key = item.Key,
+                    Value = item.Value
+                };
+                db.SystemSettings.Add(setting);
+            }
+
+            if (setting.Category != item.Category ||
+                setting.DisplayName != item.DisplayName ||
+                setting.Description != item.Description ||
+                setting.ValueType != item.ValueType ||
+                setting.IsSecret != item.IsSecret)
+            {
+                setting.Category = item.Category;
+                setting.DisplayName = item.DisplayName;
+                setting.Description = item.Description;
+                setting.ValueType = item.ValueType;
+                setting.IsSecret = item.IsSecret;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            await db.SaveChangesAsync();
+        }
     }
 
     private void ValidateSetting(SystemSetting setting, SettingInput input)
@@ -204,7 +259,7 @@ public class SettingInput
     public string Description { get; set; } = string.Empty;
 
     [Display(Name = "Value")]
-    public string Value { get; set; } = string.Empty;
+    public string? Value { get; set; }
 
     public string ValueType { get; set; } = string.Empty;
 
@@ -216,3 +271,12 @@ public class SettingInput
 
     public DateTimeOffset? UpdatedAt { get; set; }
 }
+
+public sealed record SettingDefault(
+    string Key,
+    string Category,
+    string DisplayName,
+    string Description,
+    string Value,
+    string ValueType,
+    bool IsSecret = false);

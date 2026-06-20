@@ -1,12 +1,12 @@
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
-public class PermissionService(MatterForgeDbContext db, CurrentUserService currentUserService)
+public class PermissionService(CMIForgeDbContext db, CurrentUserService currentUserService)
 {
-    public async Task<MatterForgeUser?> GetCurrentUserAsync()
+    public async Task<CMIForgeUser?> GetCurrentUserAsync()
     {
         return await currentUserService.GetCurrentUserAsync();
     }

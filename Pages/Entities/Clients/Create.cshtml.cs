@@ -1,14 +1,14 @@
 using System.ComponentModel.DataAnnotations;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Entities.Clients;
+namespace CMIForge.Pages.Entities.Clients;
 
-public class CreateModel(MatterForgeDbContext db, ProductPlanService productPlanService) : PageModel
+public class CreateModel(CMIForgeDbContext db, ProductPlanService productPlanService, AuditLogService auditLogService) : PageModel
 {
     [BindProperty]
     public ClientInput Input { get; set; } = new();
@@ -36,7 +36,7 @@ public class CreateModel(MatterForgeDbContext db, ProductPlanService productPlan
 
         var nextNumber = (await db.Clients.MaxAsync(x => (int?)x.ClientNumber) ?? 0) + 1;
 
-        db.Clients.Add(new Client
+        var client = new Client
         {
             Name = Input.Name.Trim(),
             ClientNumber = nextNumber,
@@ -51,10 +51,19 @@ public class CreateModel(MatterForgeDbContext db, ProductPlanService productPlan
             PostalCode = Input.PostalCode?.Trim() ?? string.Empty,
             Country = Input.Country?.Trim() ?? string.Empty,
             Notes = Input.Notes?.Trim() ?? string.Empty
-        });
+        };
 
+        db.Clients.Add(client);
         await db.SaveChangesAsync();
-        return RedirectToPage("./Index");
+        await auditLogService.LogAsync(
+            "Client.Created",
+            "Client",
+            client.Id,
+            client.ClientNumber.ToString("D8"),
+            $"Created client {client.Name}.",
+            new { client.Status, client.PrimaryContact, client.Email, client.Phone });
+
+        return RedirectToPage("./Details", new { id = client.Id });
     }
 }
 
@@ -90,3 +99,4 @@ public class ClientInput
 
     public string? Notes { get; set; }
 }
+

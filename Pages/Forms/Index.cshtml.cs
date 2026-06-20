@@ -1,11 +1,11 @@
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Forms;
+namespace CMIForge.Pages.Forms;
 
-public class IndexModel(MatterForgeDbContext db) : PageModel
+public class IndexModel(CMIForgeDbContext db) : PageModel
 {
     public List<FormDefinition> Forms { get; private set; } = [];
 

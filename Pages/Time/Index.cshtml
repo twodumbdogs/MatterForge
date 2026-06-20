@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Time.IndexModel
+@model CMIForge.Pages.Time.IndexModel
 @{
     ViewData["Title"] = "Time";
 }
@@ -36,6 +36,10 @@
     <div class="mf-stat">
         <span>@Model.DraftCount</span>
         <strong>Draft entries</strong>
+    </div>
+    <div class="mf-stat">
+        <span>@Model.ExportedCount</span>
+        <strong>Exported entries</strong>
     </div>
 </section>
 
@@ -97,9 +101,11 @@
                         <th>User</th>
                         <th>Client</th>
                         <th>Matter</th>
+                        <th>Phase/task</th>
                         <th>Hours</th>
                         <th>Billable</th>
                         <th>Status</th>
+                        <th>Exported</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -121,9 +127,20 @@
                                     <a asp-page="/Entities/Matters/Details" asp-route-id="@entry.Matter.Id">@entry.Matter.Name</a>
                                 }
                             </td>
+                            <td>
+                                @if (entry.TimePhase is not null)
+                                {
+                                    <span>@entry.TimePhase.Code</span>
+                                }
+                                @if (entry.TimeTask is not null)
+                                {
+                                    <small class="d-block text-muted">@entry.TimeTask.Code</small>
+                                }
+                            </td>
                             <td>@((entry.Minutes / 60m).ToString("0.00"))</td>
                             <td>@(entry.IsBillable ? "Yes" : "No")</td>
                             <td>@entry.Status</td>
+                            <td>@(entry.ExportedAt.HasValue ? "Yes" : "No")</td>
                         </tr>
                     }
                 </tbody>

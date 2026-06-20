@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class SystemSetting
 {
@@ -26,7 +26,7 @@ public class SystemSetting
 
     public Guid? UpdatedByUserId { get; set; }
 
-    public MatterForgeUser? UpdatedByUser { get; set; }
+    public CMIForgeUser? UpdatedByUser { get; set; }
 }
 
 public static class SystemSettingValueTypes

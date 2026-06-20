@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class AuditLog
 {
@@ -8,7 +8,7 @@ public class AuditLog
 
     public Guid? ActorUserId { get; set; }
 
-    public MatterForgeUser? ActorUser { get; set; }
+    public CMIForgeUser? ActorUser { get; set; }
 
     public string ActorDisplayName { get; set; } = string.Empty;
 

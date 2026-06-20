@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class ConflictSearch
 {
@@ -22,7 +22,7 @@ public class ConflictSearch
 
     public Guid? RequestedByUserId { get; set; }
 
-    public MatterForgeUser? RequestedByUser { get; set; }
+    public CMIForgeUser? RequestedByUser { get; set; }
 
     public string Status { get; set; } = ConflictSearchStatuses.PendingReview;
 
@@ -30,7 +30,7 @@ public class ConflictSearch
 
     public Guid? ReviewedByUserId { get; set; }
 
-    public MatterForgeUser? ReviewedByUser { get; set; }
+    public CMIForgeUser? ReviewedByUser { get; set; }
 
     public DateTimeOffset? ReviewedAt { get; set; }
 
@@ -41,6 +41,8 @@ public class ConflictSearch
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    public DateTimeOffset? ArchivedAt { get; set; }
 
     public List<ConflictSearchResult> Results { get; set; } = [];
 }

@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public class ContentModerationService
 {

@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Entities.Users.DetailsModel
+@model CMIForge.Pages.Entities.Users.DetailsModel
 @{
     ViewData["Title"] = Model.UserRecord is null ? "User Details" : $"User {Model.UserRecord.SystemId:D8}";
     ViewData["ActiveEntityTab"] = "Users";
@@ -160,6 +160,44 @@ else
                 }
             </div>
             <div class="mf-panel mt-4">
+                <h2>Lead Partner Matters</h2>
+                @if (Model.UserRecord.LeadPartnerMatters.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No matters list this user as lead partner yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Number</th>
+                                    <th>Matter</th>
+                                    <th>Client</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var matter in Model.UserRecord.LeadPartnerMatters.OrderBy(x => x.MatterNumber))
+                                {
+                                    <tr>
+                                        <td><a asp-page="/Entities/Matters/Details" asp-route-id="@matter.Id"><code>@matter.MatterNumber.ToString("D8")</code></a></td>
+                                        <td>@matter.Name</td>
+                                        <td>
+                                            @if (matter.Client is not null)
+                                            {
+                                                <a asp-page="/Entities/Clients/Details" asp-route-id="@matter.Client.Id">@matter.Client.Name</a>
+                                            }
+                                        </td>
+                                        <td>@matter.Status</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+            <div class="mf-panel mt-4">
                 <h2>Security</h2>
                 <div class="row g-3 mt-1">
                     <div class="col-md-6">
@@ -201,4 +239,5 @@ else
             </div>
         </div>
     </div>
+    <partial name="/Pages/Entities/_EntityAuditHistory.cshtml" model="Model.AuditHistory" />
 }

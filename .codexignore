@@ -1,0 +1,13 @@
+artifacts/
+bin/
+obj/
+.vs/
+.vscode/
+Data/
+*.zip
+*.bak
+*.tmp
+*.log
+*.user
+*.suo
+wwwroot/lib/

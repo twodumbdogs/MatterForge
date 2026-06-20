@@ -1,21 +1,22 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Forms;
+namespace CMIForge.Pages.Forms;
 
 public class SubmitModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     ConflictSearchService conflictSearchService,
     WorkflowService workflowService,
-    ProductPlanService productPlanService) : PageModel
+    ProductPlanService productPlanService,
+    AuditLogService auditLogService) : PageModel
 {
     [BindProperty(SupportsGet = true)]
     public Guid Id { get; set; }
@@ -25,17 +26,25 @@ public class SubmitModel(
     [Display(Name = "Submitted by")]
     public Guid? SubmitterUserId { get; set; }
 
+    [BindProperty]
+    [Display(Name = "Lead partner")]
+    public Guid? LeadPartnerId { get; set; }
+
     public FormDefinition? Form { get; private set; }
 
     public FormSchema? Schema { get; private set; }
 
     public List<SelectListItem> SubmitterOptions { get; private set; } = [];
 
+    public List<SelectListItem> PartnerOptions { get; private set; } = [];
+
     public List<ClientSuggestion> ClientSuggestions { get; private set; } = [];
 
     public int VersionNumber { get; private set; }
 
     public Dictionary<string, string> PostedValues { get; private set; } = [];
+
+    public bool IsConflictPreviewEnabled { get; private set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -54,6 +63,11 @@ public class SubmitModel(
             !await permissionService.HasAsync(PermissionKeys.ConflictsView))
         {
             return Forbid();
+        }
+
+        if (!await IsConflictPreviewEnabledAsync())
+        {
+            return NotFound();
         }
 
         var formId = id == Guid.Empty ? Id : id;
@@ -93,11 +107,12 @@ public class SubmitModel(
             ModelState.AddModelError("SubmitterUserId", "Choose an active CMIForge user.");
         }
 
-        PostedValues = Request.Form
-            .Where(x => x.Key.StartsWith("Fields[", StringComparison.Ordinal))
-            .ToDictionary(
-                x => x.Key["Fields[".Length..^1],
-                x => x.Value.ToString());
+        if (LeadPartnerId.HasValue && !await IsPartnerAsync(LeadPartnerId.Value))
+        {
+            ModelState.AddModelError("LeadPartnerId", "Choose a user with the Partner role.");
+        }
+
+        PostedValues = ReadPostedValues(Schema, Request.Form);
 
         foreach (var required in Schema.Fields.Where(x => x.Required))
         {
@@ -132,12 +147,21 @@ public class SubmitModel(
             FormVersionId = latestVersion.Id,
             SubmitterUserId = submitter!.Id,
             SubmitterName = submitter.DisplayName,
+            LeadPartnerId = LeadPartnerId,
             DataJson = JsonSerializer.Serialize(answers, FormJson.Options)
         };
 
         db.FormSubmissions.Add(submission);
 
         await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "Submission.Created",
+            "Submission",
+            submission.Id,
+            RecordNumbers.Submission(submission.SubmissionNumber),
+            $"Created submission {RecordNumbers.Submission(submission.SubmissionNumber)}.",
+            new { submission.FormDefinitionId, submission.SubmitterUserId, submission.LeadPartnerId });
+
         if (productPlanService.AllowsFeature(ProductFeatureKeys.Workflow))
         {
             await workflowService.EnsureStartedAsync(submission);
@@ -162,8 +186,17 @@ public class SubmitModel(
                 $"{x.ClientNumber:D8} - {x.Name}"))
             .ToListAsync();
 
+        IsConflictPreviewEnabled = await IsConflictPreviewEnabledAsync();
+
         SubmitterOptions = await db.Users
             .Where(x => x.IsActive && !x.IsArchived)
+            .OrderBy(x => x.DisplayName)
+            .Select(x => new SelectListItem($"{x.DisplayName} ({x.SystemId:D8})", x.Id.ToString()))
+            .ToListAsync();
+
+        PartnerOptions = await db.Users
+            .Where(x => x.IsActive && !x.IsArchived)
+            .Where(x => x.Roles.Any(role => role.SecurityRole != null && role.SecurityRole.Key == SecurityRoleKeys.Partner && role.SecurityRole.IsActive))
             .OrderBy(x => x.DisplayName)
             .Select(x => new SelectListItem($"{x.DisplayName} ({x.SystemId:D8})", x.Id.ToString()))
             .ToListAsync();
@@ -184,6 +217,35 @@ public class SubmitModel(
 
         VersionNumber = latestVersion.VersionNumber;
         Schema = FormJson.DeserializeSchema(latestVersion.SchemaJson);
+    }
+
+    private Task<bool> IsPartnerAsync(Guid userId)
+    {
+        return db.Users.AnyAsync(x =>
+            x.Id == userId &&
+            x.IsActive &&
+            !x.IsArchived &&
+            x.Roles.Any(role => role.SecurityRole != null && role.SecurityRole.Key == SecurityRoleKeys.Partner && role.SecurityRole.IsActive));
+    }
+
+    private async Task<bool> IsConflictPreviewEnabledAsync()
+    {
+        var value = await db.SystemSettings
+            .AsNoTracking()
+            .Where(x => x.Key == "Conflicts.LivePreviewEnabled")
+            .Select(x => x.Value)
+            .FirstOrDefaultAsync();
+
+        return string.IsNullOrWhiteSpace(value) || bool.TryParse(value, out var enabled) && enabled;
+    }
+
+    private static Dictionary<string, string> ReadPostedValues(FormSchema schema, IFormCollection form)
+    {
+        return schema.Fields.ToDictionary(
+            field => field.Key,
+            field => field.Type == FieldType.Address
+                ? FormAddressValue.Compose(FormAddressValue.FromForm(form, field.Key))
+                : form[$"Fields[{field.Key}]"].ToString());
     }
 }
 

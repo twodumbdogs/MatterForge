@@ -1,12 +1,12 @@
 using System.Text.Json;
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public class AuditLogService(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     CurrentUserService currentUserService,
     IHttpContextAccessor httpContextAccessor)
 {
@@ -45,6 +45,18 @@ public class AuditLogService(
         {
             db.Entry(auditLog).State = EntityState.Detached;
         }
+    }
+
+    public async Task<List<AuditLog>> ListForEntityAsync(string entityType, object entityId, int take = 10)
+    {
+        var id = Convert.ToString(entityId) ?? string.Empty;
+        return await db.AuditLogs
+            .AsNoTracking()
+            .Include(x => x.ActorUser)
+            .Where(x => x.EntityType == entityType && x.EntityId == id)
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(take)
+            .ToListAsync();
     }
 
     private static string TrimToMax(string value, int maxLength)

@@ -1,4 +1,4 @@
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public class DemoResetHostedService(
     IServiceScopeFactory scopeFactory,

@@ -1,11 +1,11 @@
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
-public class EntityNoteService(MatterForgeDbContext db)
+public class EntityNoteService(CMIForgeDbContext db)
 {
     public const string ClientEntityType = "Client";
     public const string MatterEntityType = "Matter";

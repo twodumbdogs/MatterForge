@@ -16,6 +16,8 @@ Customer 0 uses the same CMIForge codebase as every other environment, but separ
 - Demo resets: off
 - Sample data: off
 - Bootstrap admin: Gabe's Entra sign-in email
+- Public signup: anonymous request capture with mandatory legal-agreement acceptance
+- Legal agreement records: stored in `LegalAgreementAcceptances`
 
 Provisioned status:
 
@@ -33,6 +35,31 @@ Provisioned status:
 - Entra custom domain verification TXT value: `MS=ms36377677`
 
 This keeps the disposable public demo away from real testing data.
+
+## Volume Test Data
+
+Customer 0 currently includes a realistic generated dataset for early volume, dashboard, workflow, and search testing:
+
+- 400 generated clients with mixed company and individual names
+- 400 generated matters with realistic matter names and practice areas
+- 400 generated parties with organization, individual, and government names
+- 10 active users total, including generated fake users for volume submissions
+- 1,000 volume-test submissions with `"volumeTest": true` in `FormSubmissions.DataJson`
+- 300 open volume workflow tasks
+
+The records use marker notes and the `volumeTest` submission flag so they can be searched, measured, renamed, or removed later without mixing them up with real firm data. Use `tools/rename-customer0-volume-data.ps1 -VerifyOnly` from the project root to inspect the current generated dataset.
+
+## Signup And Legal Acceptance
+
+Customer 0 hosts the real public request-capture route at:
+
+```text
+https://app.cmiforge.com/Signup
+```
+
+The page remains anonymous even though the rest of Customer 0 uses Microsoft Entra login. The submitter must accept the current CMIForge SaaS Terms, Legal Use, and License Agreement before the request can be submitted.
+
+Acceptance is stored in `LegalAgreementAcceptances` and linked one-to-one to the `TenantProvisioningRequest`. The stored snapshot includes customer name, signer name/email, agreement key/version/title, product version, timestamp, IP address, and user agent.
 
 ## Entra User Provisioning
 
@@ -97,7 +124,7 @@ Azure DNS now hosts `cmiforge.com`, so future customer provisioning can create `
 
 ## Run
 
-From `c#/MatterForge`:
+From `c#/CMIForge`:
 
 ```powershell
 .\deploy\customer0\deploy-customer0.ps1 `
@@ -120,6 +147,8 @@ The script will:
 8. Grant blob access to the web app managed identity.
 9. Try to grant SQL access to the web app managed identity if `Invoke-Sqlcmd` is available.
 10. Restart the app after role assignments.
+
+For schema-changing app releases, do not pass `-SkipDatabaseUpdate` unless the database migration has already been applied another way. If local EF migration access is blocked by Azure SQL firewall rules, add a narrow temporary rule for the current public IP, deploy/apply migrations, smoke test, and remove the rule.
 
 ## SQL Managed Identity Grant
 
@@ -170,7 +199,9 @@ az webapp restart --resource-group gw-rg --name cmiforge-customer0-web
 6. Confirm **Entities > Users** contains the signed-in admin user.
 7. Create one test client, matter, form submission, conflict search, and time entry.
 8. Upload a small attachment to a submission.
-9. Confirm the data persists after app restart.
+9. Confirm the dashboard charts render with the Customer 0 volume dataset.
+10. Confirm workflow notification step fields are visible in the workflow designer.
+11. Confirm the data persists after app restart.
 
 ## Important App Settings
 
@@ -178,14 +209,14 @@ See `appservice-settings.sample.json` for the full shape. The most important swi
 
 ```text
 Authentication__Microsoft__Enabled=true
-MatterForge__BootstrapAdminEmail=<your-admin-email>
-MatterForge__DemoMode=false
-MatterForge__DemoResetEnabled=false
-MatterForge__RunSeedDataOnStartup=true
-MatterForge__SeedSampleData=false
+CMIForge__BootstrapAdminEmail=<your-admin-email>
+CMIForge__DemoMode=false
+CMIForge__DemoResetEnabled=false
+CMIForge__RunSeedDataOnStartup=true
+CMIForge__SeedSampleData=false
 ```
 
-After the first successful boot, `MatterForge__RunSeedDataOnStartup` can be changed to `false`. The seed operation is designed to be idempotent, but turning it off removes a little startup work.
+After the first successful boot, `CMIForge__RunSeedDataOnStartup` can be changed to `false`. The seed operation is designed to be idempotent, but turning it off removes a little startup work.
 
 ## Customer Provisioning Command
 

@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class SubmissionAttachment
 {
@@ -28,7 +28,7 @@ public class SubmissionAttachment
 
     public Guid? UploadedByUserId { get; set; }
 
-    public MatterForgeUser? UploadedByUser { get; set; }
+    public CMIForgeUser? UploadedByUser { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

@@ -2,7 +2,7 @@
 
 CMIForge is a homegrown ASP.NET Core Razor Pages prototype for configurable legal intake, entity management, workflow automation, and conflict searches. The long-term idea is a law-firm intake/workflow platform in the spirit of tools like Intapp Open, but built in focused slices so the data model and user experience can grow together.
 
-Current version: `20260618.1`.
+Current version: `20260619.1`.
 
 ## Original Direction
 
@@ -32,6 +32,63 @@ We deliberately did not over-engineer hosting first. The app still runs locally 
 - In-memory database fallback when the configured connection string is missing or still has the placeholder server
 - Bootstrap-style UI with custom CMIForge styling
 - Local development URL: `http://localhost:5153`
+
+## 2026-06-19 Session Update
+
+This session was a broad product-hardening pass across UX, conflicts, tenant onboarding, legal acceptance, deployment, and agent behavior.
+
+Implemented product changes now reflected in the app:
+
+- Navigation branding now uses the configured firm name without overlapping the menu.
+- The footer displays `CMIForge 1.0` before the build version.
+- Dashboard KPI cards link into the relevant lists.
+- Entity, submission, workflow, and other row-heavy pages have inline search boxes where practical.
+- Standard read-only paginated tables expose sortable column headers that sort the full result set before page slicing.
+- Conflict searches can be named dynamically from selected matter context.
+- Conflict results use `Match strength` language instead of treating string similarity as legal risk.
+- Conflict scoring is less flat, with exact matches, contains matches, token overlap, fuzzy similarity, role boosts, and context boosts separated from legal/contextual risk.
+- Conflict result pages support filters such as clearance status, role/match context, and risk level.
+- Conflict results support multi-select row clearance, including select-all.
+- New conflict searches include searchable prior/completed/cleared search history.
+- Cleared conflict search history uses a hybrid SQL archive/index design: slim searchable SQL rows plus compressed full payload details for hydration when opened.
+- Live conflict preview can be turned on/off from System Settings.
+- Form editing caps forms at 50 fields and supports friendlier reorder controls.
+- Form-builder reorder controls use icon/handle-style affordances instead of wordy buttons.
+- Cancelled submissions behave more like archived records: hidden from daily lists, visible from System Archive, and restorable.
+- Submission list/detail work now shows linked client and matter context earlier and more visibly.
+- Address autocomplete is wired through Geoapify-backed address lookup where static address fields exist.
+- Enhancement requests can be submitted from inside the product under System.
+- A CMIForge brand icon was added to the app/public-site visual language.
+- Customer 0 volume-test data was added for realistic dashboard, search, queue, and list-performance testing.
+- Public signup now requires acceptance of the current CMIForge SaaS Terms, Legal Use, and License Agreement before submission.
+- Legal agreement acceptance is recorded per tenant provisioning request in `LegalAgreementAcceptances`.
+
+Deployed and verified during the session:
+
+- Dev/demo app at `https://demo.cmiforge.com`.
+- Customer 0 app at `https://app.cmiforge.com`.
+- Migration `20260619232000_AddLegalAgreementAcceptances` was applied to both `cmiforge-demo` and `cmiforge-customer0`.
+- Signup was smoke tested on dev with both missing-consent and accepted-consent POST flows.
+- The public Customer 0 signup and terms pages were smoke tested anonymously.
+- A temporary Azure SQL firewall rule was used for EF migrations from the local machine and removed after deployment.
+
+Follow-up time-entry decisions now built into the app:
+
+- Export marks approved exported records with exported metadata and locks them from normal editing.
+- Time increment behavior is configurable at system and matter level, supporting 6-minute, 15-minute, and actual-minute entry.
+- Time statuses are Draft, Submitted, and Approved.
+- Approved time is immutable from normal edit screens.
+- Matters have a `Requires time approval` flag and lead-partner approval path for submitted time.
+- Record Time includes a simple local start/stop timer for assigning elapsed time to a matter.
+- UTBMS-style phase/task code sets are modeled through reusable code sets, phases, and tasks.
+- Time narratives are split into Client Narrative and Internal Notes.
+
+Backlog/product decisions captured but not fully built yet:
+
+- Time rejection/return statuses may be useful so approvers can send time back without deleting it.
+- Historical corrections should eventually use explicit adjustment/reversal entries rather than mutating approved history.
+- Multiple named persisted timers remain a nice-to-have.
+- Future AI/search replicas can be revisited if archive/search volume grows beyond the hybrid SQL archive/index design.
 
 ## Current Cloud Architecture
 
@@ -82,7 +139,7 @@ Current Azure DNS records intentionally include:
 - `demo` as a CNAME to `cmiforge-dev-web-06161223.azurewebsites.net`.
 - `asuid.app` and `asuid.demo` TXT records for App Service custom-domain verification.
 - Entra, Google Search Console, and Static Web App verification TXT records.
-- Namecheap Private Email MX/SPF/autodiscover records until Microsoft 365 mail is fully licensed and cut over.
+- Microsoft 365 / Exchange Online MX and SPF records for `cmiforge.com` mail.
 
 ## Customer 0 Tenant Slice
 
@@ -97,7 +154,7 @@ Customer 0 is intended to be the first production-style CMIForge space:
 - Demo mode disabled.
 - Demo resets disabled.
 - Sample/demo data disabled.
-- Bootstrap admin configured through `MatterForge:BootstrapAdminEmail`.
+- Bootstrap admin configured through `CMIForge:BootstrapAdminEmail`.
 
 Customer 0 was provisioned on `2026-06-17` at `https://cmiforge-customer0-web.azurewebsites.net` using the `CMIForge Customer 0` Entra app registration. It now uses the `Basic B1` App Service SKU so `app.cmiforge.com` can serve as the cleaner customer app doorway.
 
@@ -116,6 +173,8 @@ The onboarding/provisioning slice now includes:
 
 - Anonymous `/Signup` request capture for prospective/customer workspace requests.
 - `TenantProvisioningRequests` table for firm, admin, plan, desired domain/subdomain, notes, status, and internal notes.
+- Mandatory signup acceptance of the current CMIForge SaaS Terms, Legal Use, and License Agreement.
+- `LegalAgreementAcceptances` table for customer name, signer name/email, agreement key/version/title, product version, accepted timestamp, IP address, and user agent.
 - `System -> Signup Requests` for admin triage of new, contacted, provisioning, ready, and closed requests.
 - `System -> Onboarding` for a first-customer checklist covering Entra login, Entra provisioning, support contact, admins, users, teams, forms, workflows, clients, matters, contacts, parties, conflicts, imports, time, attachments, and settings review.
 - The public marketing site now links request-access CTAs to the Customer 0 `/Signup` page so real requests land outside the disposable demo database.
@@ -136,13 +195,13 @@ For a requested `firm.cmiforge.com` workspace, the command validates the subdoma
 
 The command can also create the initial Entra admin user, create the matching CMIForge user as `00000001`, assign the Administrator role, generate a temporary password, and email that password to the admin after the tenant hostname is ready.
 
-The app now supports `MatterForge:BootstrapAdminEmail`. When Microsoft Entra login is enabled and demo mode is off, a matching authenticated user is activated if needed and granted the seeded `Administrator` role. This prevents a fresh tenant from being easy to lock yourself out of.
+The app now supports `CMIForge:BootstrapAdminEmail`. When Microsoft Entra login is enabled and demo mode is off, a matching authenticated user is activated if needed and granted the seeded `Administrator` role. This prevents a fresh tenant from being easy to lock yourself out of.
 
 Startup seeding is now split between core platform seed data and sample/demo seed data:
 
-- `MatterForge:RunSeedDataOnStartup=true` allows startup seed execution.
-- `MatterForge:SeedSampleData=false` seeds core platform structure without public-demo filler data.
-- `MatterForge:SeedSampleData=true` keeps local/demo-style sample data available when needed.
+- `CMIForge:RunSeedDataOnStartup=true` allows startup seed execution.
+- `CMIForge:SeedSampleData=false` seeds core platform structure without public-demo filler data.
+- `CMIForge:SeedSampleData=true` keeps local/demo-style sample data available when needed.
 
 The near-term tenant model is database-per-customer. That is simpler for support, backup/restore, customer export/delete, and early legal-data isolation. A future subscription flow can queue a provisioning job that creates the customer database, attachment container, app settings, Entra configuration, seed data, and first admin.
 
@@ -159,27 +218,26 @@ Path-based tenancy such as `app.cmiforge.com/customer1` is intentionally avoided
 
 ## Email And Microsoft 365
 
-Azure DNS currently carries Namecheap Private Email records for `cmiforge.com`:
+Azure DNS currently carries Microsoft 365 / Exchange Online mail records for `cmiforge.com`:
 
-- `MX @ -> mx1.privateemail.com`
-- `MX @ -> mx2.privateemail.com`
-- `TXT @ -> v=spf1 include:spf.privateemail.com ~all`
-- `mail`, `autodiscover`, and `autoconfig` CNAMEs point to `privateemail.com`
+- `MX @ -> cmiforge-com.mail.protection.outlook.com`
+- `TXT @ -> v=spf1 include:spf.protection.outlook.com -all`
+- `TXT @ -> MS=ms36377677`
 
-The planned Microsoft 365 shape is:
+The intended Microsoft 365 mailbox shape remains:
 
 - `gabe@cmiforge.com` as the licensed user mailbox.
 - `support@cmiforge.com` as a shared mailbox delegated to `gabe@cmiforge.com`.
 
-After a Microsoft 365 Business Basic or Exchange Online license is purchased and assigned, the Microsoft admin center should provide the Exchange DNS records. At that point Azure DNS needs to be updated from Namecheap Private Email records to the Microsoft 365 Exchange records.
+Microsoft 365 / Entra should own mailbox licensing, shared mailbox delegation, MFA, password resets, and sign-in policy. CMIForge owns app-level authorization, teams, roles, and permissions.
 
 ## Public Demo Safety
 
 The live demo now has dedicated guardrails for public visitors:
 
-- `MatterForge:DemoMode=true` enables demo behavior.
-- `MatterForge:DemoResetEnabled=true` enables scheduled demo resets.
-- `MatterForge:DemoResetIntervalHours=12` configures the reset interval.
+- `CMIForge:DemoMode=true` enables demo behavior.
+- `CMIForge:DemoResetEnabled=true` enables scheduled demo resets.
+- `CMIForge:DemoResetIntervalHours=12` configures the reset interval.
 - A visible banner appears at the top of every page explaining public demo behavior.
 - `/System/Demo` shows demo behavior and exposes a manual `Reset demo now` button.
 - Manual reset clears demo-created records and reruns starter seed data.
@@ -202,9 +260,13 @@ The Help page covers:
 - Submissions and approval-gated conversion
 - Workflow definitions, queues, outcomes, and routing conditions
 - Clients, matters, contacts, parties, and users
+- Entity note threads and archive/unarchive behavior
 - Conflicts search behavior, prior-history matching, and result-level clearance
+- Floating live conflict preview during submission entry
 - CSV imports and validation mode
+- Client photo OCR import drafting
 - Teams, roles, permissions, and optional Entra login
+- Workflow notification steps
 - System settings for operational configuration
 - Hardcoded product plans
 - Current limits and likely next slices
@@ -231,7 +293,7 @@ dotnet tool run dotnet-ef database update
 dotnet run --urls http://localhost:5153
 ```
 
-The current Azure SQL database has the full entity, workflow, conflicts, import, attachment, time/reporting, and audit-log migration chain applied through `AddAuditLogsAndSecurityHardening`.
+The current Azure SQL databases have the full entity, workflow, conflicts, import, attachment, time/reporting, audit-log, archive/index, enhancement-request, and legal-agreement migration chain applied through `AddLegalAgreementAcceptances`.
 
 ## Plan Limiter
 
@@ -483,7 +545,7 @@ Party relationship types currently include:
 
 ### Users
 
-Users are stored in the SQL table named `Users`, while the C# model remains `MatterForgeUser`.
+Users are stored in the SQL table named `Users`, while the C# model remains `CMIForgeUser`.
 
 Users have:
 
@@ -551,6 +613,11 @@ Current conflicts capabilities:
 - Submission detail pages show linked conflict searches.
 - Submission detail pages can start a conflict search from submitted answers.
 - Matter detail pages can start a conflict search from matter context.
+- Submission forms can show a floating live conflict preview while client or matter names are being typed.
+- Live conflict preview can be enabled/disabled through `Conflicts.LivePreviewEnabled` in System Settings.
+- Results can be filtered by clearance status, role/match context, and risk level.
+- Results can be selected in bulk for row-level clearance updates.
+- Cleared search history remains searchable through the archive/index design.
 - Existing clients/matters are synced into parties during startup seeding.
 - New converted clients/matters sync into parties during conversion.
 
@@ -562,6 +629,8 @@ Current conflicts data model:
 - `PartyRelationships`
 - `Conflicts`
 - `ConflictsResults`
+- `ConflictsSearchArchives`
+- `ConflictsHitArchives`
 
 Current search behavior:
 
@@ -573,10 +642,12 @@ Current search behavior:
 - Includes matter/client context when a party is linked to matters.
 - Searches prior conflict search names, terms, review notes, and AI summaries.
 - Searches prior conflict result clearance notes.
-- Scores exact normalized matches.
-- Scores contains/token matches.
-- Scores fuzzy trigram similarity.
-- Scores edit-distance similarity.
+- Labels string similarity as match strength, separate from legal/contextual risk.
+- Scores exact normalized matches at the top of the scale.
+- Scores contains/full-phrase matches based on token coverage.
+- Scores token overlap proportionally.
+- Scores fuzzy trigram similarity and edit-distance similarity proportionally.
+- Applies boosts for adverse/opposing-counsel style roles and linked matter/client context.
 - Produces risk labels: Low, Medium, High, Critical.
 - Produces per-result explanations.
 - Tracks per-result clearance status, notes, reviewer, and timestamp.
@@ -654,6 +725,14 @@ Each import creates:
 
 Validation batches use the same tables and show counts for would-import, would-update, would-skip, and error rows.
 
+Photo OCR import now supports a client-image workflow:
+
+- Upload or drag a client photo/scan.
+- Run in-browser OCR using the bundled open-source Tesseract worker.
+- Review the recognized text.
+- Let CMIForge draft likely client fields.
+- Create the client only after user review.
+
 The Import Center is permission-gated through:
 
 - `Imports.View`
@@ -685,6 +764,16 @@ The app seeds:
   - Relationships between demo parties for relationship-expansion testing
 
 Seed data only fills gaps. It does not overwrite existing Azure SQL records.
+
+Customer 0 additionally has a realistic generated volume-test dataset for performance and search testing:
+
+- 400 generated client records with mixed company and individual names.
+- 400 generated matter records with realistic matter names and practice areas.
+- 400 generated party records with organization, individual, and government names.
+- 10 active users total, including generated fake users for volume submissions.
+- 1,000 volume-test submissions with `"volumeTest": true` in the submission JSON.
+- 300 open volume workflow tasks.
+- `tools/rename-customer0-volume-data.ps1 -VerifyOnly` verifies the generated dataset and confirms old `Volume Test ...` labels are gone.
 
 ## Current Verification
 
@@ -913,11 +1002,20 @@ Time recording adds:
 
 - `TimeEntries` with an 8-digit `TimeEntryNumber`
 - Required links to user, client, and matter
-- Work date, minutes, narrative, billable flag, status, and timestamps
-- Statuses: Draft, Submitted, Approved, Billed, No Charge
+- Work date, minutes, client narrative, internal notes, billable flag, phase/task codes, status, approval metadata, export metadata, and timestamps
+- Statuses: Draft, Submitted, Approved
+- Matter-level `RequiresTimeApproval`, time increment override, and assigned time code set
+- System default time increment setting with actual-minute, 6-minute, and 15-minute options
+- Submitted entries auto-approve when matter approval is not required
+- Submitted entries wait for lead-partner approval when matter approval is required
+- Approved and exported entries are locked from normal editing
+- CSV export uses client narrative and stamps approved unexported entries as exported
+- Starter UTBMS-style time code set with reusable phases and tasks
+- Record Time screen with a local start/stop timer
 - Top-level Time navigation
 - Time list with filters and CSV export
 - Record Time form
+- Edit Time form for non-locked entries
 - Time detail page
 - Matter detail time section with a Record Time action
 
@@ -941,14 +1039,14 @@ New permissions:
 - `Time.Approve`
 - `Reporting.View`
 
-The Professional plan remains hardcoded as the active development plan. The product ladder now models Community as free, Professional at `$99/month`, additional users at `$10/user/month`, and Enterprise as coming soon.
+The Professional plan remains hardcoded as the active development plan. The product ladder now models Community as free, Professional at `$149/month`, and Enterprise as coming soon.
 
 ## Security Hardening Slice
 
 CMIForge now has the first low-cost SaaS hardening pass:
 
 - Entra-required app mode is supported when Microsoft authentication is enabled and demo mode is off.
-- The live demo can still use the configured `Ima User` context while `MatterForge:DemoMode` is enabled.
+- The live demo can still use the configured `Ima User` context while `CMIForge:DemoMode` is enabled.
 - Submission attachments can use Azure Blob Storage through App Service managed identity instead of a storage connection string.
 - Blob containers are created with private access only, and file downloads continue to flow through the app permission checks.
 - App Service basic FTP/SCM publishing credentials are disabled in the dev Azure app.
@@ -1000,7 +1098,7 @@ Recommended next sequence:
 1. Add editable role/permission assignment screens beyond seeded defaults.
 2. Add manual party dedupe/merge tools for conflicts data hygiene.
 3. Add a real LLM-backed conflict narrative provider behind the current AI assist seam.
-4. Add email/in-app notifications for new tasks and returned submissions.
+4. Add in-app notification badges and notification history views on top of the workflow notification events.
 5. Add workflow versioning once workflows are used by enough historical submissions.
 6. Add a richer designer UX with add/remove/reorder rows instead of fixed blank rows.
 7. Add field-level permissions and better admin guardrails for non-admin users.
@@ -1025,13 +1123,18 @@ CMIForge is now in a local prototype shape with the important spine:
 - Conversion from intake to records
 - Early workflow status handling
 - Personal and team workflow queues
+- Workflow notification steps with email/event logging behavior
 - Granular role/permission foundation
 - Optional Entra-backed login
 - Parties, aliases, relationships, and conflict searches
+- Floating live conflict preview on submission forms
 - Time recording tied to users, clients, and matters
 - Built-in operational reports and a basic report builder
 - Deterministic conflict scoring with AI-style explanations
+- Match-strength scoring separated from legal/contextual risk labels
+- Searchable conflict archive/index with compressed full-detail payloads
 - CSV import center for clients, matters, and parties
+- Client photo OCR import drafting
 - Private submission attachments through Azure Blob Storage
 - Managed-identity attachment storage support
 - Audit log foundation for admin and destructive actions
@@ -1039,6 +1142,8 @@ CMIForge is now in a local prototype shape with the important spine:
 - Browser-local timezone display for visible timestamps
 - Seeded conflict-test parties, aliases, relationships, and matter roles
 - Hardcoded Community/Professional/Enterprise product-plan limiter
+- Archive/unarchive support for clients, matters, parties, and users
+- Conversation-style notes for clients, matters, and parties
 - My/all submission views
 - Approval-gated conversion
 - Configurable workflow outcomes

@@ -1,18 +1,18 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 using System.Text.Json;
-using MatterForge.Data;
-using MatterForge.Models;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Models;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Submissions;
+namespace CMIForge.Pages.Submissions;
 
 public class ConvertModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     ConflictSearchService conflictSearchService,
     ProductPlanService productPlanService,
@@ -27,6 +27,8 @@ public class ConvertModel(
     public FormSubmission? Submission { get; private set; }
 
     public List<SelectListItem> UserOptions { get; private set; } = [];
+
+    public List<SelectListItem> PartnerOptions { get; private set; } = [];
 
     public List<SelectListItem> ExistingClientOptions { get; private set; } = [];
 
@@ -114,6 +116,11 @@ public class ConvertModel(
             ModelState.AddModelError("Input.ResponsibleUserId", "Choose an existing user.");
         }
 
+        if (Input.LeadPartnerId.HasValue && !await IsPartnerAsync(Input.LeadPartnerId.Value))
+        {
+            ModelState.AddModelError("Input.LeadPartnerId", "Choose a user with the Partner role.");
+        }
+
         if (Input.UseExistingClient)
         {
             if (existingClientMatches.Count == 0)
@@ -167,6 +174,7 @@ public class ConvertModel(
             Status = Input.MatterStatus,
             OpenedDate = Input.OpenedDate,
             ResponsibleUserId = Input.ResponsibleUserId,
+            LeadPartnerId = Input.LeadPartnerId,
             Notes = Input.MatterNotes?.Trim() ?? string.Empty
         };
 
@@ -207,6 +215,13 @@ public class ConvertModel(
 
         UserOptions = await db.Users
             .Where(x => x.IsActive && !x.IsArchived)
+            .OrderBy(x => x.DisplayName)
+            .Select(x => new SelectListItem(x.DisplayName, x.Id.ToString()))
+            .ToListAsync();
+
+        PartnerOptions = await db.Users
+            .Where(x => x.IsActive && !x.IsArchived)
+            .Where(x => x.Roles.Any(role => role.SecurityRole != null && role.SecurityRole.Key == SecurityRoleKeys.Partner && role.SecurityRole.IsActive))
             .OrderBy(x => x.DisplayName)
             .Select(x => new SelectListItem(x.DisplayName, x.Id.ToString()))
             .ToListAsync();
@@ -261,8 +276,18 @@ public class ConvertModel(
             PracticeArea = SubmissionAnswerReader.FirstValue(answers, "practiceArea", "practice", "area"),
             OpenedDate = DateOnly.FromDateTime(DateTime.Today),
             ResponsibleUserId = responsibleUserId,
+            LeadPartnerId = submission.LeadPartnerId,
             MatterNotes = summary
         };
+    }
+
+    private Task<bool> IsPartnerAsync(Guid userId)
+    {
+        return db.Users.AnyAsync(x =>
+            x.Id == userId &&
+            x.IsActive &&
+            !x.IsArchived &&
+            x.Roles.Any(role => role.SecurityRole != null && role.SecurityRole.Key == SecurityRoleKeys.Partner && role.SecurityRole.IsActive));
     }
 
     private async Task<List<ExistingClientMatch>> LoadExistingClientReuseOptionsAsync(string? clientName, bool autoSelectSingleMatch)
@@ -389,6 +414,9 @@ public class ConvertSubmissionInput
 
     [Display(Name = "Responsible user")]
     public Guid? ResponsibleUserId { get; set; }
+
+    [Display(Name = "Lead partner")]
+    public Guid? LeadPartnerId { get; set; }
 
     [Display(Name = "Matter notes")]
     public string? MatterNotes { get; set; }

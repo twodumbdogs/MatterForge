@@ -2,17 +2,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 
-namespace MatterForge.Data;
+namespace CMIForge.Data;
 
-public class MatterForgeDesignTimeDbContextFactory : IDesignTimeDbContextFactory<MatterForgeDbContext>
+public class CMIForgeDesignTimeDbContextFactory : IDesignTimeDbContextFactory<CMIForgeDbContext>
 {
-    public MatterForgeDbContext CreateDbContext(string[] args)
+    public CMIForgeDbContext CreateDbContext(string[] args)
     {
         var configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json", optional: true)
             .AddJsonFile("appsettings.Development.json", optional: true)
-            .AddUserSecrets<MatterForgeDesignTimeDbContextFactory>(optional: true)
+            .AddUserSecrets<CMIForgeDesignTimeDbContextFactory>(optional: true)
             .AddEnvironmentVariables()
             .Build();
 
@@ -22,7 +22,7 @@ public class MatterForgeDesignTimeDbContextFactory : IDesignTimeDbContextFactory
             throw new InvalidOperationException("Set ConnectionStrings:DefaultConnection before running EF migrations.");
         }
 
-        var options = new DbContextOptionsBuilder<MatterForgeDbContext>()
+        var options = new DbContextOptionsBuilder<CMIForgeDbContext>()
             .UseSqlServer(connectionString, sqlOptions =>
             {
                 sqlOptions.EnableRetryOnFailure(
@@ -33,6 +33,6 @@ public class MatterForgeDesignTimeDbContextFactory : IDesignTimeDbContextFactory
             })
             .Options;
 
-        return new MatterForgeDbContext(options);
+        return new CMIForgeDbContext(options);
     }
 }

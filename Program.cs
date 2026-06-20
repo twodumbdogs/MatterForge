@@ -1,5 +1,5 @@
-using MatterForge.Data;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Mvc;
@@ -12,7 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 var entraOptions = builder.Configuration
     .GetSection("Authentication:Microsoft")
     .Get<EntraAuthenticationOptions>() ?? new EntraAuthenticationOptions();
-var demoModeEnabled = builder.Configuration.GetValue<bool>("MatterForge:DemoMode");
+var demoModeEnabled = builder.Configuration.GetValue<bool>("CMIForge:DemoMode");
 
 builder.Services.AddRazorPages(options =>
 {
@@ -21,6 +21,7 @@ builder.Services.AddRazorPages(options =>
         options.Conventions.AuthorizeFolder("/");
         options.Conventions.AllowAnonymousToPage("/Account/AccessDenied");
         options.Conventions.AllowAnonymousToPage("/Signup");
+        options.Conventions.AllowAnonymousToPage("/System/Terms");
     }
 
     options.Conventions.ConfigureFilter(new ServiceFilterAttribute(typeof(DemoModePageFilter)));
@@ -37,13 +38,20 @@ builder.Services.AddHostedService<DemoResetHostedService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<WorkflowNotificationService>();
 builder.Services.AddScoped<WorkflowService>();
+builder.Services.AddScoped<EmailOutboxDispatcher>();
+builder.Services.AddScoped<IEmailSender, GraphEmailSender>();
+builder.Services.AddHostedService<EmailOutboxHostedService>();
+builder.Services.AddScoped<ConflictSearchArchiveService>();
 builder.Services.AddScoped<ConflictSearchService>();
 builder.Services.AddScoped<EntityNoteService>();
 builder.Services.AddScoped<CsvImportService>();
 builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddScoped<UserDateTimeService>();
+builder.Services.AddHttpClient<AddressLookupService>();
 builder.Services.AddHttpClient<EntraUserProvisioningService>();
+builder.Services.AddHttpClient(nameof(GraphEmailSender));
 builder.Services.Configure<EntraUserProvisioningOptions>(builder.Configuration.GetSection("EntraProvisioning"));
+builder.Services.Configure<GraphMailOptions>(builder.Configuration.GetSection("Notifications:Graph"));
 builder.Services.Configure<SubmissionAttachmentStorageOptions>(builder.Configuration.GetSection("SubmissionAttachments"));
 builder.Services.AddScoped<SubmissionAttachmentService>();
 
@@ -75,8 +83,10 @@ if (entraOptions.Enabled)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrWhiteSpace(connectionString) || connectionString.Contains("YOUR_SERVER", StringComparison.OrdinalIgnoreCase))
 {
-    builder.Services.AddDbContext<MatterForgeDbContext>(options => options.UseInMemoryDatabase("MatterForgeDev"));
-    builder.Services.AddDbContextFactory<MatterForgeDbContext>(options => options.UseInMemoryDatabase("MatterForgeDev"));
+    builder.Services.AddDbContext<CMIForgeDbContext>(options => options.UseInMemoryDatabase("CMIForgeDev"));
+    builder.Services.AddDbContextFactory<CMIForgeDbContext>(
+        options => options.UseInMemoryDatabase("CMIForgeDev"),
+        ServiceLifetime.Scoped);
 }
 else
 {
@@ -91,8 +101,8 @@ else
             sqlOptions.CommandTimeout(60);
         });
 
-    builder.Services.AddDbContext<MatterForgeDbContext>(configureDbContext);
-    builder.Services.AddDbContextFactory<MatterForgeDbContext>(configureDbContext);
+    builder.Services.AddDbContext<CMIForgeDbContext>(configureDbContext);
+    builder.Services.AddDbContextFactory<CMIForgeDbContext>(configureDbContext, ServiceLifetime.Scoped);
 }
 
 var app = builder.Build();

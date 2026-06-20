@@ -1,4 +1,4 @@
-namespace MatterForge.Models;
+namespace CMIForge.Models;
 
 public class FormSubmission
 {
@@ -18,7 +18,11 @@ public class FormSubmission
 
     public Guid? SubmitterUserId { get; set; }
 
-    public MatterForgeUser? SubmitterUser { get; set; }
+    public CMIForgeUser? SubmitterUser { get; set; }
+
+    public Guid? LeadPartnerId { get; set; }
+
+    public CMIForgeUser? LeadPartner { get; set; }
 
     public string Status { get; set; } = "Submitted";
 

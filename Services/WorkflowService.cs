@@ -1,11 +1,35 @@
-using MatterForge.Data;
-using MatterForge.Models;
+using CMIForge.Data;
+using CMIForge.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
-public class WorkflowService(MatterForgeDbContext db, WorkflowNotificationService? notificationService = null)
+public class WorkflowService(CMIForgeDbContext db, WorkflowNotificationService? notificationService = null)
 {
+    public async Task<bool> CanStartAsync(FormSubmission submission)
+    {
+        if (submission.Status is SubmissionStatuses.Converted or SubmissionStatuses.Cancelled)
+        {
+            return false;
+        }
+
+        var workflow = await GetWorkflowDefinitionAsync(submission.FormVersionId, submission.FormDefinitionId);
+        if (workflow is null || workflow.Steps.Count == 0)
+        {
+            return false;
+        }
+
+        var existing = await db.SubmissionWorkflowInstances
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.FormSubmissionId == submission.Id && x.WorkflowDefinitionId == workflow.Id);
+        if (existing is not null && existing.Status != WorkflowStatuses.Cancelled)
+        {
+            return false;
+        }
+
+        return GetNextMatchingStep(workflow.Steps, submission, null) is not null;
+    }
+
     public async Task<SubmissionWorkflowInstance?> EnsureStartedAsync(Guid formSubmissionId)
     {
         var submission = await db.FormSubmissions
@@ -17,7 +41,7 @@ public class WorkflowService(MatterForgeDbContext db, WorkflowNotificationServic
 
     public async Task<SubmissionWorkflowInstance?> EnsureStartedAsync(FormSubmission submission)
     {
-        if (submission.Status == SubmissionStatuses.Converted)
+        if (submission.Status is SubmissionStatuses.Converted or SubmissionStatuses.Cancelled)
         {
             return null;
         }
@@ -32,15 +56,33 @@ public class WorkflowService(MatterForgeDbContext db, WorkflowNotificationServic
             .Include(x => x.Tasks)
             .FirstOrDefaultAsync(x => x.FormSubmissionId == submission.Id && x.WorkflowDefinitionId == workflow.Id);
 
-        if (existing is not null)
-        {
-            return existing;
-        }
-
         var firstStep = GetNextMatchingStep(workflow.Steps, submission, null);
         if (firstStep is null)
         {
             return null;
+        }
+
+        if (existing is not null)
+        {
+            if (existing.Status != WorkflowStatuses.Cancelled)
+            {
+                return existing;
+            }
+
+            existing.Status = WorkflowStatuses.Active;
+            existing.CompletedAt = null;
+            existing.CurrentStepNumber = firstStep.StepNumber;
+            existing.Events.Add(new SubmissionWorkflowEvent
+            {
+                FormSubmissionId = submission.Id,
+                EventType = WorkflowStatuses.EventStarted,
+                Message = $"Restarted workflow after cancellation: {workflow.Name}"
+            });
+
+            submission.Status = SubmissionStatuses.InReview;
+            await AddNextWorkflowWorkAsync(existing, submission, workflow, firstStep);
+            await db.SaveChangesAsync();
+            return existing;
         }
 
         var instance = new SubmissionWorkflowInstance

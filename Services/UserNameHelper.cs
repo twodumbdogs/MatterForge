@@ -1,4 +1,4 @@
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public sealed record UserNameParts(string FirstName, string MiddleName, string LastName)
 {

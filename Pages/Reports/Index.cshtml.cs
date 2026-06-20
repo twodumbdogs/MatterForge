@@ -1,15 +1,15 @@
 using System.Text;
-using MatterForge.Data;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.Reports;
+namespace CMIForge.Pages.Reports;
 
 public class IndexModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     ProductPlanService productPlanService) : PageModel
 {
@@ -362,6 +362,8 @@ public class IndexModel(
             .Include(x => x.User)
             .Include(x => x.Client)
             .Include(x => x.Matter)
+            .Include(x => x.TimePhase)
+            .Include(x => x.TimeTask)
             .OrderByDescending(x => x.WorkDate)
             .Take(2000)
             .ToListAsync();
@@ -373,10 +375,14 @@ public class IndexModel(
             ["User"] = x.User?.DisplayName ?? string.Empty,
             ["Client"] = x.Client?.Name ?? string.Empty,
             ["Matter"] = x.Matter?.Name ?? string.Empty,
+            ["Phase"] = x.TimePhase is null ? string.Empty : $"{x.TimePhase.Code} - {x.TimePhase.Name}",
+            ["Task"] = x.TimeTask is null ? string.Empty : $"{x.TimeTask.Code} - {x.TimeTask.Name}",
             ["Hours"] = (x.Minutes / 60m).ToString("0.00"),
             ["Billable"] = x.IsBillable ? "Yes" : "No",
             ["Status"] = x.Status,
-            ["Narrative"] = x.Narrative
+            ["Exported"] = x.ExportedAt.HasValue ? "Yes" : "No",
+            ["ClientNarrative"] = x.ClientNarrative,
+            ["InternalNotes"] = x.InternalNotes
         })).ToList();
     }
 
@@ -554,9 +560,9 @@ public static class BuiltInReportDefinitions
         new(
             "time-detail",
             "Time Detail",
-            "Time entries by user, client, matter, hours, billable flag, and narrative.",
+            "Time entries by user, client, matter, codes, hours, billable flag, and narrative.",
             DatasetKeys.TimeEntries,
-            ["TimeEntryNumber", "WorkDate", "User", "Client", "Matter", "Hours", "Billable", "Status", "Narrative"],
+            ["TimeEntryNumber", "WorkDate", "User", "Client", "Matter", "Phase", "Task", "Hours", "Billable", "Status", "ClientNarrative"],
             [])
     ];
 }
@@ -639,10 +645,14 @@ public static class DatasetDefinitions
                 new("User", "User"),
                 new("Client", "Client"),
                 new("Matter", "Matter"),
+                new("Phase", "Phase"),
+                new("Task", "Task"),
                 new("Hours", "Hours"),
                 new("Billable", "Billable"),
                 new("Status", "Status"),
-                new("Narrative", "Narrative")
+                new("Exported", "Exported"),
+                new("ClientNarrative", "Client narrative"),
+                new("InternalNotes", "Internal notes")
             ],
             ["TimeEntryNumber", "WorkDate", "User", "Matter", "Hours", "Billable"]),
         new(

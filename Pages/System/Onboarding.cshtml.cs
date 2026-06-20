@@ -1,13 +1,13 @@
-using MatterForge.Data;
-using MatterForge.Services;
+using CMIForge.Data;
+using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Pages.System;
+namespace CMIForge.Pages.System;
 
 public class OnboardingModel(
-    MatterForgeDbContext db,
+    CMIForgeDbContext db,
     PermissionService permissionService,
     IConfiguration configuration) : PageModel
 {

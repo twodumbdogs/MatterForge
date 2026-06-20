@@ -1,12 +1,14 @@
-using MatterForge.Data;
+using CMIForge.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace MatterForge.Services;
+namespace CMIForge.Services;
 
 public static class ProductInfo
 {
     public const string Name = "CMIForge";
-    public const string Version = "20260618.1";
+    public const string ReleaseName = "CMIForge 1.0";
+    public const string Version = "20260619.1";
+    public const string DisplayVersion = $"{ReleaseName} · {Version}";
 }
 
 public static class ProductFeatureKeys
@@ -69,7 +71,7 @@ public sealed record ProductLimitStatus(
     bool CanCreate,
     string Message);
 
-public class ProductPlanService(MatterForgeDbContext db)
+public class ProductPlanService(CMIForgeDbContext db)
 {
     private static readonly HashSet<string> AllFeatureKeys = new(StringComparer.OrdinalIgnoreCase)
     {

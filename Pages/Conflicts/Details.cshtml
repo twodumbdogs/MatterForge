@@ -1,7 +1,7 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Conflicts.DetailsModel
+@model CMIForge.Pages.Conflicts.DetailsModel
 @{
-    ViewData["Title"] = Model.Search is null ? "Conflict Search" : $"Conflict Search {MatterForge.Services.RecordNumbers.ConflictSearch(Model.Search.SearchNumber)}";
+    ViewData["Title"] = Model.Search is null ? "Conflict Search" : $"Conflict Search {CMIForge.Services.RecordNumbers.ConflictSearch(Model.Search.SearchNumber)}";
 }
 
 @if (Model.Search is null)
@@ -12,7 +12,7 @@ else
 {
     <div class="mf-page-heading">
         <div>
-            <p class="mf-eyebrow">Conflict Search <span>@MatterForge.Services.RecordNumbers.ConflictSearch(Model.Search.SearchNumber)</span> · @Model.Search.Status</p>
+            <p class="mf-eyebrow">Conflict Search <span>@CMIForge.Services.RecordNumbers.ConflictSearch(Model.Search.SearchNumber)</span> · @Model.Search.Status</p>
             <h1>@Model.Search.SearchName</h1>
             <p class="text-muted">Requested by @(Model.Search.RequestedByUser?.DisplayName ?? "System") on @UserDates.Format(Model.Search.CreatedAt, "f")</p>
         </div>
@@ -38,7 +38,7 @@ else
                     <dd class="col-sm-7">
                         @if (Model.Search.FormSubmission is not null)
                         {
-                            <a asp-page="/Submissions/Details" asp-route-id="@Model.Search.FormSubmission.Id">@MatterForge.Services.RecordNumbers.Submission(Model.Search.FormSubmission.SubmissionNumber)</a>
+                            <a asp-page="/Submissions/Details" asp-route-id="@Model.Search.FormSubmission.Id">@CMIForge.Services.RecordNumbers.Submission(Model.Search.FormSubmission.SubmissionNumber)</a>
                         }
                     </dd>
                     <dt class="col-sm-5">Matter</dt>
@@ -52,6 +52,14 @@ else
             </div>
         </div>
     </div>
+
+    @if (Model.IsArchived && Model.Archive is not null)
+    {
+        <div class="alert alert-info">
+            This cleared search is loaded from the compressed archive payload. It remains searchable in the conflicts index and opens here for audit review.
+            <span class="d-block mt-1">Archived @UserDates.Format(Model.Archive.ArchivedAt, "g") · @Model.Archive.ResultCount result(s)</span>
+        </div>
+    }
 
     @if (Model.CanReview)
     {
@@ -87,12 +95,70 @@ else
 
     <div class="mf-panel">
         <h2>Results</h2>
-        @if (Model.Search.Results.Count == 0)
+        @if (Model.Results.Count == 0)
         {
             <p class="text-muted mt-3 mb-0">No candidate hits were found.</p>
         }
         else
         {
+            var clearanceFilterOptions = Model.Results
+                .Select(x => x.ClearanceStatus)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => Array.IndexOf(CMIForge.Models.ConflictSearchDecisions.All, x) < 0 ? int.MaxValue : Array.IndexOf(CMIForge.Models.ConflictSearchDecisions.All, x))
+                .ThenBy(x => x)
+                .ToList();
+            var roleFilterOptions = Model.Results
+                .Select(x => RoleFilterLabel(x.PartyRole))
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => x.StartsWith("Prior", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+                .ThenBy(x => x)
+                .ToList();
+            var riskFilterOptions = Model.Results
+                .Select(x => x.RiskLevel)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => RiskFilterOrder(x))
+                .ThenBy(x => x)
+                .ToList();
+
+            <div class="mf-result-filters mt-3" data-conflict-result-filters>
+                <div>
+                    <label class="form-label" for="conflict-clearance-filter">Clearance status</label>
+                    <select id="conflict-clearance-filter" class="form-select form-select-sm" data-conflict-filter="clearance">
+                        <option value="">All statuses</option>
+                        @foreach (var option in clearanceFilterOptions)
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="conflict-role-filter">Role / source</label>
+                    <select id="conflict-role-filter" class="form-select form-select-sm" data-conflict-filter="role">
+                        <option value="">All roles</option>
+                        @foreach (var option in roleFilterOptions)
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="conflict-risk-filter">Risk</label>
+                    <select id="conflict-risk-filter" class="form-select form-select-sm" data-conflict-filter="risk">
+                        <option value="">All risks</option>
+                        @foreach (var option in riskFilterOptions)
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
+                </div>
+                <div class="mf-result-filter-actions">
+                    <span class="badge text-bg-light" data-conflict-filter-count>@Model.Results.Count result(s)</span>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" data-conflict-filter-clear>Clear filters</button>
+                </div>
+            </div>
             @if (Model.CanReview)
             {
                 <form method="post" id="bulk-clearance-form" asp-page-handler="BulkResultReview" asp-route-id="@Model.Search.Id" class="border rounded p-3 mt-3">
@@ -102,7 +168,7 @@ else
                             <select id="bulkResultStatus" name="bulkResultStatus" class="form-select">
                                 @foreach (var option in Model.ResultStatusOptions)
                                 {
-                                    <option value="@option" selected="@(option == MatterForge.Models.ConflictSearchDecisions.Clear)">@option</option>
+                                    <option value="@option" selected="@(option == CMIForge.Models.ConflictSearchDecisions.Clear)">@option</option>
                                 }
                             </select>
                         </div>
@@ -117,15 +183,18 @@ else
                     <small class="text-muted d-block mt-2">Select one or more result rows below, then apply the same clearance decision to all of them.</small>
                 </form>
             }
+            <p class="text-muted mt-3 mb-0 d-none" data-conflict-filter-empty>No results match the selected filters.</p>
             <div class="table-responsive mt-3">
                 <table class="table align-middle">
                     <thead>
                         <tr>
                             @if (Model.CanReview)
                             {
-                                <th>Select</th>
+                                <th>
+                                    <input class="form-check-input" type="checkbox" id="select-all-conflict-results" aria-label="Select all conflict results" />
+                                </th>
                             }
-                            <th>Score</th>
+                            <th>Match strength</th>
                             <th>Risk</th>
                             <th>Matched item</th>
                             <th>Role/context</th>
@@ -135,9 +204,9 @@ else
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var result in Model.Search.Results.OrderByDescending(x => x.Score).ThenBy(x => x.MatchedName))
+                        @foreach (var result in Model.Results.OrderByDescending(x => x.Score).ThenBy(x => x.MatchedName))
                         {
-                            <tr>
+                            <tr data-conflict-result-row data-clearance="@result.ClearanceStatus" data-role="@RoleFilterLabel(result.PartyRole)" data-risk="@result.RiskLevel">
                                 @if (Model.CanReview)
                                 {
                                     <td>
@@ -147,9 +216,9 @@ else
                                 <td><strong>@result.Score</strong></td>
                                 <td><span class="badge @RiskClass(result.RiskLevel)">@result.RiskLevel</span></td>
                                 <td>
-                                    @if (result.Party is not null)
+                                    @if (result.PartyId.HasValue)
                                     {
-                                        <a asp-page="/Entities/Parties/Details" asp-route-id="@result.Party.Id">@result.Party.Name</a>
+                                        <a asp-page="/Entities/Parties/Details" asp-route-id="@result.PartyId">@(!string.IsNullOrWhiteSpace(result.PartyName) ? result.PartyName : result.MatchedName)</a>
                                         <small class="d-block text-muted">Matched: @result.MatchedName</small>
                                     }
                                     else
@@ -159,20 +228,20 @@ else
                                 </td>
                                 <td>
                                     <strong>@result.PartyRole</strong>
-                                    @if (result.Matter is not null)
+                                    @if (result.MatterId.HasValue)
                                     {
                                         <small class="d-block text-muted">
                                             Matter
-                                            <a asp-page="/Entities/Matters/Details" asp-route-id="@result.Matter.Id">@result.Matter.MatterNumber.ToString("D8")</a>
-                                            @result.Matter.Name
+                                            <a asp-page="/Entities/Matters/Details" asp-route-id="@result.MatterId">@(result.MatterNumber?.ToString("D8") ?? "Linked")</a>
+                                            @result.MatterName
                                         </small>
                                     }
-                                    @if (result.Client is not null)
+                                    @if (result.ClientId.HasValue)
                                     {
                                         <small class="d-block text-muted">
                                             Client
-                                            <a asp-page="/Entities/Clients/Details" asp-route-id="@result.Client.Id">@result.Client.ClientNumber.ToString("D8")</a>
-                                            @result.Client.Name
+                                            <a asp-page="/Entities/Clients/Details" asp-route-id="@result.ClientId">@(result.ClientNumber?.ToString("D8") ?? "Linked")</a>
+                                            @result.ClientName
                                         </small>
                                     }
                                 </td>
@@ -181,7 +250,7 @@ else
                                     @if (result.ClearedAt.HasValue)
                                     {
                                         <small class="d-block text-muted">
-                                            By @(result.ClearedByUser?.DisplayName ?? "System") on @UserDates.Format(result.ClearedAt.Value, "g")
+                                            By @(string.IsNullOrWhiteSpace(result.ClearedByDisplayName) ? "System" : result.ClearedByDisplayName) on @UserDates.Format(result.ClearedAt.Value, "g")
                                         </small>
                                     }
                                     @if (!string.IsNullOrWhiteSpace(result.ClearanceNotes))
@@ -223,14 +292,101 @@ else
     </div>
 }
 
+@section Scripts {
+    <script>
+        (() => {
+            const selectAll = document.getElementById('select-all-conflict-results');
+            const rows = Array.from(document.querySelectorAll('[data-conflict-result-row]'));
+            const filters = Array.from(document.querySelectorAll('[data-conflict-filter]'));
+            const clearFilters = document.querySelector('[data-conflict-filter-clear]');
+            const count = document.querySelector('[data-conflict-filter-count]');
+            const empty = document.querySelector('[data-conflict-filter-empty]');
+
+            if (rows.length === 0) {
+                return;
+            }
+
+            const checkboxes = Array.from(document.querySelectorAll('input[name="selectedResultIds"][form="bulk-clearance-form"]'));
+            const visibleRows = () => rows.filter((row) => !row.classList.contains('d-none'));
+            const visibleCheckboxes = () => visibleRows()
+                .map((row) => row.querySelector('input[name="selectedResultIds"][form="bulk-clearance-form"]'))
+                .filter(Boolean);
+
+            const updateSelectAllState = () => {
+                if (!selectAll) {
+                    return;
+                }
+
+                const visible = visibleCheckboxes();
+                const checkedCount = visible.filter((checkbox) => checkbox.checked).length;
+                selectAll.checked = visible.length > 0 && checkedCount === visible.length;
+                selectAll.indeterminate = checkedCount > 0 && checkedCount < visible.length;
+                selectAll.disabled = visible.length === 0;
+            };
+
+            const applyFilters = () => {
+                const selected = Object.fromEntries(filters.map((filter) => [filter.dataset.conflictFilter, filter.value]));
+                let visibleCount = 0;
+
+                rows.forEach((row) => {
+                    const isVisible = (!selected.clearance || row.dataset.clearance === selected.clearance) &&
+                        (!selected.role || row.dataset.role === selected.role) &&
+                        (!selected.risk || row.dataset.risk === selected.risk);
+
+                    row.classList.toggle('d-none', !isVisible);
+                    if (isVisible) {
+                        visibleCount += 1;
+                    } else {
+                        const checkbox = row.querySelector('input[name="selectedResultIds"][form="bulk-clearance-form"]');
+                        if (checkbox) {
+                            checkbox.checked = false;
+                        }
+                    }
+                });
+
+                if (count) {
+                    count.textContent = `${visibleCount} of ${rows.length} result(s)`;
+                }
+
+                if (empty) {
+                    empty.classList.toggle('d-none', visibleCount !== 0);
+                }
+
+                updateSelectAllState();
+            };
+
+            if (selectAll) {
+                selectAll.addEventListener('change', () => {
+                    visibleCheckboxes().forEach((checkbox) => {
+                        checkbox.checked = selectAll.checked;
+                    });
+                    updateSelectAllState();
+                });
+
+                checkboxes.forEach((checkbox) => checkbox.addEventListener('change', updateSelectAllState));
+            }
+
+            filters.forEach((filter) => filter.addEventListener('change', applyFilters));
+            clearFilters?.addEventListener('click', () => {
+                filters.forEach((filter) => {
+                    filter.value = '';
+                });
+                applyFilters();
+            });
+
+            applyFilters();
+        })();
+    </script>
+}
+
 @functions {
     private static string RiskClass(string risk)
     {
         return risk switch
         {
-            MatterForge.Models.ConflictRiskLevels.Critical => "text-bg-danger",
-            MatterForge.Models.ConflictRiskLevels.High => "text-bg-warning",
-            MatterForge.Models.ConflictRiskLevels.Medium => "text-bg-info",
+            CMIForge.Models.ConflictRiskLevels.Critical => "text-bg-danger",
+            CMIForge.Models.ConflictRiskLevels.High => "text-bg-warning",
+            CMIForge.Models.ConflictRiskLevels.Medium => "text-bg-info",
             _ => "text-bg-secondary"
         };
     }
@@ -239,11 +395,33 @@ else
     {
         return decision switch
         {
-            MatterForge.Models.ConflictSearchDecisions.Clear => "text-bg-success",
-            MatterForge.Models.ConflictSearchDecisions.Conflict => "text-bg-danger",
-            MatterForge.Models.ConflictSearchDecisions.PotentialConflict => "text-bg-warning",
-            MatterForge.Models.ConflictSearchDecisions.NeedsInfo => "text-bg-info",
+            CMIForge.Models.ConflictSearchDecisions.Clear => "text-bg-success",
+            CMIForge.Models.ConflictSearchDecisions.Conflict => "text-bg-danger",
+            CMIForge.Models.ConflictSearchDecisions.PotentialConflict => "text-bg-warning",
+            CMIForge.Models.ConflictSearchDecisions.NeedsInfo => "text-bg-info",
             _ => "text-bg-secondary"
+        };
+    }
+
+    private static string RoleFilterLabel(string role)
+    {
+        if (role.StartsWith("Prior ", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Prior search/history";
+        }
+
+        return string.IsNullOrWhiteSpace(role) ? "Unspecified" : role;
+    }
+
+    private static int RiskFilterOrder(string risk)
+    {
+        return risk switch
+        {
+            CMIForge.Models.ConflictRiskLevels.Critical => 0,
+            CMIForge.Models.ConflictRiskLevels.High => 1,
+            CMIForge.Models.ConflictRiskLevels.Medium => 2,
+            CMIForge.Models.ConflictRiskLevels.Low => 3,
+            _ => 4
         };
     }
 }

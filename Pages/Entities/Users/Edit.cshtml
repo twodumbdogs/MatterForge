@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Entities.Users.EditModel
+@model CMIForge.Pages.Entities.Users.EditModel
 @{
     ViewData["Title"] = Model.UserRecord is null ? "Edit User" : $"Edit User {Model.UserRecord.SystemId:D8}";
     ViewData["ActiveEntityTab"] = "Users";
@@ -60,6 +60,13 @@ else
                     <div class="form-check mb-2">
                         <input asp-for="Input.IsActive" class="form-check-input" />
                         <label asp-for="Input.IsActive" class="form-check-label"></label>
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                        <input asp-for="Input.IsPartner" class="form-check-input" />
+                        <label asp-for="Input.IsPartner" class="form-check-label"></label>
+                        <div class="form-text">Allows this user to be selected as lead partner.</div>
                     </div>
                 </div>
             </div>

@@ -1,5 +1,5 @@
 @page "{id:guid}"
-@model MatterForge.Pages.Entities.Clients.EditModel
+@model CMIForge.Pages.Entities.Clients.EditModel
 @{
     ViewData["Title"] = Model.Client is null ? "Edit Client" : $"Edit Client {Model.Client.ClientNumber:D8}";
     ViewData["ActiveEntityTab"] = "Clients";
@@ -54,27 +54,27 @@ else
             </div>
             <div class="col-md-8">
                 <label asp-for="Input.AddressLine1" class="form-label"></label>
-                <input asp-for="Input.AddressLine1" class="form-control" />
+                <input asp-for="Input.AddressLine1" class="form-control" autocomplete="street-address" data-address-lookup-input data-address-field="line1" />
             </div>
             <div class="col-md-4">
                 <label asp-for="Input.AddressLine2" class="form-label"></label>
-                <input asp-for="Input.AddressLine2" class="form-control" />
+                <input asp-for="Input.AddressLine2" class="form-control" data-address-field="line2" />
             </div>
             <div class="col-md-4">
                 <label asp-for="Input.City" class="form-label"></label>
-                <input asp-for="Input.City" class="form-control" />
+                <input asp-for="Input.City" class="form-control" data-address-field="city" />
             </div>
             <div class="col-md-3">
                 <label asp-for="Input.State" class="form-label"></label>
-                <input asp-for="Input.State" class="form-control" />
+                <input asp-for="Input.State" class="form-control" data-address-field="state" />
             </div>
             <div class="col-md-2">
                 <label asp-for="Input.PostalCode" class="form-label"></label>
-                <input asp-for="Input.PostalCode" class="form-control" />
+                <input asp-for="Input.PostalCode" class="form-control" data-address-field="postalCode" />
             </div>
             <div class="col-md-3">
                 <label asp-for="Input.Country" class="form-label"></label>
-                <input asp-for="Input.Country" class="form-control" />
+                <input asp-for="Input.Country" class="form-control" data-address-field="country" />
             </div>
             <div class="col-12">
                 <label asp-for="Input.Notes" class="form-label"></label>
@@ -95,4 +95,5 @@ else
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/address-lookup.js" asp-append-version="true"></script>
 }

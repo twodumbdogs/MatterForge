@@ -1,5 +1,5 @@
 @page
-@model MatterForge.Pages.Entities.Approvals.IndexModel
+@model CMIForge.Pages.Entities.Approvals.IndexModel
 @{
     ViewData["Title"] = "Entity Approvals";
     ViewData["ActiveEntityTab"] = "Approvals";
@@ -10,6 +10,9 @@
         <p class="mf-eyebrow">Entities</p>
         <h1>Change Approvals</h1>
         <p class="text-muted">Client and matter edits wait here until an authorized reviewer approves or rejects them.</p>
+    </div>
+    <div class="mf-heading-actions">
+        <partial name="/Pages/Shared/_ListSearch.cshtml" model='new CMIForge.Models.ListSearchViewModel(Model.Search, "Find change request...", "Search change approvals")' />
     </div>
 </div>
 
@@ -41,13 +44,17 @@
                         <tr>
                             <td>@request.EntityType</td>
                             <td>
-                                @if (request.EntityType == MatterForge.Services.EntityChangeService.ClientEntityType)
+                                @if (request.EntityType == CMIForge.Services.EntityChangeService.ClientEntityType)
                                 {
                                     <a asp-page="/Entities/Clients/Details" asp-route-id="@request.EntityId"><code>@request.EntityNumber</code> @request.EntityName</a>
                                 }
-                                else if (request.EntityType == MatterForge.Services.EntityChangeService.MatterEntityType)
+                                else if (request.EntityType == CMIForge.Services.EntityChangeService.MatterEntityType)
                                 {
                                     <a asp-page="/Entities/Matters/Details" asp-route-id="@request.EntityId"><code>@request.EntityNumber</code> @request.EntityName</a>
+                                }
+                                else if (request.EntityType == CMIForge.Services.EntityChangeService.ContactEntityType)
+                                {
+                                    <a asp-page="/Entities/Contacts/Details" asp-route-id="@request.EntityId"><code>@request.EntityNumber</code> @request.EntityName</a>
                                 }
                                 else
                                 {
@@ -65,6 +72,8 @@
                                 {
                                     <form method="post" class="d-inline-flex gap-2 align-items-center">
                                         <input type="hidden" name="id" value="@request.Id" />
+                                        <input type="hidden" name="pageNumber" value="@Model.PageNumber" />
+                                        <input type="hidden" name="Search" value="@Model.Search" />
                                         <input asp-for="ReviewNotes" class="form-control form-control-sm" placeholder="Review note" />
                                         <button class="btn btn-sm btn-success" type="submit" asp-page-handler="Approve">Approve</button>
                                         <button class="btn btn-sm btn-outline-danger" type="submit" asp-page-handler="Reject">Reject</button>
@@ -76,6 +85,7 @@
                 </tbody>
             </table>
         </div>
+        <partial name="/Pages/Shared/_RecordPagination.cshtml" model='new CMIForge.Models.RecordPaginationViewModel(Model.PendingPagination, "pending changes", new Dictionary<string, string> { ["Search"] = Model.Search ?? string.Empty })' />
     }
 </div>
 
