@@ -3,12 +3,17 @@ param(
     [string]$Location = "centralus",
     [string]$PlanName = "cmiforge-customer0-plan",
     [string]$PlanSku = "B1",
+    [string]$MigrationWebAppName = "cmiforge-db-migrator",
+    [string]$MigrationIdentityName = "cmiforge-migrator-mi",
     [string]$WebAppName = "cmiforge-customer0-web",
     [string]$SqlServerName = "gwmatterforge",
     [string]$SqlDatabaseName = "cmiforge-customer0",
     [string]$SqlDatabaseSku = "Basic",
     [string]$StorageAccountName = "cmiforgeattachasgmt7",
     [string]$StorageContainerName = "customer0-attachments",
+    [string]$VNetResourceGroup,
+    [string]$VNetName = "cmiforge-vnet",
+    [string]$VNetIntegrationSubnetName = "appsvc-integration",
     [string]$EntraTenantId,
     [string]$EntraClientId,
     [string]$EntraClientSecret,
@@ -20,8 +25,10 @@ param(
     [switch]$SkipDatabaseUpdate,
     [switch]$SkipStorageContainerCreate,
     [switch]$SkipRoleAssignments,
+    [switch]$SkipVNetIntegration,
     [switch]$SkipPublish,
-    [switch]$SkipDeploy
+    [switch]$SkipDeploy,
+    [switch]$AllowTemporarySqlPublicAccess
 )
 
 Set-StrictMode -Version Latest
@@ -74,6 +81,15 @@ if (-not (Test-Path $deployScript)) {
     throw "Could not find deploy script at '$deployScript'."
 }
 
+$migrationRunnerScript = Join-Path $projectRoot "deploy\migrations\run-tenant-migrations.ps1"
+if (-not (Test-Path $migrationRunnerScript)) {
+    throw "Could not find migration runner script at '$migrationRunnerScript'."
+}
+
+if ([string]::IsNullOrWhiteSpace($VNetResourceGroup)) {
+    $VNetResourceGroup = $ResourceGroup
+}
+
 $appConnectionString = "Server=tcp:$SqlServerName.database.windows.net,1433;Initial Catalog=$SqlDatabaseName;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120;"
 $migrationConnectionString = "Server=tcp:$SqlServerName.database.windows.net,1433;Initial Catalog=$SqlDatabaseName;Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120;"
 
@@ -100,24 +116,31 @@ if (-not $SkipDatabaseCreate.IsPresent) {
 
 if (-not $SkipStorageContainerCreate.IsPresent) {
     Write-Host "Ensuring private blob container '$StorageContainerName' exists..." -ForegroundColor Cyan
-    az storage container create `
-        --account-name $StorageAccountName `
+    az storage container-rm create `
+        --resource-group $ResourceGroup `
+        --storage-account $StorageAccountName `
         --name $StorageContainerName `
-        --auth-mode login `
         --public-access off `
         --only-show-errors | Out-Null
 }
 
 if (-not $SkipDatabaseUpdate.IsPresent) {
-    Write-Host "Applying EF migrations to '$SqlDatabaseName'..." -ForegroundColor Cyan
-    Push-Location $projectRoot
-    try {
-        dotnet tool restore | Out-Null
-        dotnet tool run dotnet-ef database update --configuration Release --connection $migrationConnectionString
-    }
-    finally {
-        Pop-Location
-    }
+    Write-Host "Applying EF migrations to '$SqlDatabaseName' with the dedicated migrator..." -ForegroundColor Cyan
+    & $migrationRunnerScript `
+        -ResourceGroup $ResourceGroup `
+        -Location $Location `
+        -PlanName $PlanName `
+        -PlanSku $PlanSku `
+        -MigrationWebAppName $MigrationWebAppName `
+        -MigrationIdentityName $MigrationIdentityName `
+        -SqlServerName $SqlServerName `
+        -SqlDatabaseName $SqlDatabaseName `
+        -VNetResourceGroup $VNetResourceGroup `
+        -VNetName $VNetName `
+        -VNetIntegrationSubnetName $VNetIntegrationSubnetName `
+        -EnsureSqlUser `
+        -AllowTemporarySqlPublicAccess:$AllowTemporarySqlPublicAccess `
+        -SeedCoreData
 }
 
 & $deployScript `
@@ -139,6 +162,9 @@ if (-not $SkipDatabaseUpdate.IsPresent) {
     -EntraCallbackPath "/signin-oidc" `
     -EntraProvisioningEnabled $EntraProvisioningEnabled `
     -EntraProvisioningDomain $EntraProvisioningDomain `
+    -VNetResourceGroup $VNetResourceGroup `
+    -VNetName $VNetName `
+    -VNetIntegrationSubnetName $VNetIntegrationSubnetName `
     -DemoMode $false `
     -DemoResetEnabled $false `
     -DemoResetIntervalHours 12 `
@@ -146,6 +172,7 @@ if (-not $SkipDatabaseUpdate.IsPresent) {
     -RunSeedDataOnStartup $true `
     -SeedSampleData $false `
     -AssignManagedIdentity:($AssignManagedIdentity -or -not $SkipRoleAssignments) `
+    -SkipVNetIntegration:$SkipVNetIntegration `
     -SkipPublish:$SkipPublish `
     -SkipDeploy:$SkipDeploy
 
@@ -172,7 +199,11 @@ if (-not $SkipRoleAssignments.IsPresent) {
             --only-show-errors | Out-Null
     }
 
-    if (Get-Command Invoke-Sqlcmd -ErrorAction SilentlyContinue) {
+    if (-not $AllowTemporarySqlPublicAccess.IsPresent) {
+        Write-Host "Skipping local SQL managed-identity grant because Azure SQL public network access is expected to be disabled." -ForegroundColor Yellow
+        Write-Host "Use the dedicated migrator path for schema changes; run the SQL grant manually or with -AllowTemporarySqlPublicAccess only for first-time web-app identity setup." -ForegroundColor Yellow
+    }
+    elseif (Get-Command Invoke-Sqlcmd -ErrorAction SilentlyContinue) {
         $escapedWebAppName = Escape-SqlLiteral $WebAppName
         $webAppSqlIdentifier = Escape-SqlIdentifier $WebAppName
         $grantSql = @"

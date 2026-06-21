@@ -1,0 +1,101 @@
+@page
+@model CMIForge.Pages.System.InboundEmailModel
+@{
+    ViewData["Title"] = "Inbound Email";
+}
+
+@if (!Model.CanView)
+{
+    <div class="alert alert-warning">You do not have access to inbound email processing history.</div>
+}
+else
+{
+    <div class="mf-page-heading">
+        <div>
+            <p class="mf-eyebrow">System</p>
+            <h1>Inbound Email</h1>
+            <p class="text-muted">Review emails CMIForge accepted or rejected while creating intake submissions.</p>
+        </div>
+        <a class="btn btn-outline-secondary" asp-page="/System/Settings">Settings</a>
+    </div>
+
+    <div class="mf-panel">
+        @if (Model.Messages.Count == 0)
+        {
+            <div class="text-muted">No inbound email messages have been processed yet.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Received</th>
+                            <th>Status</th>
+                            <th>From</th>
+                            <th>Subject</th>
+                            <th>Parsed</th>
+                            <th>Submission</th>
+                            <th>Attachments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var message in Model.Messages)
+                        {
+                            <tr>
+                                <td>@UserDates.Format(message.ReceivedAt, "g")</td>
+                                <td>
+                                    <span class="badge @StatusClass(message.Status)">@message.Status</span>
+                                    @if (!string.IsNullOrWhiteSpace(message.ValidationMessage))
+                                    {
+                                        <small class="d-block text-muted">@message.ValidationMessage</small>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(message.LastError))
+                                    {
+                                        <small class="d-block text-danger">@message.LastError</small>
+                                    }
+                                </td>
+                                <td>
+                                    @(string.IsNullOrWhiteSpace(message.FromName) ? message.FromEmail : message.FromName)
+                                    <small class="d-block text-muted">@message.FromEmail</small>
+                                </td>
+                                <td>
+                                    @message.Subject
+                                    <small class="d-block text-muted">Mailbox @message.MailboxAddress</small>
+                                </td>
+                                <td>
+                                    <strong>@(string.IsNullOrWhiteSpace(message.ParsedClientName) ? "No client" : message.ParsedClientName)</strong>
+                                    <small class="d-block text-muted">Matter: @(string.IsNullOrWhiteSpace(message.ParsedMatterName) ? "Blank" : message.ParsedMatterName)</small>
+                                </td>
+                                <td>
+                                    @if (message.FormSubmission is not null)
+                                    {
+                                        <a asp-page="/Submissions/Details" asp-route-id="@message.FormSubmission.Id">@CMIForge.Services.RecordNumbers.Submission(message.FormSubmission.SubmissionNumber)</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">None</span>
+                                    }
+                                </td>
+                                <td>@message.Attachments.Count</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@functions {
+    private static string StatusClass(string status)
+    {
+        return status switch
+        {
+            CMIForge.Models.InboundEmailStatuses.Processed => "text-bg-success",
+            CMIForge.Models.InboundEmailStatuses.Rejected => "text-bg-warning",
+            CMIForge.Models.InboundEmailStatuses.Failed => "text-bg-danger",
+            _ => "text-bg-secondary"
+        };
+    }
+}

@@ -153,7 +153,14 @@ public class SettingsModel(
             new SettingDefault("Email.MailboxAddress", "Email", "Mailbox anchor", "Shared mailbox CMIForge uses through Microsoft Graph when sending this tenant's outbound mail.", "intake@cmiforge.com", SystemSettingValueTypes.Email),
             new SettingDefault("Email.FromEmail", "Email", "From email", "Tenant sender address used on outbound CMIForge notifications.", "customer0@cmiforge.com", SystemSettingValueTypes.Email),
             new SettingDefault("Email.ReplyToEmail", "Email", "Reply-to email", "Tenant reply address used on outbound CMIForge notifications.", "customer0@cmiforge.com", SystemSettingValueTypes.Email),
-            new SettingDefault("Email.FromName", "Email", "From name", "Display name used as the sender for outbound CMIForge notifications.", "Customer 0", SystemSettingValueTypes.Text)
+            new SettingDefault("Email.FromName", "Email", "From name", "Display name used as the sender for outbound CMIForge notifications.", "Customer 0", SystemSettingValueTypes.Text),
+            new SettingDefault(InboundEmailSettingKeys.Enabled, "Inbound Email", "Enable inbound email intake", "Turns on Microsoft Graph mailbox polling for creating intake submissions from trusted inbound emails.", "false", SystemSettingValueTypes.Boolean),
+            new SettingDefault(InboundEmailSettingKeys.MailboxAddress, "Inbound Email", "Inbound mailbox anchor", "Shared mailbox CMIForge reads through Microsoft Graph for this tenant's inbound intake mail.", "intake@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingDefault(InboundEmailSettingKeys.InboundAddress, "Inbound Email", "Tenant inbound address", "Address or alias firms should send intake messages to, such as customer0@cmiforge.com.", "customer0@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingDefault(InboundEmailSettingKeys.AllowedSenderDomains, "Inbound Email", "Allowed sender domains", "Comma- or semicolon-separated firm domains allowed to create inbound email intakes. Leave blank to reject all inbound messages.", string.Empty, SystemSettingValueTypes.Text),
+            new SettingDefault(InboundEmailSettingKeys.DefaultFormKey, "Inbound Email", "Default intake form key", "Published form key used for submissions created from inbound email.", "new-matter-intake", SystemSettingValueTypes.Text),
+            new SettingDefault(InboundEmailSettingKeys.MarkProcessedAsRead, "Inbound Email", "Mark processed email as read", "Marks mailbox messages as read after a successful CMIForge intake is created.", "true", SystemSettingValueTypes.Boolean),
+            new SettingDefault(InboundEmailSettingKeys.OcrEnabled, "Inbound Email", "Enable inbound attachment OCR", "Queues supported inbound attachments for OCR extraction once an OCR provider is configured.", "false", SystemSettingValueTypes.Boolean)
         };
 
         var changed = false;

@@ -21,6 +21,8 @@ public class EnhancementRequestsModel(
 
     public bool CanManageRequests { get; private set; }
 
+    public Guid? CurrentUserId { get; private set; }
+
     public string[] AreaOptions { get; } =
     [
         EnhancementRequestAreas.General,
@@ -54,6 +56,11 @@ public class EnhancementRequestsModel(
 
     public async Task<IActionResult> OnGetAsync()
     {
+        if (await currentUserService.GetCurrentUserAsync() is null)
+        {
+            return Forbid();
+        }
+
         await LoadAsync();
         return Page();
     }
@@ -95,6 +102,10 @@ public class EnhancementRequestsModel(
         };
 
         db.EnhancementRequests.Add(request);
+        request.Votes.Add(new EnhancementRequestVote
+        {
+            UserId = currentUser.Id
+        });
         await db.SaveChangesAsync();
         await auditLogService.LogAsync(
             "EnhancementRequest.Created",
@@ -104,6 +115,52 @@ public class EnhancementRequestsModel(
             details: new { request.Area, request.Priority, request.SubmittedByEmail });
 
         StatusMessage = "Enhancement request submitted. Thank you for the good brain fuel.";
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostVoteAsync(Guid id)
+    {
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        if (currentUser is null)
+        {
+            return Forbid();
+        }
+
+        var requestExists = await db.EnhancementRequests.AnyAsync(x => x.Id == id);
+        if (!requestExists)
+        {
+            return NotFound();
+        }
+
+        var existingVote = await db.EnhancementRequestVotes
+            .FirstOrDefaultAsync(x => x.EnhancementRequestId == id && x.UserId == currentUser.Id);
+        if (existingVote is null)
+        {
+            db.EnhancementRequestVotes.Add(new EnhancementRequestVote
+            {
+                EnhancementRequestId = id,
+                UserId = currentUser.Id
+            });
+            await db.SaveChangesAsync();
+            await auditLogService.LogAsync(
+                "EnhancementRequest.Voted",
+                "EnhancementRequest",
+                id,
+                summary: "Added support vote to enhancement request.");
+            StatusMessage = "Vote added.";
+        }
+        else
+        {
+            db.EnhancementRequestVotes.Remove(existingVote);
+            await db.SaveChangesAsync();
+            await auditLogService.LogAsync(
+                "EnhancementRequest.VoteRemoved",
+                "EnhancementRequest",
+                id,
+                summary: "Removed support vote from enhancement request.");
+            StatusMessage = "Vote removed.";
+        }
+
         return RedirectToPage();
     }
 
@@ -150,25 +207,28 @@ public class EnhancementRequestsModel(
     {
         CanManageRequests = await permissionService.HasAsync(PermissionKeys.SecurityManage);
         var currentUser = await currentUserService.GetCurrentUserAsync();
+        CurrentUserId = currentUser?.Id;
 
         var query = db.EnhancementRequests
             .AsNoTracking()
             .Include(x => x.SubmittedByUser)
             .Include(x => x.UpdatedByUser)
+            .Include(x => x.Votes)
+                .ThenInclude(x => x.User)
             .AsQueryable();
 
-        if (!CanManageRequests)
-        {
-            query = currentUser is null
-                ? query.Where(x => false)
-                : query.Where(x => x.SubmittedByUserId == currentUser.Id);
-        }
-
         Requests = await query
+            .Where(x => x.Status != EnhancementRequestStatuses.Closed || CanManageRequests || x.SubmittedByUserId == currentUser!.Id)
             .OrderBy(x => x.Status == EnhancementRequestStatuses.New ? 0 : 1)
+            .ThenByDescending(x => x.Votes.Count)
             .ThenByDescending(x => x.CreatedAt)
-            .Take(CanManageRequests ? 200 : 25)
+            .Take(CanManageRequests ? 200 : 100)
             .ToListAsync();
+    }
+
+    public bool CurrentUserVoted(EnhancementRequest request)
+    {
+        return CurrentUserId.HasValue && request.Votes.Any(x => x.UserId == CurrentUserId.Value);
     }
 
     public class EnhancementInput

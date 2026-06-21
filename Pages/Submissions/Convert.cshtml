@@ -15,13 +15,6 @@ else if (Model.Submission.ClientId.HasValue || Model.Submission.MatterId.HasValu
         <a asp-page="./Details" asp-route-id="@Model.Submission.Id">Return to submission</a>
     </div>
 }
-else if (!Model.MatterLimit.CanCreate)
-{
-    <div class="alert alert-warning">
-        @Model.MatterLimit.Message
-        <a asp-page="/Billing/Index">View plans</a>
-    </div>
-}
 else if (!Model.CanConvert)
 {
     <div class="alert alert-warning">
@@ -35,7 +28,7 @@ else
         <div>
             <p class="mf-eyebrow">Workflow action</p>
             <h1>Create Client/Matter</h1>
-            <p class="text-muted">Review the prefilled values before creating operational records.</p>
+            <p class="text-muted">Review the prefilled values before creating operational records. Leave matter blank to create or link only the client.</p>
         </div>
         <a class="btn btn-outline-secondary" asp-page="./Details" asp-route-id="@Model.Submission.Id">Back</a>
     </div>
@@ -112,7 +105,15 @@ else
             </div>
         </div>
 
-        <h2 class="h5">Matter</h2>
+        <h2 class="h5">Matter <span class="text-muted fw-normal">(optional)</span></h2>
+        @if (!Model.MatterLimit.CanCreate)
+        {
+            <div class="alert alert-warning">
+                @Model.MatterLimit.Message
+                Leave Matter name blank to create or link only the client.
+                <a asp-page="/Billing/Index">View plans</a>
+            </div>
+        }
         <div class="row g-3">
             <div class="col-md-8">
                 <label asp-for="Input.MatterName" class="form-label"></label>
@@ -156,7 +157,7 @@ else
         </div>
 
         <div class="d-flex gap-2 mt-4">
-            <button class="btn btn-primary" type="submit">Create and link records</button>
+            <button class="btn btn-primary" type="submit">Create and link record(s)</button>
             <a class="btn btn-outline-secondary" asp-page="./Details" asp-route-id="@Model.Submission.Id">Cancel</a>
         </div>
     </form>

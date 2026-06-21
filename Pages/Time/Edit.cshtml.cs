@@ -31,6 +31,8 @@ public class EditModel(
 
     public string SystemIncrementLabel { get; private set; } = TimeIncrementRules.Label(TimeIncrementRules.SixMinutes);
 
+    public int SystemIncrementMinutes { get; private set; } = TimeIncrementRules.SixMinutes;
+
     public async Task<IActionResult> OnGetAsync(Guid id)
     {
         if (!await permissionService.HasAsync(PermissionKeys.TimeEdit))
@@ -198,7 +200,8 @@ public class EditModel(
             .Select(x => new TimeTaskOption(x.Id, x.TimeCodeSetId, x.TimePhaseId, x.Code, x.Name))
             .ToListAsync();
 
-        SystemIncrementLabel = TimeIncrementRules.Label(await GetSystemIncrementAsync());
+        SystemIncrementMinutes = await GetSystemIncrementAsync();
+        SystemIncrementLabel = TimeIncrementRules.Label(SystemIncrementMinutes);
     }
 
     private async Task<int> ResolveIncrementAsync(Matter matter)

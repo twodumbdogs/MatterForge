@@ -29,6 +29,10 @@ public class CreateModel(
 
     public ProductLimitStatus MatterLimit { get; private set; } = new("matters", 0, null, true, string.Empty);
 
+    public string[] StatusOptions => EntityComplianceService.MatterStatusOptions;
+
+    public string DirectCreateMessage => EntityComplianceService.DirectCreateMessage("matter");
+
     public async Task OnGetAsync()
     {
         Input.OpenedDate = DateOnly.FromDateTime(DateTime.Today);
@@ -172,7 +176,7 @@ public class MatterInput
     [Display(Name = "Practice area")]
     public string PracticeArea { get; set; } = "Corporate";
 
-    public string Status { get; set; } = "Open";
+    public string Status { get; set; } = EntityComplianceService.ReviewStatus;
 
     [Display(Name = "Opened date")]
     public DateOnly? OpenedDate { get; set; }

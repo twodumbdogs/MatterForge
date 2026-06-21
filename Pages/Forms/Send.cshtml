@@ -1,0 +1,137 @@
+@page "{id:guid}"
+@model CMIForge.Pages.Forms.SendModel
+@{
+    ViewData["Title"] = Model.Form is null ? "Send Form" : $"Send {Model.Form.Name}";
+}
+
+@if (Model.Form is null)
+{
+    <div class="alert alert-warning">That form could not be found.</div>
+}
+else
+{
+    <div class="mf-page-heading">
+        <div>
+            <p class="mf-eyebrow">Client-facing intake</p>
+            <h1>Send @Model.Form.Name</h1>
+            <p class="text-muted">Create a secure external link for a saved contact. Submitted answers become a normal CMIForge submission.</p>
+        </div>
+        <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.ResultMessage))
+    {
+        <div class="alert alert-success">@Model.ResultMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.GeneratedLink))
+    {
+        <div class="mf-panel mb-3">
+            <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center justify-content-between">
+                <div class="flex-grow-1">
+                    <p class="mf-eyebrow">Secure link</p>
+                    <input class="form-control" value="@Model.GeneratedLink" readonly onclick="this.select()" />
+                </div>
+                <a class="btn btn-outline-primary" href="@Model.GeneratedLink" target="_blank" rel="noopener noreferrer">Open</a>
+            </div>
+        </div>
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <form method="post" class="mf-panel">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="mb-3">
+                    <label asp-for="Input.ContactId" class="form-label"></label>
+                    <select asp-for="Input.ContactId" asp-items="Model.ContactOptions" class="form-select">
+                        <option value="">Choose contact...</option>
+                    </select>
+                    <span asp-validation-for="Input.ContactId" class="text-danger"></span>
+                    <small class="text-muted">Only contacts with email addresses are available.</small>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Input.LeadPartnerId" class="form-label"></label>
+                    <select asp-for="Input.LeadPartnerId" asp-items="Model.PartnerOptions" class="form-select">
+                        <option value="">Unassigned</option>
+                    </select>
+                    <span asp-validation-for="Input.LeadPartnerId" class="text-danger"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Input.ExpiresInDays" class="form-label"></label>
+                    <input asp-for="Input.ExpiresInDays" class="form-control" type="number" min="1" max="30" />
+                    <span asp-validation-for="Input.ExpiresInDays" class="text-danger"></span>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Input.Message" class="form-label"></label>
+                    <textarea asp-for="Input.Message" class="form-control" rows="5"></textarea>
+                    <span asp-validation-for="Input.Message" class="text-danger"></span>
+                </div>
+                <button class="btn btn-primary" type="submit">Create secure link</button>
+            </form>
+        </div>
+        <div class="col-lg-5">
+            <div class="mf-panel">
+                <p class="mf-eyebrow">Recent sends</p>
+                <h2>External invites</h2>
+                @if (Model.RecentInvites.Count == 0)
+                {
+                    <p class="text-muted mb-0">No external invites have been created for this form yet.</p>
+                }
+                else
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var invite in Model.RecentInvites)
+                        {
+                            <div class="list-group-item px-0">
+                                <div class="d-flex justify-content-between gap-3">
+                                    <strong>@invite.RecipientName</strong>
+                                    <span class="badge @InviteStatusClass(invite)">@InviteStatus(invite)</span>
+                                </div>
+                                <small class="d-block text-muted">@invite.RecipientEmail</small>
+                                <small class="d-block text-muted">
+                                    Created @UserDates.Format(invite.CreatedAt)
+                                    @if (invite.FormSubmission is not null)
+                                    {
+                                        <span>
+                                            · Submission
+                                            <a asp-page="/Submissions/Details" asp-route-id="@invite.FormSubmission.Id">
+                                                <code>@CMIForge.Services.RecordNumbers.Submission(invite.FormSubmission.SubmissionNumber)</code>
+                                            </a>
+                                        </span>
+                                    }
+                                </small>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+
+@functions {
+    private static string InviteStatus(CMIForge.Models.ExternalFormInvite invite)
+    {
+        if (invite.Status == CMIForge.Models.ExternalFormInviteStatuses.Open && invite.ExpiresAt <= DateTimeOffset.UtcNow)
+        {
+            return CMIForge.Models.ExternalFormInviteStatuses.Expired;
+        }
+
+        return invite.Status;
+    }
+
+    private static string InviteStatusClass(CMIForge.Models.ExternalFormInvite invite)
+    {
+        return InviteStatus(invite) switch
+        {
+            CMIForge.Models.ExternalFormInviteStatuses.Completed => "text-bg-success",
+            CMIForge.Models.ExternalFormInviteStatuses.Expired => "text-bg-warning",
+            CMIForge.Models.ExternalFormInviteStatuses.Revoked => "text-bg-danger",
+            _ => "text-bg-primary"
+        };
+    }
+}

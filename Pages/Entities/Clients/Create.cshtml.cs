@@ -15,6 +15,10 @@ public class CreateModel(CMIForgeDbContext db, ProductPlanService productPlanSer
 
     public ProductLimitStatus ClientLimit { get; private set; } = new("clients", 0, null, true, string.Empty);
 
+    public string[] StatusOptions => EntityComplianceService.ClientStatusOptions;
+
+    public string DirectCreateMessage => EntityComplianceService.DirectCreateMessage("client");
+
     public async Task OnGetAsync()
     {
         ClientLimit = await productPlanService.GetClientLimitAsync();
@@ -53,6 +57,15 @@ public class CreateModel(CMIForgeDbContext db, ProductPlanService productPlanSer
             Notes = Input.Notes?.Trim() ?? string.Empty
         };
 
+        foreach (var alias in SplitAliases(Input.Aliases))
+        {
+            client.Aliases.Add(new ClientAlias
+            {
+                Alias = alias,
+                NormalizedAlias = ConflictSearchService.NormalizeName(alias)
+            });
+        }
+
         db.Clients.Add(client);
         await db.SaveChangesAsync();
         await auditLogService.LogAsync(
@@ -61,9 +74,17 @@ public class CreateModel(CMIForgeDbContext db, ProductPlanService productPlanSer
             client.Id,
             client.ClientNumber.ToString("D8"),
             $"Created client {client.Name}.",
-            new { client.Status, client.PrimaryContact, client.Email, client.Phone });
+            new { client.Status, client.PrimaryContact, client.Email, client.Phone, AliasCount = client.Aliases.Count });
 
         return RedirectToPage("./Details", new { id = client.Id });
+    }
+
+    private static List<string> SplitAliases(string? aliases)
+    {
+        return (aliases ?? string.Empty)
+            .Split(['\r', '\n', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }
 
@@ -72,7 +93,7 @@ public class ClientInput
     [Required]
     public string Name { get; set; } = string.Empty;
 
-    public string Status { get; set; } = "Active";
+    public string Status { get; set; } = EntityComplianceService.ReviewStatus;
 
     [Display(Name = "Primary contact")]
     public string? PrimaryContact { get; set; }
@@ -98,5 +119,7 @@ public class ClientInput
     public string? Country { get; set; }
 
     public string? Notes { get; set; }
+
+    public string? Aliases { get; set; }
 }
 

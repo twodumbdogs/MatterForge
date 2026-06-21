@@ -91,12 +91,14 @@ public class ConvertModel(
 
         var existingClientMatches = await LoadExistingClientReuseOptionsAsync(Input.ClientName, autoSelectSingleMatch: false);
 
-        if (!CanConvert && MatterLimit.CanCreate)
+        var createMatter = !string.IsNullOrWhiteSpace(Input.MatterName);
+
+        if (!CanConvert)
         {
             ModelState.AddModelError(string.Empty, "This submission must be approved before it can be converted.");
         }
 
-        if (!MatterLimit.CanCreate)
+        if (createMatter && !MatterLimit.CanCreate)
         {
             ModelState.AddModelError(string.Empty, MatterLimit.Message);
         }
@@ -142,7 +144,6 @@ public class ConvertModel(
             return Page();
         }
 
-        var nextMatterNumber = (await db.Matters.MaxAsync(x => (int?)x.MatterNumber) ?? 0) + 1;
         Client client;
         if (Input.UseExistingClient && Input.ExistingClientId.HasValue)
         {
@@ -165,39 +166,47 @@ public class ConvertModel(
             db.Clients.Add(client);
         }
 
-        var matter = new Matter
+        Matter? matter = null;
+        if (createMatter)
         {
-            MatterNumber = nextMatterNumber,
-            Name = Input.MatterName.Trim(),
-            Client = client,
-            PracticeArea = Input.PracticeArea?.Trim() ?? string.Empty,
-            Status = Input.MatterStatus,
-            OpenedDate = Input.OpenedDate,
-            ResponsibleUserId = Input.ResponsibleUserId,
-            LeadPartnerId = Input.LeadPartnerId,
-            Notes = Input.MatterNotes?.Trim() ?? string.Empty
-        };
+            var nextMatterNumber = (await db.Matters.MaxAsync(x => (int?)x.MatterNumber) ?? 0) + 1;
+            matter = new Matter
+            {
+                MatterNumber = nextMatterNumber,
+                Name = Input.MatterName.Trim(),
+                Client = client,
+                PracticeArea = Input.PracticeArea?.Trim() ?? string.Empty,
+                Status = Input.MatterStatus,
+                OpenedDate = Input.OpenedDate,
+                ResponsibleUserId = Input.ResponsibleUserId,
+                LeadPartnerId = Input.LeadPartnerId,
+                Notes = Input.MatterNotes?.Trim() ?? string.Empty
+            };
 
-        db.Matters.Add(matter);
-        await conflictSearchService.EnsureMatterClientPartyAsync(client, matter);
+            db.Matters.Add(matter);
+            await conflictSearchService.EnsureMatterClientPartyAsync(client, matter);
+        }
 
         Submission.Client = client;
         Submission.Matter = matter;
         Submission.Status = SubmissionStatuses.Converted;
 
         await db.SaveChangesAsync();
+        var convertedSummary = matter is null
+            ? $"Converted submission to client {client.ClientNumber:D8}."
+            : $"Converted submission to client {client.ClientNumber:D8} and matter {matter.MatterNumber:D8}.";
         await auditLogService.LogAsync(
             "Submission.Converted",
             "Submission",
             Submission.Id,
             RecordNumbers.Submission(Submission.SubmissionNumber),
-            $"Converted submission to client {client.ClientNumber:D8} and matter {matter.MatterNumber:D8}.",
+            convertedSummary,
             new
             {
                 ClientId = client.Id,
                 ClientNumber = client.ClientNumber,
-                MatterId = matter.Id,
-                MatterNumber = matter.MatterNumber,
+                MatterId = matter?.Id,
+                MatterNumber = matter?.MatterNumber,
                 ReusedClient = Input.UseExistingClient
             });
 
@@ -237,7 +246,6 @@ public class ConvertModel(
             Submission.Status == SubmissionStatuses.Approved &&
             !Submission.ClientId.HasValue &&
             !Submission.MatterId.HasValue &&
-            MatterLimit.CanCreate &&
             await permissionService.HasAsync(PermissionKeys.SubmissionsConvert);
 
         var schema = FormJson.DeserializeSchema(Submission.FormVersion.SchemaJson);
@@ -399,7 +407,6 @@ public class ConvertSubmissionInput
     [Display(Name = "Client notes")]
     public string? ClientNotes { get; set; }
 
-    [Required]
     [Display(Name = "Matter name")]
     public string MatterName { get; set; } = string.Empty;
 

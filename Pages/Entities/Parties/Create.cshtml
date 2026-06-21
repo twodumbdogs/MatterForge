@@ -15,6 +15,11 @@
 
 <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
+<div class="alert alert-info">
+    <strong>Direct entity creation:</strong> @Model.DirectCreateMessage
+    Move the party to Active only after review is complete.
+</div>
+
 <form method="post" class="mf-panel">
     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
     <div class="row g-3">
@@ -29,7 +34,12 @@
         </div>
         <div class="col-md-4">
             <label asp-for="Input.Status" class="form-label"></label>
-            <input asp-for="Input.Status" class="form-control" />
+            <select asp-for="Input.Status" class="form-select">
+                @foreach (var status in Model.StatusOptions)
+                {
+                    <option value="@status">@status</option>
+                }
+            </select>
         </div>
         <div class="col-md-8">
             <label asp-for="Input.Aliases" class="form-label"></label>

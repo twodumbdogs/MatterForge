@@ -40,6 +40,12 @@ It captures the current Azure dev resources, the expected app settings shape, an
 - Azure SQL public demo database: `cmiforge-demo`
 - Attachment storage account: `cmiforgeattachasgmt7`
 - Attachment container: `submission-attachments`
+- Shared VNet: `cmiforge-vnet`
+- App Service integration subnet: `appsvc-integration`
+- Private endpoint subnet: `private-endpoints`
+- SQL private endpoint: `pe-cmiforge-sql`
+- Blob private endpoint: `pe-cmiforge-blob`
+- Key Vault private endpoint: `pe-cmiforge-keyvault`
 
 ## App Service Configuration
 
@@ -73,6 +79,8 @@ The App Service managed identity already has a database user in `cmiforge-demo` 
 - `db_datawriter`
 
 The same App Service managed identity has Blob access to the attachment storage account. The app should not need `SubmissionAttachments__ConnectionString` in the cloud dev environment.
+
+The dev/demo app is VNet-integrated through `cmiforge-vnet/appsvc-integration`. Azure SQL and Blob Storage public network access are disabled, so cloud data access depends on the private endpoints and private DNS zones. Cloud database migrations should run through `deploy/migrations/run-tenant-migrations.ps1` and the dedicated `cmiforge-db-migrator` WebJob, not through normal web-app startup.
 
 Current attachment settings:
 
@@ -122,6 +130,14 @@ That wrapper deploys to the fixed dev App Service resources and keeps the Azure 
 By default the wrapper also applies EF migrations to `cmiforge-demo` before publishing. Use `-SkipDatabaseUpdate` only when the code change does not require schema changes or when the database update is being handled separately.
 
 If Azure SQL rejects the local migration connection because the current IP is not allowed, add a narrow temporary firewall rule for the current public IP, run the migration/deploy, then remove that rule immediately after verification.
+
+## Standing Deploy Behavior
+
+Gabe wants CMIForge deployed as work lands. For dev/demo app changes, the normal path is to build or otherwise verify locally, run this deploy wrapper, and smoke-check `https://demo.cmiforge.com`.
+
+Use `-SkipDatabaseUpdate` for docs, UI, CSS, Razor-only, or service changes that do not need EF schema changes. Do not use that switch for model/migration work unless the database update has already been applied another way.
+
+The dev deploy wrapper passes `cmiforge-vnet/appsvc-integration` to the shared `deployme.ps1` path so recreated or reconfigured demo apps stay on the private-networking path.
 
 ## Public Site
 

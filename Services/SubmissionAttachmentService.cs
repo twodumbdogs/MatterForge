@@ -10,7 +10,7 @@ public class SubmissionAttachmentService(IOptions<SubmissionAttachmentStorageOpt
 {
     public const long MaxFileBytes = 25L * 1024 * 1024;
 
-    public const string AllowedFileDescription = "PDF, DOC, DOCX, XLS, or XLSX up to 25 MB.";
+    public const string AllowedFileDescription = "PDF, Word, Excel, JPG, PNG, or TIFF files up to 25 MB.";
 
     private static readonly Dictionary<string, string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -18,7 +18,12 @@ public class SubmissionAttachmentService(IOptions<SubmissionAttachmentStorageOpt
         [".doc"] = "application/msword",
         [".docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         [".xls"] = "application/vnd.ms-excel",
-        [".xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        [".xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        [".jpg"] = "image/jpeg",
+        [".jpeg"] = "image/jpeg",
+        [".png"] = "image/png",
+        [".tif"] = "image/tiff",
+        [".tiff"] = "image/tiff"
     };
 
     private readonly SubmissionAttachmentStorageOptions storageOptions = options.Value;
@@ -141,6 +146,70 @@ public class SubmissionAttachmentService(IOptions<SubmissionAttachmentStorageOpt
             ContentType = "text/uri-list",
             UploadedByUserId = uploadedByUserId
         };
+    }
+
+    public async Task<SubmissionAttachment> UploadBytesAsync(
+        FormSubmission submission,
+        string originalFileName,
+        string contentType,
+        byte[] content,
+        string displayName,
+        Guid? uploadedByUserId)
+    {
+        ValidateStorageConfigured();
+
+        if (content.Length <= 0)
+        {
+            throw new InvalidOperationException("Attachment content was empty.");
+        }
+
+        if (content.Length > MaxFileBytes)
+        {
+            throw new InvalidOperationException("Files must be 25 MB or smaller.");
+        }
+
+        var cleanFileName = Path.GetFileName(string.IsNullOrWhiteSpace(originalFileName)
+            ? "email-attachment"
+            : originalFileName);
+        var extension = Path.GetExtension(cleanFileName).ToLowerInvariant();
+        if (!IsAllowedExtension(extension))
+        {
+            throw new InvalidOperationException($"Only {AllowedFileDescription}");
+        }
+
+        var attachment = new SubmissionAttachment
+        {
+            FormSubmissionId = submission.Id,
+            AttachmentType = SubmissionAttachmentTypes.File,
+            DisplayName = CleanDisplayName(displayName, Path.GetFileNameWithoutExtension(cleanFileName)),
+            OriginalFileName = TrimToMax(cleanFileName, 260),
+            ContentType = string.IsNullOrWhiteSpace(contentType) ? ContentTypeForExtension(extension) : TrimToMax(contentType.Trim(), 160),
+            FileExtension = extension,
+            SizeBytes = content.LongLength,
+            BlobContainer = ContainerName,
+            BlobName = $"submissions/{submission.SubmissionNumber:D8}/{Guid.NewGuid():N}{extension}",
+            UploadedByUserId = uploadedByUserId
+        };
+
+        var container = await GetContainerAsync();
+        var blob = container.GetBlobClient(attachment.BlobName);
+        await using var stream = new MemoryStream(content);
+        await blob.UploadAsync(stream, new BlobUploadOptions
+        {
+            HttpHeaders = new BlobHttpHeaders
+            {
+                ContentType = attachment.ContentType,
+                ContentDisposition = $"attachment; filename=\"{attachment.OriginalFileName.Replace("\"", string.Empty)}\""
+            },
+            Metadata = new Dictionary<string, string>
+            {
+                ["submissionNumber"] = submission.SubmissionNumber.ToString("D8"),
+                ["attachmentId"] = attachment.Id.ToString("N"),
+                ["source"] = "inbound-email"
+            }
+        });
+
+        return attachment;
     }
 
     public async Task<Stream> OpenReadAsync(SubmissionAttachment attachment)

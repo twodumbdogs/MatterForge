@@ -11,6 +11,8 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
 
     public DbSet<FormSubmission> FormSubmissions => Set<FormSubmission>();
 
+    public DbSet<ExternalFormInvite> ExternalFormInvites => Set<ExternalFormInvite>();
+
     public DbSet<Client> Clients => Set<Client>();
 
     public DbSet<Contact> Contacts => Set<Contact>();
@@ -85,9 +87,17 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
 
     public DbSet<EmailOutboxMessage> EmailOutboxMessages => Set<EmailOutboxMessage>();
 
+    public DbSet<InboundEmailMessage> InboundEmailMessages => Set<InboundEmailMessage>();
+
+    public DbSet<InboundEmailAttachment> InboundEmailAttachments => Set<InboundEmailAttachment>();
+
     public DbSet<EntityChangeRequest> EntityChangeRequests => Set<EntityChangeRequest>();
 
     public DbSet<EnhancementRequest> EnhancementRequests => Set<EnhancementRequest>();
+
+    public DbSet<EnhancementRequestVote> EnhancementRequestVotes => Set<EnhancementRequestVote>();
+
+    public DbSet<ClientAlias> ClientAliases => Set<ClientAlias>();
 
     public DbSet<EntityNote> EntityNotes => Set<EntityNote>();
 
@@ -237,6 +247,49 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
+        modelBuilder.Entity<ExternalFormInvite>(entity =>
+        {
+            entity.Property(x => x.RecipientName).HasMaxLength(200);
+            entity.Property(x => x.RecipientEmail).HasMaxLength(254);
+            entity.Property(x => x.TokenHash).HasMaxLength(128);
+            entity.Property(x => x.Status).HasMaxLength(40);
+            entity.Property(x => x.Message).HasMaxLength(2000);
+            entity.HasIndex(x => x.TokenHash).IsUnique();
+            entity.HasIndex(x => new { x.FormDefinitionId, x.CreatedAt });
+            entity.HasIndex(x => new { x.Status, x.ExpiresAt });
+            entity.HasIndex(x => x.FormSubmissionId);
+            entity
+                .HasOne(x => x.FormDefinition)
+                .WithMany()
+                .HasForeignKey(x => x.FormDefinitionId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.FormVersion)
+                .WithMany()
+                .HasForeignKey(x => x.FormVersionId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.RecipientContact)
+                .WithMany()
+                .HasForeignKey(x => x.RecipientContactId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.SenderUser)
+                .WithMany()
+                .HasForeignKey(x => x.SenderUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.LeadPartner)
+                .WithMany()
+                .HasForeignKey(x => x.LeadPartnerId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.FormSubmission)
+                .WithMany()
+                .HasForeignKey(x => x.FormSubmissionId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
         modelBuilder.Entity<TimeCodeSet>(entity =>
         {
             entity.Property(x => x.Key).HasMaxLength(80);
@@ -343,6 +396,57 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .HasOne(x => x.WorkflowStep)
                 .WithMany()
                 .HasForeignKey(x => x.WorkflowStepId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<InboundEmailMessage>(entity =>
+        {
+            entity.Property(x => x.Status).HasMaxLength(40);
+            entity.Property(x => x.Provider).HasMaxLength(80);
+            entity.Property(x => x.MailboxAddress).HasMaxLength(254);
+            entity.Property(x => x.InboundAddress).HasMaxLength(254);
+            entity.Property(x => x.GraphMessageId).HasMaxLength(240);
+            entity.Property(x => x.InternetMessageId).HasMaxLength(500);
+            entity.Property(x => x.ConversationId).HasMaxLength(240);
+            entity.Property(x => x.FromEmail).HasMaxLength(254);
+            entity.Property(x => x.FromName).HasMaxLength(160);
+            entity.Property(x => x.Subject).HasMaxLength(500);
+            entity.Property(x => x.BodyPreview).HasMaxLength(1000);
+            entity.Property(x => x.BodyText).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.ParsedClientName).HasMaxLength(240);
+            entity.Property(x => x.ParsedMatterName).HasMaxLength(240);
+            entity.Property(x => x.ValidationMessage).HasMaxLength(1000);
+            entity.Property(x => x.LastError).HasMaxLength(4000);
+            entity.HasIndex(x => x.GraphMessageId).IsUnique().HasFilter("[GraphMessageId] <> ''");
+            entity.HasIndex(x => x.InternetMessageId).IsUnique().HasFilter("[InternetMessageId] <> ''");
+            entity.HasIndex(x => new { x.Status, x.ReceivedAt });
+            entity.HasIndex(x => x.FormSubmissionId);
+            entity
+                .HasOne(x => x.FormSubmission)
+                .WithMany()
+                .HasForeignKey(x => x.FormSubmissionId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<InboundEmailAttachment>(entity =>
+        {
+            entity.Property(x => x.GraphAttachmentId).HasMaxLength(240);
+            entity.Property(x => x.OriginalFileName).HasMaxLength(260);
+            entity.Property(x => x.ContentType).HasMaxLength(160);
+            entity.Property(x => x.OcrStatus).HasMaxLength(40);
+            entity.Property(x => x.OcrText).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.OcrError).HasMaxLength(4000);
+            entity.HasIndex(x => x.InboundEmailMessageId);
+            entity.HasIndex(x => x.SubmissionAttachmentId);
+            entity
+                .HasOne(x => x.InboundEmailMessage)
+                .WithMany(x => x.Attachments)
+                .HasForeignKey(x => x.InboundEmailMessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(x => x.SubmissionAttachment)
+                .WithMany()
+                .HasForeignKey(x => x.SubmissionAttachmentId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
@@ -528,6 +632,22 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
+        modelBuilder.Entity<EnhancementRequestVote>(entity =>
+        {
+            entity.HasIndex(x => new { x.EnhancementRequestId, x.UserId }).IsUnique();
+            entity.HasIndex(x => new { x.UserId, x.CreatedAt });
+            entity
+                .HasOne(x => x.EnhancementRequest)
+                .WithMany(x => x.Votes)
+                .HasForeignKey(x => x.EnhancementRequestId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
         modelBuilder.Entity<EntityNote>(entity =>
         {
             entity.Property(x => x.EntityType).HasMaxLength(80);
@@ -599,6 +719,20 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .HasOne(x => x.Party)
                 .WithMany(x => x.Aliases)
                 .HasForeignKey(x => x.PartyId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ClientAlias>(entity =>
+        {
+            entity.Property(x => x.Alias).HasMaxLength(240);
+            entity.Property(x => x.NormalizedAlias).HasMaxLength(240);
+            entity.Property(x => x.Notes).HasMaxLength(1000);
+            entity.HasIndex(x => new { x.ClientId, x.NormalizedAlias }).IsUnique();
+            entity.HasIndex(x => x.NormalizedAlias);
+            entity
+                .HasOne(x => x.Client)
+                .WithMany(x => x.Aliases)
+                .HasForeignKey(x => x.ClientId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -687,9 +821,13 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
             entity.Property(x => x.AiAssessment).HasMaxLength(2000);
             entity.Property(x => x.ClearanceStatus).HasMaxLength(80).HasDefaultValue(ConflictSearchDecisions.Pending);
             entity.Property(x => x.ClearanceNotes).HasMaxLength(2000);
+            entity.Property(x => x.EscalationNotes).HasMaxLength(2000);
+            entity.Property(x => x.EscalationApprovalNotes).HasMaxLength(2000);
             entity.HasIndex(x => new { x.ConflictSearchId, x.Score });
             entity.HasIndex(x => new { x.ConflictSearchId, x.ClearanceStatus });
             entity.HasIndex(x => new { x.ClearedByUserId, x.ClearedAt });
+            entity.HasIndex(x => new { x.EscalatedToUserId, x.EscalatedAt });
+            entity.HasIndex(x => new { x.EscalationApprovedByUserId, x.EscalationApprovedAt });
             entity
                 .HasOne(x => x.ConflictSearch)
                 .WithMany(x => x.Results)
@@ -714,6 +852,21 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .HasOne(x => x.ClearedByUser)
                 .WithMany()
                 .HasForeignKey(x => x.ClearedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.EscalatedToUser)
+                .WithMany()
+                .HasForeignKey(x => x.EscalatedToUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.EscalatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.EscalatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.EscalationApprovedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.EscalationApprovedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 

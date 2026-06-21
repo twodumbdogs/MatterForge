@@ -38,77 +38,95 @@ else
             <span asp-validation-for="LeadPartnerId" class="text-danger"></span>
         </div>
 
-        @foreach (var field in Model.Schema.Fields)
-        {
-            <div class="mb-3">
-                <label class="form-label" for="@field.Key">@field.Label@if (field.Required)
-                    {<span class="text-danger"> *</span>}</label>
-                @switch (field.Type)
+        <div class="mf-form-tab-shell" data-form-tabs data-form-conditions>
+            <div class="mf-form-tab-list" role="tablist" aria-label="Form sections">
+                @foreach (var formSection in Model.Schema.ResolvedSections)
                 {
-                    case CMIForge.Services.FieldType.TextArea:
-                        <textarea class="form-control" id="@field.Key" name="Fields[@field.Key]" rows="4" data-conflict-source>@Model.PostedValues.GetValueOrDefault(field.Key)</textarea>
-                        break;
-                    case CMIForge.Services.FieldType.Client:
-                        <input class="form-control" id="@field.Key" name="Fields[@field.Key]" list="client-options-@field.Key" value="@Model.PostedValues.GetValueOrDefault(field.Key)" placeholder="Pick an existing client or type a new name" data-conflict-source />
-                        <datalist id="client-options-@field.Key">
-                            @foreach (var client in Model.ClientSuggestions)
-                            {
-                                <option value="@client.Name">@client.DisplayLabel</option>
-                            }
-                        </datalist>
-                        <small class="text-muted">Choose an existing client name or enter a brand-new one.</small>
-                        break;
-                    case CMIForge.Services.FieldType.Address:
-                        var address = CMIForge.Services.FormAddressValue.Parse(Model.PostedValues.GetValueOrDefault(field.Key));
-                        <div class="mf-address-field-grid" data-address-lookup-group>
-                            <div class="col-span-8">
-                                <input class="form-control" id="@field.Key" name="Fields[@field.Key].AddressLine1" value="@address.AddressLine1" placeholder="Address line 1" autocomplete="street-address" data-address-lookup-input data-address-field="line1" />
-                            </div>
-                            <div class="col-span-4">
-                                <input class="form-control" name="Fields[@field.Key].AddressLine2" value="@address.AddressLine2" placeholder="Suite, floor, etc." data-address-field="line2" />
-                            </div>
-                            <div class="col-span-4">
-                                <input class="form-control" name="Fields[@field.Key].City" value="@address.City" placeholder="City" data-address-field="city" />
-                            </div>
-                            <div class="col-span-3">
-                                <input class="form-control" name="Fields[@field.Key].State" value="@address.State" placeholder="State" data-address-field="state" />
-                            </div>
-                            <div class="col-span-2">
-                                <input class="form-control" name="Fields[@field.Key].PostalCode" value="@address.PostalCode" placeholder="Postal code" data-address-field="postalCode" />
-                            </div>
-                            <div class="col-span-3">
-                                <input class="form-control" name="Fields[@field.Key].Country" value="@address.Country" placeholder="Country" data-address-field="country" />
-                            </div>
-                        </div>
-                        break;
-                    case CMIForge.Services.FieldType.Select:
-                        <select class="form-select" id="@field.Key" name="Fields[@field.Key]">
-                            <option value="">Choose...</option>
-                            @foreach (var option in field.Options)
-                            {
-                                <option value="@option" selected="@(Model.PostedValues.GetValueOrDefault(field.Key) == option)">@option</option>
-                            }
-                        </select>
-                        break;
-                    case CMIForge.Services.FieldType.Checkbox:
-                        <div class="form-check">
-                            <input class="form-check-input" id="@field.Key" name="Fields[@field.Key]" type="checkbox" value="true" checked="@(Model.PostedValues.GetValueOrDefault(field.Key) == "true")" />
-                            <label class="form-check-label" for="@field.Key">Yes</label>
-                        </div>
-                        break;
-                    case CMIForge.Services.FieldType.Date:
-                        <input class="form-control" id="@field.Key" name="Fields[@field.Key]" type="date" value="@Model.PostedValues.GetValueOrDefault(field.Key)" />
-                        break;
-                    case CMIForge.Services.FieldType.Currency:
-                    case CMIForge.Services.FieldType.Number:
-                        <input class="form-control" id="@field.Key" name="Fields[@field.Key]" type="number" step="0.01" value="@Model.PostedValues.GetValueOrDefault(field.Key)" />
-                        break;
-                    default:
-                        <input class="form-control" id="@field.Key" name="Fields[@field.Key]" value="@Model.PostedValues.GetValueOrDefault(field.Key)" data-conflict-source />
-                        break;
+                    <button class="mf-form-tab" type="button" role="tab" data-section-tab="@formSection.Key">@formSection.Label</button>
                 }
             </div>
-        }
+
+            @foreach (var formSection in Model.Schema.ResolvedSections)
+            {
+                <section class="mf-form-tab-panel" data-section-panel="@formSection.Key" role="tabpanel">
+                    <div class="mf-form-section-heading">
+                        <h2>@formSection.Label</h2>
+                    </div>
+                    @foreach (var field in Model.Schema.FieldsForSection(formSection.Key))
+                    {
+                        <div class="mb-3" data-form-field data-field-key="@field.Key" data-visible-field="@field.VisibleWhenFieldKey" data-visible-value="@field.VisibleWhenValue">
+                            <label class="form-label" for="@field.Key">@field.Label@if (field.Required)
+                                {<span class="text-danger"> *</span>}</label>
+                            @switch (field.Type)
+                            {
+                                case CMIForge.Services.FieldType.TextArea:
+                                    <textarea class="form-control" id="@field.Key" name="Fields[@field.Key]" rows="4" data-conflict-source data-field-input>@Model.PostedValues.GetValueOrDefault(field.Key)</textarea>
+                                    break;
+                                case CMIForge.Services.FieldType.Client:
+                                    <input class="form-control" id="@field.Key" name="Fields[@field.Key]" list="client-options-@field.Key" value="@Model.PostedValues.GetValueOrDefault(field.Key)" placeholder="Pick an existing client or type a new name" data-conflict-source data-field-input />
+                                    <datalist id="client-options-@field.Key">
+                                        @foreach (var client in Model.ClientSuggestions)
+                                        {
+                                            <option value="@client.Name">@client.DisplayLabel</option>
+                                        }
+                                    </datalist>
+                                    <small class="text-muted">Choose an existing client name or enter a brand-new one.</small>
+                                    break;
+                                case CMIForge.Services.FieldType.Address:
+                                    var address = CMIForge.Services.FormAddressValue.Parse(Model.PostedValues.GetValueOrDefault(field.Key));
+                                    <div class="mf-address-field-grid" data-address-lookup-group>
+                                        <div class="col-span-8">
+                                            <input class="form-control" id="@field.Key" name="Fields[@field.Key].AddressLine1" value="@address.AddressLine1" placeholder="Address line 1" autocomplete="street-address" data-address-lookup-input data-address-field="line1" data-field-input />
+                                        </div>
+                                        <div class="col-span-4">
+                                            <input class="form-control" name="Fields[@field.Key].AddressLine2" value="@address.AddressLine2" placeholder="Suite, floor, etc." data-address-field="line2" data-field-input />
+                                        </div>
+                                        <div class="col-span-4">
+                                            <input class="form-control" name="Fields[@field.Key].City" value="@address.City" placeholder="City" data-address-field="city" data-field-input />
+                                        </div>
+                                        <div class="col-span-3">
+                                            <input class="form-control" name="Fields[@field.Key].State" value="@address.State" placeholder="State" data-address-field="state" data-field-input />
+                                        </div>
+                                        <div class="col-span-2">
+                                            <input class="form-control" name="Fields[@field.Key].PostalCode" value="@address.PostalCode" placeholder="Postal code" data-address-field="postalCode" data-field-input />
+                                        </div>
+                                        <div class="col-span-3">
+                                            <input class="form-control" name="Fields[@field.Key].Country" value="@address.Country" placeholder="Country" data-address-field="country" data-field-input />
+                                        </div>
+                                    </div>
+                                    break;
+                                case CMIForge.Services.FieldType.Select:
+                                    <select class="form-select" id="@field.Key" name="Fields[@field.Key]" data-field-input>
+                                        <option value="">Choose...</option>
+                                        @foreach (var option in field.Options)
+                                        {
+                                            <option value="@option" selected="@(Model.PostedValues.GetValueOrDefault(field.Key) == option)">@option</option>
+                                        }
+                                    </select>
+                                    break;
+                                case CMIForge.Services.FieldType.Checkbox:
+                                    <div class="form-check">
+                                        <input type="hidden" name="Fields[@field.Key]" value="false" data-field-input />
+                                        <input class="form-check-input" id="@field.Key" name="Fields[@field.Key]" type="checkbox" value="true" checked="@(Model.PostedValues.GetValueOrDefault(field.Key) == "true")" data-field-input />
+                                        <label class="form-check-label" for="@field.Key">Yes</label>
+                                    </div>
+                                    break;
+                                case CMIForge.Services.FieldType.Date:
+                                    <input class="form-control" id="@field.Key" name="Fields[@field.Key]" type="date" value="@Model.PostedValues.GetValueOrDefault(field.Key)" data-field-input />
+                                    break;
+                                case CMIForge.Services.FieldType.Currency:
+                                case CMIForge.Services.FieldType.Number:
+                                    <input class="form-control" id="@field.Key" name="Fields[@field.Key]" type="number" step="0.01" value="@Model.PostedValues.GetValueOrDefault(field.Key)" data-field-input />
+                                    break;
+                                default:
+                                    <input class="form-control" id="@field.Key" name="Fields[@field.Key]" value="@Model.PostedValues.GetValueOrDefault(field.Key)" data-conflict-source data-field-input />
+                                    break;
+                            }
+                        </div>
+                    }
+                </section>
+            }
+        </div>
 
         <div class="d-flex gap-2">
             <button class="btn btn-primary" type="submit">Submit intake</button>
@@ -150,4 +168,5 @@ else
     {
         <script src="/js/conflict-preview.js"></script>
     }
+    <script src="~/js/form-tabs.js" asp-append-version="true"></script>
 }

@@ -18,6 +18,11 @@
     @Model.MatterLimit.Message
 </div>
 
+<div class="alert alert-info">
+    <strong>Direct entity creation:</strong> @Model.DirectCreateMessage
+    Move the matter to Open through the normal change-approval path when the review is complete.
+</div>
+
 @if (Model.ClientOptions.Count == 0)
 {
     <div class="alert alert-warning">
@@ -69,10 +74,10 @@ else
             <div class="col-md-4">
                 <label asp-for="Input.Status" class="form-label"></label>
                 <select asp-for="Input.Status" class="form-select">
-                    <option>Open</option>
-                    <option>Pending</option>
-                    <option>On Hold</option>
-                    <option>Closed</option>
+                    @foreach (var status in Model.StatusOptions)
+                    {
+                        <option value="@status">@status</option>
+                    }
                 </select>
             </div>
             <div class="col-md-4">

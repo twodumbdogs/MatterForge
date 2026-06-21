@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+@inject CMIForge.Services.TenantBrandingService TenantBranding
+@{
+    var tenantDisplayName = await TenantBranding.GetDisplayNameAsync();
+}
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - CMIForge</title>
+    <script type="importmap"></script>
+    <script>
+        (() => {
+            const storageKey = 'cmiforge.theme';
+            const savedTheme = localStorage.getItem(storageKey);
+            const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+            const theme = savedTheme === 'light' || savedTheme === 'dark'
+                ? savedTheme
+                : prefersDark ? 'dark' : 'light';
+
+            document.documentElement.dataset.bsTheme = theme;
+            document.documentElement.dataset.theme = theme;
+        })();
+    </script>
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/CMIForge.styles.css" asp-append-version="true" />
+    <link rel="icon" href="/img/cmiforge-mark.svg" type="image/svg+xml" />
+</head>
+<body class="mf-external-form-body">
+    <header class="mf-external-form-header">
+        <div class="container d-flex align-items-center justify-content-between">
+            <div class="navbar-brand mf-brand-lockup mb-0">
+                <img src="/img/cmiforge-mark.svg" alt="" class="mf-brand-mark" />
+                <span>@tenantDisplayName</span>
+            </div>
+            <span class="badge text-bg-primary">Secure Form</span>
+        </div>
+    </header>
+    <main class="container mf-external-form-shell">
+        @RenderBody()
+    </main>
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2026 - @CMIForge.Services.ProductInfo.DisplayVersion
+        </div>
+    </footer>
+
+    <script src="/lib/jquery/dist/jquery.min.js"></script>
+    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

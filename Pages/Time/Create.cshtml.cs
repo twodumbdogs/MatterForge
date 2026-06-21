@@ -29,6 +29,8 @@ public class CreateModel(
 
     public string SystemIncrementLabel { get; private set; } = TimeIncrementRules.Label(TimeIncrementRules.SixMinutes);
 
+    public int SystemIncrementMinutes { get; private set; } = TimeIncrementRules.SixMinutes;
+
     public async Task<IActionResult> OnGetAsync(Guid? matterId)
     {
         if (!await permissionService.HasAsync(PermissionKeys.TimeCreate))
@@ -192,7 +194,8 @@ public class CreateModel(
             .Select(x => new TimeTaskOption(x.Id, x.TimeCodeSetId, x.TimePhaseId, x.Code, x.Name))
             .ToListAsync();
 
-        SystemIncrementLabel = TimeIncrementRules.Label(await GetSystemIncrementAsync());
+        SystemIncrementMinutes = await GetSystemIncrementAsync();
+        SystemIncrementLabel = TimeIncrementRules.Label(SystemIncrementMinutes);
     }
 
     private async Task<int> ResolveIncrementAsync(Matter matter)

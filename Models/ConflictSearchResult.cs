@@ -48,6 +48,26 @@ public class ConflictSearchResult
 
     public DateTimeOffset? ClearedAt { get; set; }
 
+    public Guid? EscalatedToUserId { get; set; }
+
+    public CMIForgeUser? EscalatedToUser { get; set; }
+
+    public Guid? EscalatedByUserId { get; set; }
+
+    public CMIForgeUser? EscalatedByUser { get; set; }
+
+    public DateTimeOffset? EscalatedAt { get; set; }
+
+    public string EscalationNotes { get; set; } = string.Empty;
+
+    public DateTimeOffset? EscalationApprovedAt { get; set; }
+
+    public Guid? EscalationApprovedByUserId { get; set; }
+
+    public CMIForgeUser? EscalationApprovedByUser { get; set; }
+
+    public string EscalationApprovalNotes { get; set; } = string.Empty;
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 

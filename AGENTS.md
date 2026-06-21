@@ -21,7 +21,7 @@ This includes:
 - Running local build, migration, formatting, and verification commands.
 - Starting or restarting local dev servers when useful.
 - Running project deployment scripts.
-- Deploying to the known CMIForge Azure environments when the user's request implies deployment.
+- Deploying to the known CMIForge Azure environments after normal CMIForge changes unless Gabe explicitly says not to deploy.
 - Updating the relevant Markdown docs after meaningful product, architecture, or deployment changes.
 - Updating architecture/test-plan notes after significant same-day feature batches so future sessions can regain context quickly.
 
@@ -30,10 +30,12 @@ Default behavior should be:
 1. Inspect enough context to avoid guessing.
 2. Implement the requested change.
 3. Run the strongest reasonable verification for the scope.
-4. Deploy when Gabe asks for deployment or when the task clearly includes making the live app/site reflect the change.
+4. Deploy affected live CMIForge surfaces after changes unless Gabe explicitly says not to deploy.
 5. Summarize exactly what changed, what was verified, and whether anything remains.
 
 ## Deployment Defaults
+
+Gabe's standing preference is to deploy as we work. After code, UI, docs, or public-site changes, build/verify and deploy the affected live CMIForge surface unless Gabe explicitly says to skip deployment for that turn.
 
 Deployments are allowed without a separate confirmation prompt when they target the established CMIForge surfaces:
 
@@ -47,6 +49,8 @@ Use the existing deployment paths before inventing new ones:
 - Public demo app: `deploy/dev/deploy-dev.ps1`.
 - Customer 0 app: `deploy/customer0/deploy-customer0.ps1`.
 - Future customer tenant provisioning: `deploy/customer/provision-customer.ps1`.
+
+For app changes, deploy the public demo app and Customer 0 when the change affects shared app behavior. For public-site-only changes, deploy the marketing site. For documentation-only changes that ship with the app repo, run the normal build and app deploy path so the live environment and repo stay in step.
 
 After deployment, verify the live target when practical. For app changes, smoke the affected page or workflow. For public-site changes, verify the deployed page loads and the changed content appears.
 

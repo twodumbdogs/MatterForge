@@ -39,6 +39,12 @@ public class DetailsModel(
 
     public List<ConflictSearch> ConflictSearches { get; private set; } = [];
 
+    public List<AuditLog> AuditHistory { get; private set; } = [];
+
+    public InboundEmailMessage? InboundEmailSource { get; private set; }
+
+    public HashSet<string> EditableStepNames { get; private set; } = [];
+
     public bool CanConvert { get; private set; }
 
     public bool CanRunConflicts { get; private set; }
@@ -236,7 +242,16 @@ public class DetailsModel(
         Fields = ReadPostedValues(schema, Request.Form);
         ModelState.Clear();
 
-        foreach (var required in schema.Fields.Where(x => x.Required))
+        var editableStepNames = await GetEditableStepNamesAsync(submission.Id);
+        var existingValues = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(submission.DataJson, FormJson.Options)?
+            .ToDictionary(x => x.Key, x => SubmissionAnswerReader.FormatValue(x.Value)) ?? [];
+
+        foreach (var field in schema.Fields.Where(x => !FormFieldRules.IsEditableForWorkflowStep(x, editableStepNames)))
+        {
+            Fields[field.Key] = existingValues.GetValueOrDefault(field.Key, string.Empty);
+        }
+
+        foreach (var required in schema.Fields.Where(x => x.Required && FormFieldRules.IsVisible(x, Fields)))
         {
             if (!Fields.TryGetValue(required.Key, out var value) || string.IsNullOrWhiteSpace(value))
             {
@@ -253,7 +268,9 @@ public class DetailsModel(
 
         var answers = schema.Fields.ToDictionary<FormField, string, object?>(
             field => field.Key,
-            field => field.Type == FieldType.Checkbox
+            field => !FormFieldRules.IsVisible(field, Fields)
+                ? null
+                : field.Type == FieldType.Checkbox
                 ? Fields.TryGetValue(field.Key, out var checkboxValue) && checkboxValue.Equals("true", StringComparison.OrdinalIgnoreCase)
                 : Fields.GetValueOrDefault(field.Key));
 
@@ -549,6 +566,11 @@ public class DetailsModel(
             .Where(x => x.FormSubmissionId == id)
             .OrderBy(x => x.CreatedAt)
             .ToListAsync();
+        EditableStepNames = WorkflowTasks
+            .Where(x => x.Status == WorkflowStatuses.TaskOpen && x.WorkflowStep is not null)
+            .Select(x => x.WorkflowStep!.Name.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         WorkflowEvents = await db.SubmissionWorkflowEvents
             .Include(x => x.ActorUser)
@@ -568,17 +590,27 @@ public class DetailsModel(
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
 
+        AuditHistory = await auditLogService.ListForEntityAsync("Submission", id, 8);
+        InboundEmailSource = await db.InboundEmailMessages
+            .AsNoTracking()
+            .Include(x => x.Attachments)
+            .FirstOrDefaultAsync(x => x.FormSubmissionId == Submission.Id);
+
         Schema = FormJson.DeserializeSchema(Submission.FormVersion.SchemaJson);
+        ApplyLegacyDisplaySections(Schema);
         var values = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(Submission.DataJson, FormJson.Options) ?? [];
         EditValues = values.ToDictionary(x => x.Key, x => SubmissionAnswerReader.FormatValue(x.Value));
         var normalizedAnswers = SubmissionAnswerReader.Read(Submission.DataJson);
         SubmittedClientName = SubmissionAnswerReader.FirstValue(normalizedAnswers, "clientName", "client", "companyName");
         SubmittedMatterName = SubmissionAnswerReader.FirstValue(normalizedAnswers, "matterName", "matter");
 
+        var sectionsByKey = Schema.ResolvedSections.ToDictionary(x => x.Key, x => x.Label, StringComparer.OrdinalIgnoreCase);
         Answers = Schema.Fields
             .Select(field => new SubmissionAnswer(
                 field.Label,
-                values.TryGetValue(field.Key, out var value) ? SubmissionAnswerReader.FormatValue(value) : string.Empty))
+                values.TryGetValue(field.Key, out var value) ? SubmissionAnswerReader.FormatValue(value) : string.Empty,
+                string.IsNullOrWhiteSpace(field.SectionKey) ? FormSchema.DefaultSectionKey : field.SectionKey,
+                sectionsByKey.GetValueOrDefault(field.SectionKey, "General")))
             .ToList();
 
         CanEditReturned =
@@ -592,6 +624,68 @@ public class DetailsModel(
         CanStartWorkflow =
             (WorkflowInstances.Count == 0 || WorkflowInstances.All(x => x.Status == WorkflowStatuses.Cancelled)) &&
             await workflowService.CanStartAsync(Submission);
+    }
+
+    private static void ApplyLegacyDisplaySections(FormSchema schema)
+    {
+        var hasExplicitSections = schema.ResolvedSections.Count > 1 ||
+            schema.Fields.Any(field => !string.IsNullOrWhiteSpace(field.SectionKey) &&
+                !field.SectionKey.Equals(FormSchema.DefaultSectionKey, StringComparison.OrdinalIgnoreCase));
+        if (hasExplicitSections)
+        {
+            return;
+        }
+
+        var usedSections = new List<FormSection>();
+        foreach (var field in schema.Fields)
+        {
+            var section = ResolveLegacyDisplaySection(field);
+            field.SectionKey = section.Key;
+            if (!usedSections.Any(x => x.Key.Equals(section.Key, StringComparison.OrdinalIgnoreCase)))
+            {
+                usedSections.Add(section);
+            }
+        }
+
+        schema.Sections = usedSections.Count == 0
+            ? [new FormSection { Key = FormSchema.DefaultSectionKey, Label = "General" }]
+            : usedSections;
+    }
+
+    private static FormSection ResolveLegacyDisplaySection(FormField field)
+    {
+        var text = $"{field.Key} {field.Label}".ToLowerInvariant();
+        if (ContainsAny(text, "adverse", "affiliate", "counsel", "opposing", "parent", "party", "parties", "related", "relationship", "subsidiary"))
+        {
+            return new FormSection { Key = "related-parties", Label = "Related Parties" };
+        }
+
+        if (ContainsAny(text, "conflict", "clearance", "search"))
+        {
+            return new FormSection { Key = "conflicts-search", Label = "Conflicts Search" };
+        }
+
+        if (ContainsAny(text, "approval", "approve", "compliance", "kyc", "aml", "review", "risk", "source of funds", "source-of-funds", "terms"))
+        {
+            return new FormSection { Key = "compliance-review", Label = "Compliance Review" };
+        }
+
+        if (ContainsAny(text, "client", "company", "corporate", "dob", "birth", "registration", "trading", "organisation", "organization"))
+        {
+            return new FormSection { Key = "client-details", Label = "Client Details" };
+        }
+
+        if (ContainsAny(text, "matter", "practice", "fee", "summary", "scope", "instructions", "engagement"))
+        {
+            return new FormSection { Key = "matter-details", Label = "Matter Details" };
+        }
+
+        return new FormSection { Key = "review", Label = "Review" };
+    }
+
+    private static bool ContainsAny(string value, params string[] terms)
+    {
+        return terms.Any(value.Contains);
     }
 
     private async Task<bool> CanCancelSubmissionAsync(FormSubmission submission)
@@ -622,6 +716,19 @@ public class DetailsModel(
             field => field.Type == FieldType.Address
                 ? FormAddressValue.Compose(FormAddressValue.FromForm(form, field.Key))
                 : form[$"Fields[{field.Key}]"].LastOrDefault() ?? string.Empty);
+    }
+
+    private async Task<HashSet<string>> GetEditableStepNamesAsync(Guid submissionId)
+    {
+        return (await db.SubmissionWorkflowTasks
+                .AsNoTracking()
+                .Include(x => x.WorkflowStep)
+                .Where(x => x.FormSubmissionId == submissionId && x.WorkflowStep != null && x.Status == WorkflowStatuses.TaskOpen)
+                .Select(x => x.WorkflowStep!.Name)
+                .ToListAsync())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task<bool> CanAccessSubmissionAsync(FormSubmission submission)
@@ -684,4 +791,8 @@ public class DetailsModel(
     }
 }
 
-public record SubmissionAnswer(string Label, string Value);
+public record SubmissionAnswer(
+    string Label,
+    string Value,
+    string SectionKey = FormSchema.DefaultSectionKey,
+    string SectionLabel = "General");

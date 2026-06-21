@@ -13,7 +13,8 @@ public class DetailsModel(
     ConflictSearchService conflictSearchService,
     ConflictSearchArchiveService archiveService,
     CurrentUserService currentUserService,
-    PermissionService permissionService) : PageModel
+    PermissionService permissionService,
+    AuditLogService auditLogService) : PageModel
 {
     public ConflictSearch? Search { get; private set; }
 
@@ -27,6 +28,10 @@ public class DetailsModel(
 
     public bool CanRun { get; private set; }
 
+    public List<SelectListItem> UserOptions { get; private set; } = [];
+
+    public List<AuditLog> AuditHistory { get; private set; } = [];
+
     public SelectList DecisionOptions { get; } = new(ConflictSearchDecisions.All);
 
     public IReadOnlyList<string> ResultStatusOptions { get; } = ConflictSearchDecisions.All;
@@ -39,6 +44,15 @@ public class DetailsModel(
 
     [BindProperty]
     public string AdditionalSearchTerms { get; set; } = string.Empty;
+
+    [BindProperty]
+    public Guid EscalatedToUserId { get; set; }
+
+    [BindProperty]
+    public string EscalationNotes { get; set; } = string.Empty;
+
+    [BindProperty]
+    public string EscalationApprovalNotes { get; set; } = string.Empty;
 
     public async Task<IActionResult> OnGetAsync(Guid id)
     {
@@ -91,6 +105,100 @@ public class DetailsModel(
 
         var currentUser = await currentUserService.GetCurrentUserAsync();
         await conflictSearchService.ApplyResultClearanceAsync(selectedResultIds, bulkResultStatus, bulkResultNotes, currentUser?.Id);
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostBulkEscalateAsync(Guid id, List<Guid> selectedResultIds)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.ConflictsReview))
+        {
+            return Forbid();
+        }
+
+        if (selectedResultIds.Count == 0)
+        {
+            ModelState.AddModelError(string.Empty, "Select at least one result to escalate.");
+        }
+
+        var recipient = await db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == EscalatedToUserId && x.IsActive && !x.IsArchived);
+        if (recipient is null)
+        {
+            ModelState.AddModelError(nameof(EscalatedToUserId), "Choose an active user to escalate to.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await LoadSearchAsync(id);
+            return Page();
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        var escalatedResults = await conflictSearchService.EscalateResultsAsync(selectedResultIds, EscalatedToUserId, EscalationNotes, currentUser?.Id);
+        await LogEscalationAsync(id, escalatedResults, recipient!, EscalationNotes, currentUser?.Id);
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostResultEscalateAsync(Guid id, Guid resultId)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.ConflictsReview))
+        {
+            return Forbid();
+        }
+
+        var recipient = await db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == EscalatedToUserId && x.IsActive && !x.IsArchived);
+        if (recipient is null)
+        {
+            ModelState.AddModelError(nameof(EscalatedToUserId), "Choose an active user to escalate to.");
+            await LoadSearchAsync(id);
+            return Page();
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        var escalatedResults = await conflictSearchService.EscalateResultsAsync([resultId], EscalatedToUserId, EscalationNotes, currentUser?.Id);
+        await LogEscalationAsync(id, escalatedResults, recipient, EscalationNotes, currentUser?.Id);
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostApproveEscalationAsync(Guid id, Guid resultId)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.ConflictsReview))
+        {
+            return Forbid();
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        if (currentUser is null)
+        {
+            return Forbid();
+        }
+
+        var result = await conflictSearchService.ApproveEscalationAsync(resultId, EscalationApprovalNotes, currentUser.Id);
+        if (result is null)
+        {
+            ModelState.AddModelError(string.Empty, "Only the escalated reviewer can approve this result.");
+            await LoadSearchAsync(id);
+            return Page();
+        }
+
+        await auditLogService.LogAsync(
+            "ConflictResult.EscalationApproved",
+            "ConflictSearch",
+            id,
+            result.ConflictSearch is null ? null : RecordNumbers.ConflictSearch(result.ConflictSearch.SearchNumber),
+            $"Escalation approved for result '{result.MatchedName}'.",
+            new
+            {
+                ResultId = result.Id,
+                result.MatchedName,
+                result.SearchTerm,
+                ApprovedByUserId = currentUser.Id,
+                Notes = EscalationApprovalNotes?.Trim() ?? string.Empty
+            });
+
         return RedirectToPage(new { id });
     }
 
@@ -161,10 +269,26 @@ public class DetailsModel(
                 .ThenInclude(x => x.Client)
             .Include(x => x.Results)
                 .ThenInclude(x => x.ClearedByUser)
+            .Include(x => x.Results)
+                .ThenInclude(x => x.EscalatedToUser)
+            .Include(x => x.Results)
+                .ThenInclude(x => x.EscalatedByUser)
+            .Include(x => x.Results)
+                .ThenInclude(x => x.EscalationApprovedByUser)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (Search is not null)
         {
+            UserOptions = await db.Users
+                .AsNoTracking()
+                .Where(x => x.IsActive && !x.IsArchived)
+                .OrderBy(x => x.DisplayName)
+                .ThenBy(x => x.Email)
+                .Select(x => new SelectListItem(
+                    !string.IsNullOrWhiteSpace(x.DisplayName) ? x.DisplayName : x.Email,
+                    x.Id.ToString()))
+                .ToListAsync();
+            AuditHistory = await auditLogService.ListForEntityAsync("ConflictSearch", Search.Id, 12);
             Archive = await archiveService.GetArchiveAsync(Search.Id);
             if (Archive is not null)
             {
@@ -185,6 +309,47 @@ public class DetailsModel(
             Decision = Search.ReviewerDecision;
             ReviewNotes = Search.ReviewNotes;
         }
+    }
+
+    private async Task LogEscalationAsync(Guid searchId, IReadOnlyCollection<ConflictSearchResult> results, CMIForgeUser recipient, string notes, Guid? currentUserId)
+    {
+        if (results.Count == 0)
+        {
+            return;
+        }
+
+        var searchNumber = Search is null
+            ? await db.ConflictSearches
+                .AsNoTracking()
+                .Where(x => x.Id == searchId)
+                .Select(x => (int?)x.SearchNumber)
+                .FirstOrDefaultAsync()
+            : Search.SearchNumber;
+        var resultSummaries = results
+            .Select(x => new
+            {
+                x.Id,
+                x.MatchedName,
+                x.SearchTerm,
+                x.RiskLevel,
+                x.Score
+            })
+            .ToList();
+
+        await auditLogService.LogAsync(
+            "ConflictResult.Escalated",
+            "ConflictSearch",
+            searchId,
+            searchNumber.HasValue ? RecordNumbers.ConflictSearch(searchNumber.Value) : null,
+            $"{results.Count} conflict result(s) escalated to {recipient.DisplayName}.",
+            new
+            {
+                EscalatedToUserId = recipient.Id,
+                EscalatedToDisplayName = recipient.DisplayName,
+                EscalatedByUserId = currentUserId,
+                Notes = notes?.Trim() ?? string.Empty,
+                Results = resultSummaries
+            });
     }
 }
 
@@ -234,6 +399,20 @@ public sealed class ConflictResultDisplayItem
 
     public DateTimeOffset? ClearedAt { get; init; }
 
+    public string EscalatedToDisplayName { get; init; } = string.Empty;
+
+    public string EscalatedByDisplayName { get; init; } = string.Empty;
+
+    public DateTimeOffset? EscalatedAt { get; init; }
+
+    public string EscalationNotes { get; init; } = string.Empty;
+
+    public string EscalationApprovedByDisplayName { get; init; } = string.Empty;
+
+    public DateTimeOffset? EscalationApprovedAt { get; init; }
+
+    public string EscalationApprovalNotes { get; init; } = string.Empty;
+
     public static ConflictResultDisplayItem FromLive(ConflictSearchResult result)
     {
         return new ConflictResultDisplayItem
@@ -259,7 +438,14 @@ public sealed class ConflictResultDisplayItem
             ClearanceStatus = result.ClearanceStatus,
             ClearanceNotes = result.ClearanceNotes,
             ClearedByDisplayName = result.ClearedByUser?.DisplayName ?? "System",
-            ClearedAt = result.ClearedAt
+            ClearedAt = result.ClearedAt,
+            EscalatedToDisplayName = result.EscalatedToUser?.DisplayName ?? string.Empty,
+            EscalatedByDisplayName = result.EscalatedByUser?.DisplayName ?? string.Empty,
+            EscalatedAt = result.EscalatedAt,
+            EscalationNotes = result.EscalationNotes,
+            EscalationApprovedByDisplayName = result.EscalationApprovedByUser?.DisplayName ?? string.Empty,
+            EscalationApprovedAt = result.EscalationApprovedAt,
+            EscalationApprovalNotes = result.EscalationApprovalNotes
         };
     }
 

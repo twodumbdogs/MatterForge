@@ -69,11 +69,14 @@
                 <thead>
                     <tr>
                         <th>Order</th>
+                        <th>Section</th>
                         <th>Label</th>
                         <th>Key</th>
                         <th>Type</th>
                         <th>Required</th>
                         <th>Options</th>
+                        <th>Show if</th>
+                        <th>Editable step</th>
                     </tr>
                 </thead>
                 <tbody data-field-list>
@@ -85,6 +88,9 @@
                                     <span class="mf-grip-icon" aria-hidden="true"></span>
                                 </span>
                                 <button class="btn btn-outline-danger btn-sm" type="button" data-remove-field>Remove</button>
+                            </td>
+                            <td>
+                                <input class="form-control" asp-for="Input.Fields[i].Section" placeholder="Client" data-field-section />
                             </td>
                             <td>
                                 <input class="form-control" asp-for="Input.Fields[i].Label" data-field-label />
@@ -102,6 +108,15 @@
                                 <input class="form-control" asp-for="Input.Fields[i].Options" placeholder="Corporate, Litigation, Real Estate" />
                                 <span asp-validation-for="Input.Fields[i].Options" class="text-danger"></span>
                             </td>
+                            <td>
+                                <div class="mf-condition-pair">
+                                    <input class="form-control" asp-for="Input.Fields[i].VisibleWhenFieldKey" placeholder="Field key" />
+                                    <input class="form-control" asp-for="Input.Fields[i].VisibleWhenValue" placeholder="Value" />
+                                </div>
+                            </td>
+                            <td>
+                                <input class="form-control" asp-for="Input.Fields[i].EditableStepName" placeholder="Review" />
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -116,6 +131,7 @@
                     </span>
                     <button class="btn btn-outline-danger btn-sm" type="button" data-remove-field>Remove</button>
                 </td>
+                <td><input class="form-control" name="Input.Fields[__index__].Section" placeholder="General" data-field-section /></td>
                 <td><input class="form-control" name="Input.Fields[__index__].Label" data-field-label /></td>
                 <td><input class="form-control" name="Input.Fields[__index__].Key" data-field-key /></td>
                 <td>
@@ -131,6 +147,13 @@
                     <input class="form-check-input" name="Input.Fields[__index__].Required" type="checkbox" value="true" />
                 </td>
                 <td><input class="form-control" name="Input.Fields[__index__].Options" placeholder="Corporate, Litigation, Real Estate" /></td>
+                <td>
+                    <div class="mf-condition-pair">
+                        <input class="form-control" name="Input.Fields[__index__].VisibleWhenFieldKey" placeholder="Field key" />
+                        <input class="form-control" name="Input.Fields[__index__].VisibleWhenValue" placeholder="Value" />
+                    </div>
+                </td>
+                <td><input class="form-control" name="Input.Fields[__index__].EditableStepName" placeholder="Review" /></td>
             </tr>
         </template>
     </div>

@@ -23,9 +23,15 @@ param(
     [string]$Location = "centralus",
     [string]$PlanName = "cmiforge-customer0-plan",
     [string]$PlanSku = "B1",
+    [string]$MigrationWebAppName = "cmiforge-db-migrator",
+    [string]$MigrationIdentityName = "cmiforge-migrator-mi",
     [string]$SqlServerName = "gwmatterforge",
     [string]$SqlDatabaseSku = "Basic",
     [string]$StorageAccountName = "cmiforgeattachasgmt7",
+    [string]$VNetResourceGroup,
+    [string]$VNetName = "cmiforge-vnet",
+    [string]$VNetIntegrationSubnetName = "appsvc-integration",
+    [string]$KeyVaultName = "cmiforge-kv-gw",
     [string]$DnsZoneResourceGroup = "gw-rg",
     [string]$DnsZoneName = "cmiforge.com",
     [int]$DnsWaitSeconds = 120,
@@ -36,6 +42,11 @@ param(
     [string]$EmailFromEmail,
     [string]$EmailReplyToEmail,
     [string]$EmailFromName,
+    [bool]$InboundEmailEnabled = $false,
+    [string]$InboundEmailMailboxAddress,
+    [string]$InboundEmailAddress,
+    [string]$InboundEmailAllowedSenderDomains,
+    [string]$InboundEmailDefaultFormKey = "new-matter-intake",
     [string]$NotificationsGraphTenantId,
 
     [switch]$CreateInitialAdminUser,
@@ -65,10 +76,13 @@ param(
     [switch]$SkipRoleAssignments,
     [switch]$SkipPublish,
     [switch]$SkipDeploy,
+    [switch]$SkipVNetIntegration,
+    [switch]$SkipKeyVaultRoleAssignment,
     [switch]$SkipDns,
     [switch]$SkipHostnameBinding,
     [switch]$SkipManagedCertificate,
     [switch]$SkipEntraRedirectUri,
+    [switch]$AllowTemporarySqlPublicAccess,
     [switch]$WhatIfProvision
 )
 
@@ -114,6 +128,73 @@ function Invoke-Step {
     }
 
     & $Action
+}
+
+function Get-CurrentPublicIp {
+    try {
+        return (Invoke-RestMethod -Uri "https://api.ipify.org" -TimeoutSec 15).Trim()
+    }
+    catch {
+        throw "Could not determine the current public IP for temporary SQL firewall access. Re-run from an Azure/VNet path, or pass SkipDatabaseUpdate/SkipRoleAssignments when appropriate."
+    }
+}
+
+function Enable-TemporarySqlMaintenanceAccess {
+    if ($WhatIfProvision.IsPresent) {
+        return
+    }
+
+    $server = Invoke-AzJson sql server show --resource-group $ResourceGroup --name $SqlServerName
+    if (-not $server) {
+        throw "SQL server '$SqlServerName' was not found."
+    }
+
+    if ($server.publicNetworkAccess -eq "Disabled" -and -not $AllowTemporarySqlPublicAccess.IsPresent) {
+        throw "Azure SQL public network access is disabled for '$SqlServerName'. Run this provisioning from an Azure/VNet path, pass -AllowTemporarySqlPublicAccess for a temporary maintenance window, or skip local SQL data-plane steps with -SkipDatabaseUpdate and -SkipRoleAssignments."
+    }
+
+    if ($AllowTemporarySqlPublicAccess.IsPresent) {
+        if ($server.publicNetworkAccess -eq "Disabled") {
+            az sql server update `
+                --resource-group $ResourceGroup `
+                --name $SqlServerName `
+                --enable-public-network true `
+                --only-show-errors | Out-Null
+            $script:RestoreSqlPublicNetworkDisabled = $true
+        }
+
+        $ip = Get-CurrentPublicIp
+        az sql server firewall-rule create `
+            --resource-group $ResourceGroup `
+            --server $SqlServerName `
+            --name $script:TemporarySqlFirewallRuleName `
+            --start-ip-address $ip `
+            --end-ip-address $ip `
+            --only-show-errors | Out-Null
+        $script:RemoveTemporarySqlFirewallRule = $true
+    }
+}
+
+function Restore-TemporarySqlMaintenanceAccess {
+    if ($WhatIfProvision.IsPresent) {
+        return
+    }
+
+    if ($script:RemoveTemporarySqlFirewallRule) {
+        az sql server firewall-rule delete `
+            --resource-group $ResourceGroup `
+            --server $SqlServerName `
+            --name $script:TemporarySqlFirewallRuleName `
+            --only-show-errors 2>$null | Out-Null
+    }
+
+    if ($script:RestoreSqlPublicNetworkDisabled) {
+        az sql server update `
+            --resource-group $ResourceGroup `
+            --name $SqlServerName `
+            --enable-public-network false `
+            --only-show-errors | Out-Null
+    }
 }
 
 function Escape-SqlLiteral {
@@ -512,8 +593,20 @@ if ([string]::IsNullOrWhiteSpace($EmailFromName)) {
     $EmailFromName = $FirmName
 }
 
+if ([string]::IsNullOrWhiteSpace($InboundEmailMailboxAddress)) {
+    $InboundEmailMailboxAddress = $EmailMailboxAddress
+}
+
+if ([string]::IsNullOrWhiteSpace($InboundEmailAddress)) {
+    $InboundEmailAddress = $EmailFromEmail
+}
+
 if ([string]::IsNullOrWhiteSpace($NotificationsGraphTenantId)) {
     $NotificationsGraphTenantId = $EntraTenantId
+}
+
+if ([string]::IsNullOrWhiteSpace($VNetResourceGroup)) {
+    $VNetResourceGroup = $ResourceGroup
 }
 
 $Hostname = "$Subdomain.$DnsZoneName"
@@ -521,6 +614,9 @@ $AsuidRecordName = "asuid.$Subdomain"
 $appConnectionString = "Server=tcp:$SqlServerName.database.windows.net,1433;Initial Catalog=$SqlDatabaseName;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120;"
 $migrationConnectionString = "Server=tcp:$SqlServerName.database.windows.net,1433;Initial Catalog=$SqlDatabaseName;Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120;"
 $script:InitialAdminEmailPayload = $null
+$script:TemporarySqlFirewallRuleName = "cmiforge-provisioning-$Subdomain"
+$script:RemoveTemporarySqlFirewallRule = $false
+$script:RestoreSqlPublicNetworkDisabled = $false
 
 Require-Command "az"
 Require-Command "dotnet"
@@ -531,6 +627,11 @@ if (-not (Test-Path $deployScript)) {
     throw "Could not find deploy script at '$deployScript'."
 }
 
+$migrationRunnerScript = Join-Path $projectRoot "deploy\migrations\run-tenant-migrations.ps1"
+if (-not (Test-Path $migrationRunnerScript)) {
+    throw "Could not find migration runner script at '$migrationRunnerScript'."
+}
+
 Write-Host ""
 Write-Host "CMIForge customer provisioning" -ForegroundColor Green
 Write-Host "Firm: $FirmName"
@@ -539,8 +640,10 @@ Write-Host "Hostname: https://$Hostname"
 Write-Host "Web app: $WebAppName"
 Write-Host "SQL database: $SqlDatabaseName"
 Write-Host "Blob container: $StorageContainerName"
+Write-Host "VNet integration: $VNetName/$VNetIntegrationSubnetName"
 Write-Host "Email from/reply-to: $EmailFromEmail"
 Write-Host "Email mailbox anchor: $EmailMailboxAddress"
+Write-Host "Inbound email address: $InboundEmailAddress"
 Write-Host ""
 
 try {
@@ -572,25 +675,32 @@ try {
 
     if (-not $SkipStorageContainerCreate.IsPresent) {
         Invoke-Step "Ensuring private blob container '$StorageContainerName' exists..." {
-            az storage container create `
-                --account-name $StorageAccountName `
+            az storage container-rm create `
+                --resource-group $ResourceGroup `
+                --storage-account $StorageAccountName `
                 --name $StorageContainerName `
-                --auth-mode login `
                 --public-access off `
                 --only-show-errors | Out-Null
         }
     }
 
     if (-not $SkipDatabaseUpdate.IsPresent) {
-        Invoke-Step "Applying EF migrations to '$SqlDatabaseName'..." {
-            Push-Location $projectRoot
-            try {
-                dotnet tool restore | Out-Null
-                dotnet tool run dotnet-ef database update --configuration Release --connection $migrationConnectionString
-            }
-            finally {
-                Pop-Location
-            }
+        Invoke-Step "Applying EF migrations to '$SqlDatabaseName' with the dedicated migrator..." {
+            & $migrationRunnerScript `
+                -ResourceGroup $ResourceGroup `
+                -Location $Location `
+                -PlanName $PlanName `
+                -PlanSku $PlanSku `
+                -MigrationWebAppName $MigrationWebAppName `
+                -MigrationIdentityName $MigrationIdentityName `
+                -SqlServerName $SqlServerName `
+                -SqlDatabaseName $SqlDatabaseName `
+                -VNetResourceGroup $VNetResourceGroup `
+                -VNetName $VNetName `
+                -VNetIntegrationSubnetName $VNetIntegrationSubnetName `
+                -EnsureSqlUser `
+                -AllowTemporarySqlPublicAccess:$AllowTemporarySqlPublicAccess `
+                -SeedCoreData
         }
     }
 
@@ -599,6 +709,8 @@ try {
             if (-not (Get-Command Invoke-Sqlcmd -ErrorAction SilentlyContinue)) {
                 throw "Invoke-Sqlcmd is required for CreateInitialAdminUser because the script must create the CMIForge user row."
             }
+
+            Enable-TemporarySqlMaintenanceAccess
 
             $adminUserName = if ([string]::IsNullOrWhiteSpace($InitialAdminUserName)) {
                 Normalize-AdminUserName "$Subdomain.admin"
@@ -767,9 +879,18 @@ END
             -EmailFromEmail $EmailFromEmail `
             -EmailReplyToEmail $EmailReplyToEmail `
             -EmailFromName $EmailFromName `
+            -InboundEmailEnabled $InboundEmailEnabled `
+            -InboundEmailMailboxAddress $InboundEmailMailboxAddress `
+            -InboundEmailAddress $InboundEmailAddress `
+            -InboundEmailAllowedSenderDomains $InboundEmailAllowedSenderDomains `
+            -InboundEmailDefaultFormKey $InboundEmailDefaultFormKey `
             -NotificationsGraphEnabled $true `
             -NotificationsGraphTenantId $NotificationsGraphTenantId `
+            -VNetResourceGroup $VNetResourceGroup `
+            -VNetName $VNetName `
+            -VNetIntegrationSubnetName $VNetIntegrationSubnetName `
             -AssignManagedIdentity:($AssignManagedIdentity -or -not $SkipRoleAssignments) `
+            -SkipVNetIntegration:$SkipVNetIntegration `
             -SkipPublish:$SkipPublish `
             -SkipDeploy:$SkipDeploy
     }
@@ -918,6 +1039,7 @@ END
             }
 
             if (Get-Command Invoke-Sqlcmd -ErrorAction SilentlyContinue) {
+                Enable-TemporarySqlMaintenanceAccess
                 $escapedWebAppName = Escape-SqlLiteral $WebAppName
                 $webAppSqlIdentifier = Escape-SqlIdentifier $WebAppName
                 $grantSql = @"
@@ -955,6 +1077,25 @@ END
                 Write-Host "Invoke-Sqlcmd is not installed, so SQL managed-identity grants were not applied automatically." -ForegroundColor Yellow
             }
 
+            if (-not $SkipKeyVaultRoleAssignment.IsPresent -and -not [string]::IsNullOrWhiteSpace($KeyVaultName)) {
+                $keyVault = Invoke-AzJson keyvault show --resource-group $ResourceGroup --name $KeyVaultName
+                if ($keyVault) {
+                    $keyVaultScope = $keyVault.id
+                    $existingKeyVaultRole = Invoke-AzJson role assignment list `
+                        --assignee $principalId `
+                        --scope $keyVaultScope `
+                        --role "Key Vault Secrets User"
+                    if (-not $existingKeyVaultRole -or $existingKeyVaultRole.Count -eq 0) {
+                        az role assignment create `
+                            --assignee-object-id $principalId `
+                            --assignee-principal-type ServicePrincipal `
+                            --role "Key Vault Secrets User" `
+                            --scope $keyVaultScope `
+                            --only-show-errors | Out-Null
+                    }
+                }
+            }
+
             az webapp restart --resource-group $ResourceGroup --name $WebAppName --only-show-errors | Out-Null
         }
     }
@@ -990,4 +1131,7 @@ catch {
     Write-Host ""
     Write-Host "Provisioning failed: $message" -ForegroundColor Red
     throw
+}
+finally {
+    Restore-TemporarySqlMaintenanceAccess
 }

@@ -19,6 +19,10 @@ public class EditModel(
 
     public Client? Client { get; private set; }
 
+    public string[] StatusOptions => EntityComplianceService.ClientStatusOptions;
+
+    public bool IsOpeningFromComplianceReview { get; private set; }
+
     public async Task<IActionResult> OnGetAsync(Guid id)
     {
         if (!await permissionService.HasAsync(PermissionKeys.EntitiesEdit))
@@ -56,6 +60,16 @@ public class EditModel(
 
         var current = EntityChangeService.ToSnapshot(Client);
         var proposed = Input.ToSnapshot();
+        IsOpeningFromComplianceReview = EntityComplianceService.MovesFromReviewToCompliant(
+            EntityChangeService.ClientEntityType,
+            current.Status,
+            proposed.Status);
+        if (IsOpeningFromComplianceReview && string.IsNullOrWhiteSpace(Input.RequestNotes))
+        {
+            ModelState.AddModelError("Input.RequestNotes", "Add the compliance/checks note that supports moving this client to Active.");
+            return Page();
+        }
+
         var summary = EntityChangeService.Summarize(current, proposed);
         if (summary.StartsWith("No field changes", StringComparison.OrdinalIgnoreCase))
         {
@@ -96,7 +110,7 @@ public class ClientEditInput
     [Required]
     public string Name { get; set; } = string.Empty;
 
-    public string Status { get; set; } = "Active";
+    public string Status { get; set; } = EntityComplianceService.ReviewStatus;
 
     [Display(Name = "Primary contact")]
     public string? PrimaryContact { get; set; }

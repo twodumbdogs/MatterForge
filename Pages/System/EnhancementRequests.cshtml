@@ -8,7 +8,7 @@
     <div>
         <p class="mf-eyebrow">System</p>
         <h1>Enhancement Requests</h1>
-        <p class="text-muted">Submit product ideas and track what has already been sent.</p>
+        <p class="text-muted">Submit product ideas, see the firm queue, and support the ideas you want most.</p>
     </div>
 </div>
 
@@ -64,7 +64,7 @@
 </section>
 
 <section class="mf-panel">
-    <h2>@(Model.CanManageRequests ? "Request Queue" : "My Requests")</h2>
+    <h2>@(Model.CanManageRequests ? "Firm Request Queue" : "Firm Requests")</h2>
     @if (Model.Requests.Count == 0)
     {
         <p class="text-muted mb-0">No enhancement requests yet.</p>
@@ -75,6 +75,7 @@
             <table class="table align-middle">
                 <thead>
                     <tr>
+                        <th>Support</th>
                         <th>Request</th>
                         <th>Area</th>
                         <th>Priority</th>
@@ -90,7 +91,17 @@
                 <tbody>
                     @foreach (var request in Model.Requests)
                     {
+                        var voted = Model.CurrentUserVoted(request);
                         <tr>
+                            <td class="text-nowrap">
+                                <form method="post" asp-page-handler="Vote">
+                                    <input type="hidden" name="id" value="@request.Id" />
+                                    <button class="btn btn-sm @(voted ? "btn-primary" : "btn-outline-primary")" type="submit">
+                                        @(voted ? "Supported" : "Support")
+                                    </button>
+                                </form>
+                                <small class="d-block text-muted mt-1">@request.Votes.Count vote@(request.Votes.Count == 1 ? "" : "s")</small>
+                            </td>
                             <td>
                                 <strong>@request.Title</strong>
                                 <small class="d-block text-muted">@request.Description</small>

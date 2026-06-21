@@ -112,17 +112,10 @@ public partial class CreateModel(
         var schema = new FormSchema
         {
             Title = Input.Name.Trim(),
-            Fields = fields.Select(x => new FormField
-            {
-                Label = x.Label!.Trim(),
-                Key = x.Key!.Trim(),
-                Type = x.Type,
-                Required = x.Required,
-                Options = (x.Options ?? string.Empty)
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .ToList()
-            }).ToList()
+            Sections = BuildSections(fields),
+            Fields = fields.Select(x => BuildFormField(x)).ToList()
         };
+        schema.Normalize();
 
         var form = new FormDefinition
         {
@@ -153,6 +146,38 @@ public partial class CreateModel(
             new { FieldCount = schema.Fields.Count, WorkflowDefinitionId = Input.WorkflowDefinitionId });
 
         return RedirectToPage("./Submit", new { id = form.Id });
+    }
+
+    private static List<FormSection> BuildSections(IEnumerable<CreateFieldInput> fields)
+    {
+        return fields
+            .Select(x => string.IsNullOrWhiteSpace(x.Section) ? "General" : x.Section.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(x => new FormSection
+            {
+                Key = FormSection.KeyFromLabel(x),
+                Label = x
+            })
+            .ToList();
+    }
+
+    private static FormField BuildFormField(CreateFieldInput input)
+    {
+        var sectionLabel = string.IsNullOrWhiteSpace(input.Section) ? "General" : input.Section.Trim();
+        return new FormField
+        {
+            SectionKey = FormSection.KeyFromLabel(sectionLabel),
+            Label = input.Label!.Trim(),
+            Key = input.Key!.Trim(),
+            Type = input.Type,
+            Required = input.Required,
+            Options = (input.Options ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList(),
+            VisibleWhenFieldKey = input.VisibleWhenFieldKey?.Trim() ?? string.Empty,
+            VisibleWhenValue = input.VisibleWhenValue?.Trim() ?? string.Empty,
+            EditableStepName = input.EditableStepName?.Trim() ?? string.Empty
+        };
     }
 
     [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$")]
@@ -198,10 +223,10 @@ public class CreateFormInput
             Fields =
             [
                 new() { Label = "Client name", Key = "clientName", Type = FieldType.Client, Required = true },
-                new() { Label = "Matter name", Key = "matterName", Type = FieldType.Text, Required = true },
-                new() { Label = "Practice area", Key = "practiceArea", Type = FieldType.Select, Required = true, Options = "Corporate, Litigation, Real Estate" },
-                new() { Label = "Estimated fees", Key = "estimatedFees", Type = FieldType.Currency },
-                new() { Label = "Matter summary", Key = "summary", Type = FieldType.TextArea, Required = true },
+                new() { Section = "Matter", Label = "Matter name", Key = "matterName", Type = FieldType.Text, Required = true },
+                new() { Section = "Matter", Label = "Practice area", Key = "practiceArea", Type = FieldType.Select, Required = true, Options = "Corporate, Litigation, Real Estate" },
+                new() { Section = "Matter", Label = "Estimated fees", Key = "estimatedFees", Type = FieldType.Currency },
+                new() { Section = "Review", Label = "Matter summary", Key = "summary", Type = FieldType.TextArea, Required = true },
                 new(),
                 new(),
                 new()
@@ -212,6 +237,8 @@ public class CreateFormInput
 
 public class CreateFieldInput
 {
+    public string? Section { get; set; } = "Client";
+
     public string? Label { get; set; }
 
     public string? Key { get; set; }
@@ -221,4 +248,10 @@ public class CreateFieldInput
     public bool Required { get; set; }
 
     public string? Options { get; set; }
+
+    public string? VisibleWhenFieldKey { get; set; }
+
+    public string? VisibleWhenValue { get; set; }
+
+    public string? EditableStepName { get; set; }
 }

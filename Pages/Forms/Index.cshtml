@@ -28,6 +28,7 @@
                         <th>Versions</th>
                         <th>Workflow</th>
                         <th>Submissions</th>
+                        <th>Client links</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -51,9 +52,20 @@
                                 @(latestVersion?.WorkflowDefinition?.Name ?? "None")
                             </td>
                             <td>@Model.SubmissionCounts.GetValueOrDefault(form.Id)</td>
+                            <td>
+                                @{
+                                    var inviteCounts = Model.InviteCounts.GetValueOrDefault(form.Id);
+                                }
+                                <span class="badge text-bg-primary">@(inviteCounts?.Open ?? 0) open</span>
+                                <span class="badge text-bg-success">@(inviteCounts?.Completed ?? 0) done</span>
+                            </td>
                             <td class="text-end">
                                 <a class="btn btn-sm btn-outline-secondary" asp-page="./Edit" asp-route-id="@form.Id">Edit</a>
-                                <a class="btn btn-sm btn-outline-primary" asp-page="./Submit" asp-route-id="@form.Id">Fill</a>
+                                @if (Model.CanSubmitForms)
+                                {
+                                    <a class="btn btn-sm btn-outline-primary" asp-page="./Submit" asp-route-id="@form.Id">Fill</a>
+                                    <a class="btn btn-sm btn-primary" asp-page="./Send" asp-route-id="@form.Id">Send</a>
+                                }
                             </td>
                         </tr>
                     }

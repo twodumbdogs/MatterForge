@@ -60,14 +60,19 @@ public partial class EditModel(
         }
 
         var schema = FormJson.DeserializeSchema(latestVersion.SchemaJson);
+        var sectionsByKey = schema.ResolvedSections.ToDictionary(x => x.Key, x => x.Label, StringComparer.OrdinalIgnoreCase);
         var existingFields = schema.Fields
             .Select(x => new EditFieldInput
             {
+                Section = sectionsByKey.GetValueOrDefault(x.SectionKey, "General"),
                 Label = x.Label,
                 Key = x.Key,
                 Type = x.Type,
                 Required = x.Required,
-                Options = string.Join(", ", x.Options)
+                Options = string.Join(", ", x.Options),
+                VisibleWhenFieldKey = x.VisibleWhenFieldKey,
+                VisibleWhenValue = x.VisibleWhenValue,
+                EditableStepName = x.EditableStepName
             })
             .ToList();
         var blankRows = Math.Min(
@@ -179,17 +184,10 @@ public partial class EditModel(
         var schema = new FormSchema
         {
             Title = Input.Name.Trim(),
-            Fields = fields.Select(x => new FormField
-            {
-                Label = x.Label!.Trim(),
-                Key = x.Key!.Trim(),
-                Type = x.Type,
-                Required = x.Required,
-                Options = (x.Options ?? string.Empty)
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .ToList()
-            }).ToList()
+            Sections = BuildSections(fields),
+            Fields = fields.Select(x => BuildFormField(x)).ToList()
         };
+        schema.Normalize();
 
         form.Name = Input.Name.Trim();
         form.Key = Input.Key.Trim();
@@ -216,6 +214,38 @@ public partial class EditModel(
             new { VersionNumber = nextVersion, FieldCount = schema.Fields.Count, WorkflowDefinitionId = Input.WorkflowDefinitionId });
 
         return RedirectToPage("./Index");
+    }
+
+    private static List<FormSection> BuildSections(IEnumerable<EditFieldInput> fields)
+    {
+        return fields
+            .Select(x => string.IsNullOrWhiteSpace(x.Section) ? "General" : x.Section.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(x => new FormSection
+            {
+                Key = FormSection.KeyFromLabel(x),
+                Label = x
+            })
+            .ToList();
+    }
+
+    private static FormField BuildFormField(EditFieldInput input)
+    {
+        var sectionLabel = string.IsNullOrWhiteSpace(input.Section) ? "General" : input.Section.Trim();
+        return new FormField
+        {
+            SectionKey = FormSection.KeyFromLabel(sectionLabel),
+            Label = input.Label!.Trim(),
+            Key = input.Key!.Trim(),
+            Type = input.Type,
+            Required = input.Required,
+            Options = (input.Options ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList(),
+            VisibleWhenFieldKey = input.VisibleWhenFieldKey?.Trim() ?? string.Empty,
+            VisibleWhenValue = input.VisibleWhenValue?.Trim() ?? string.Empty,
+            EditableStepName = input.EditableStepName?.Trim() ?? string.Empty
+        };
     }
 
     [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$")]
@@ -257,6 +287,8 @@ public class EditFormInput
 
 public class EditFieldInput
 {
+    public string? Section { get; set; } = "General";
+
     public string? Label { get; set; }
 
     public string? Key { get; set; }
@@ -266,4 +298,10 @@ public class EditFieldInput
     public bool Required { get; set; }
 
     public string? Options { get; set; }
+
+    public string? VisibleWhenFieldKey { get; set; }
+
+    public string? VisibleWhenValue { get; set; }
+
+    public string? EditableStepName { get; set; }
 }

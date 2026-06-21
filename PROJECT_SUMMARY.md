@@ -2,7 +2,7 @@
 
 CMIForge is a homegrown ASP.NET Core Razor Pages prototype for configurable legal intake, entity management, workflow automation, and conflict searches. The long-term idea is a law-firm intake/workflow platform in the spirit of tools like Intapp Open, but built in focused slices so the data model and user experience can grow together.
 
-Current version: `20260619.1`.
+Current version: `20260620.7`.
 
 ## Original Direction
 
@@ -33,6 +33,43 @@ We deliberately did not over-engineer hosting first. The app still runs locally 
 - Bootstrap-style UI with custom CMIForge styling
 - Local development URL: `http://localhost:5153`
 
+## 2026-06-20 Nightly Wrap-Up
+
+This pass brought the repo docs current with the latest app behavior and Gabe's preferred working loop.
+
+Recorded operating rule:
+
+- Gabe wants Codex to deploy as it works on CMIForge. Unless Gabe explicitly says not to deploy, the expected loop is implement, build/verify, deploy affected live surfaces, and smoke-check the live URLs.
+- Shared app behavior should generally be deployed to both `https://demo.cmiforge.com` and `https://app.cmiforge.com`; public-site-only changes go to `https://cmiforge.com`.
+- Schema-changing work should deploy code and database together. Code/UI/docs-only work can skip migrations, but should still deploy the affected surface.
+
+Latest product/docs state:
+
+- The Help page now includes a user-facing explanation of conflict search term handling, including punctuation cleanup, suffix trimming, aliases, matter context, related parties, prior-history matching, and match-strength examples.
+- Conflict matching was tuned so acronym-style values such as `A.A.W.` normalize to useful initials without creating strong matches against unrelated single-letter containment.
+- Conflict normalization now treats `and` like the ampersand connector, and phrase containment is token-boundary based so names like `Elm & Vine` can match `Elm and Vine Capital` without reopening loose substring matches.
+- Clients, parties, and conflicts lists have been compacted into cleaner one-line rows.
+- Enhancement requests now act as a tenant-local firm queue. All signed-in users in a firm can see active requests and add/remove one support vote per request; admins still own status triage and internal notes.
+- Client aliases are now first-class records. They can be captured on client creation, edited/deleted from client details, shown on the client list, and searched by conflict checks. Party aliases are now editable/deletable from party details.
+- Entity detail screens are now more consistent. Clients show matters, contacts, and related parties; matters show time entries, parties, and contacts in the side rail; contacts show client links, matter links, and related parties; parties show matter roles, related contacts, and party relationships.
+- Direct-created clients, matters, and parties now default to `Compliance Review` instead of looking fully reviewed on creation. Create/detail/edit screens explain the direct-create path, and approving a client move to `Active` or matter move to `Open` writes a dedicated `EntityComplianceReviewed` audit entry.
+- Published forms can now be sent to saved contacts through secure, expiring external intake links. The invite token is generated once and only its hash is stored, the external page uses a minimal client-safe layout, completed links create normal `FormSubmissions`, and the invite queues through `EmailOutboxMessages` when tenant mail is configured or falls back to a copyable link when it is not.
+- Inbound email intake now has a V1 processing lane. Tenant settings control the Graph mailbox anchor, tenant inbound address, allowed sender domains, and default intake form. Trusted unread mailbox messages with `Client:` and optional `Matter:` subject segments create normal reviewable submissions, copy supported attachments into the private submission attachment store, record the source email, and write audit history. Blank or omitted `Matter:` is intentionally allowed so conversion can create/link only the client.
+- Customer 0 startup recovered after demo conflict reference parties were kept behind the sample-data seed switch. `CMIForge:SeedSampleData=false` should seed core production structure without public-demo filler data.
+- Production schema changes now run through the dedicated migrator lane: `cmiforge-migrator-mi` plus the stopped-when-idle `cmiforge-db-migrator` triggered WebJob host, using `CMIForge.Migrator` and `deploy/migrations/run-tenant-migrations.ps1`.
+- The near-term security direction is a "Fort Knox but practical" posture: managed identity first, Key Vault for secrets, private blob containers, least-privilege SQL and Graph grants, audit logging, Defender/alerting, backup/retention policy, and private networking as the customer risk profile justifies the spend.
+
+Private-networking hardening was implemented after that planning note:
+
+- Created shared VNet `cmiforge-vnet` in `gw-rg` / Central US.
+- Added App Service integration subnet `appsvc-integration` (`10.42.1.0/26`) and private endpoint subnet `private-endpoints` (`10.42.2.0/27`).
+- Added private endpoints and private DNS for Azure SQL `gwmatterforge`, Blob storage `cmiforgeattachasgmt7`, and Key Vault `cmiforge-kv-gw`.
+- Integrated both `cmiforge-dev-web-06161223` and `cmiforge-customer0-web` with the VNet.
+- Disabled public network access on SQL server `gwmatterforge`.
+- Disabled public network access on storage account `cmiforgeattachasgmt7` and set storage network default action to `Deny`.
+- Left Key Vault public network access enabled for now because secrets have not yet been moved into Key Vault and operator data-plane access still needs a clean private path.
+- Updated the repeatable customer provisioning path so new tenant App Services can be VNet-integrated automatically, tenant attachment containers are created through ARM rather than blocked storage data-plane calls, tenant identities can receive Key Vault Secrets User, and EF schema updates run through the VNet-integrated migration WebJob instead of live web-app startup.
+
 ## 2026-06-19 Session Update
 
 This session was a broad product-hardening pass across UX, conflicts, tenant onboarding, legal acceptance, deployment, and agent behavior.
@@ -54,6 +91,7 @@ Implemented product changes now reflected in the app:
 - Live conflict preview can be turned on/off from System Settings.
 - Form editing caps forms at 50 fields and supports friendlier reorder controls.
 - Form-builder reorder controls use icon/handle-style affordances instead of wordy buttons.
+- Forms list rows show open/completed client invite counts, and each published form has a `Send` action for creating a saved-contact external intake link.
 - Cancelled submissions behave more like archived records: hidden from daily lists, visible from System Archive, and restorable.
 - Submission list/detail work now shows linked client and matter context earlier and more visibly.
 - Address autocomplete is wired through Geoapify-backed address lookup where static address fields exist.
@@ -115,6 +153,13 @@ Current Azure resources:
 - Attachment storage account: `cmiforgeattachasgmt7`
 - Attachment container: `submission-attachments`
 - Customer 0 attachment container: `customer0-attachments`
+- Shared private-networking VNet: `cmiforge-vnet`
+- App Service VNet integration subnet: `appsvc-integration`
+- Private endpoint subnet: `private-endpoints`
+- Private endpoints: `pe-cmiforge-sql`, `pe-cmiforge-blob`, `pe-cmiforge-keyvault`
+- Shared Key Vault landing zone: `cmiforge-kv-gw`
+- Dedicated migration identity: `cmiforge-migrator-mi`
+- Dedicated migration WebJob host: `cmiforge-db-migrator`
 - Static Web App: `cmiforge-web-06161219`
 - Future Function App/API resource: `cmiforge-api-06161219`
 - Azure DNS zone: `cmiforge.com`
@@ -193,6 +238,8 @@ The reusable v1 customer provisioning command now lives at:
 
 For a requested `firm.cmiforge.com` workspace, the command validates the subdomain, creates the customer database and private attachment container, deploys/configures the App Service app, creates the Azure DNS CNAME and `asuid` TXT verification record, binds the hostname, creates/binds an App Service managed certificate, adds Entra redirect URIs, applies migrations, enables core seed startup, grants managed identity access where possible, and can mark the signup request `Provisioning`, `Ready`, or `Failed`.
 
+The command now defaults new tenant app environments into the shared private-networking slice by passing `cmiforge-vnet/appsvc-integration` through `deployme.ps1`. Since SQL and storage public access are disabled, EF migrations run through `deploy/migrations/run-tenant-migrations.ps1`, which deploys/runs the `CMIForge.Migrator` triggered WebJob under `cmiforge-migrator-mi`. The current operator scripts still support an explicit `-AllowTemporarySqlPublicAccess` switch for controlled one-time SQL grant/admin maintenance, then restore SQL public access to disabled during cleanup.
+
 The command can also create the initial Entra admin user, create the matching CMIForge user as `00000001`, assign the Administrator role, generate a temporary password, and email that password to the admin after the tenant hostname is ready.
 
 The app now supports `CMIForge:BootstrapAdminEmail`. When Microsoft Entra login is enabled and demo mode is off, a matching authenticated user is activated if needed and granted the seeded `Administrator` role. This prevents a fresh tenant from being easy to lock yourself out of.
@@ -202,6 +249,7 @@ Startup seeding is now split between core platform seed data and sample/demo see
 - `CMIForge:RunSeedDataOnStartup=true` allows startup seed execution.
 - `CMIForge:SeedSampleData=false` seeds core platform structure without public-demo filler data.
 - `CMIForge:SeedSampleData=true` keeps local/demo-style sample data available when needed.
+- Demo conflict reference parties are sample data. They should stay behind `CMIForge:SeedSampleData=true` so Customer 0 and future real tenants do not pick up public-demo search fixtures during startup.
 
 The near-term tenant model is database-per-customer. That is simpler for support, backup/restore, customer export/delete, and early legal-data isolation. A future subscription flow can queue a provisioning job that creates the customer database, attachment container, app settings, Entra configuration, seed data, and first admin.
 
@@ -262,6 +310,7 @@ The Help page covers:
 - Clients, matters, contacts, parties, and users
 - Entity note threads and archive/unarchive behavior
 - Conflicts search behavior, prior-history matching, and result-level clearance
+- Conflict search term handling with examples for aliases, punctuation, suffixes, matter context, related parties, prior search history, and why match strength is not the same thing as legal risk
 - Floating live conflict preview during submission entry
 - CSV imports and validation mode
 - Client photo OCR import drafting
@@ -293,7 +342,7 @@ dotnet tool run dotnet-ef database update
 dotnet run --urls http://localhost:5153
 ```
 
-The current Azure SQL databases have the full entity, workflow, conflicts, import, attachment, time/reporting, audit-log, archive/index, enhancement-request, and legal-agreement migration chain applied through `AddLegalAgreementAcceptances`.
+The current Azure SQL databases have the full entity, workflow, conflicts, import, attachment, time/reporting, audit-log, archive/index, enhancement-request, legal-agreement, conflict-result-escalation, enhancement-request-vote, and client-alias migration chain applied through `AddEnhancementVotesAndClientAliases`.
 
 ## Plan Limiter
 
@@ -342,6 +391,9 @@ Current capabilities:
 - Create forms in the app.
 - Edit forms in the app.
 - Define fields with labels, keys, types, required flags, and select options.
+- Group fields into named sections that render as tabs on intake and submission screens.
+- Add first-pass display conditions so a field can appear only when another field has a matching answer.
+- Mark fields as editable only during a named workflow step, giving returned submissions a simple read-only/editable rule without a full rules engine.
 - Publish an initial version.
 - Publish a new version when editing an existing form.
 - Attach a workflow definition to a published form version.
@@ -357,6 +409,8 @@ Important behavior:
 - Options are only required for field types that actually use options.
 - Select-style fields remain static-option driven for now.
 - Table-backed user picker fields are intentionally deferred.
+- Display conditions are intentionally simple in v1: field key plus matching value, with boolean-style values normalized for common `true` inputs.
+- Workflow-step editability is also intentionally simple in v1: a field is editable on returned submissions when its configured step name is currently open.
 - Workflow attachment remains feature-gated in code, but the current Community and Professional packaging includes workflow.
 
 ## Submissions
@@ -375,8 +429,9 @@ Submission details now include:
 
 - Stable numeric submission number
 - Status display
-- Workflow outcome buttons for current open tasks
-- Submitted answer display
+- Submission Workspace tabs for submitted form sections, linked conflict searches, and attachments
+- Legacy submission details infer display-only sections when the historical form-version schema only contains the old single `General` section
+- Sticky right-side activity/audit rail with submitter context, current workflow actions, compact workflow tasks, workflow history, recent audit events, and attachment summaries
 - `Create Client/Matter` conversion action after approval
 - Links to the created client and matter after conversion
 
@@ -451,6 +506,7 @@ Clients have:
 - Stable numeric client number
 - Display format like `00000001`
 - Name
+- Aliases for DBA names, prior names, abbreviations, and alternate spellings
 - Status
 - Primary contact
 - Email
@@ -460,7 +516,11 @@ Clients have:
 
 Client numbers start at `00000001` and increment upward.
 
-Client list and detail pages link to related matters.
+Client list and detail pages link to related matters, contacts, and parties connected through the client's matters.
+
+Client aliases can be added during client creation and edited or deleted later from client details by users with entity edit rights. The client list shows the alias count, alias text is searchable, and conflict searches score client aliases directly so DBA/prior-name checks do not depend only on client-party sync.
+
+Direct-created clients default to `Compliance Review`. Moving a client from `Compliance Review` to `Active` requires change-request notes and, when approved, logs both the normal change approval and a dedicated compliance-reviewed audit entry.
 
 ### Matters
 
@@ -481,9 +541,9 @@ Matter numbers start at `00000001` and increment upward.
 
 Matter detail pages link back to the client record.
 
-Matter detail pages also show linked parties and their roles.
+Matter detail pages use the same detail/child layout as other entity screens. Core matter facts stay on the left, while time entries, linked parties, and linked contacts appear in the right-side related-record rail.
 
-Matter detail pages also show linked contacts and their matter-specific roles.
+Direct-created matters default to `Compliance Review`. Moving a matter from `Compliance Review` to `Open` requires change-request notes and, when approved, logs both the normal change approval and a dedicated compliance-reviewed audit entry.
 
 ### Contacts
 
@@ -505,6 +565,8 @@ Contacts have:
 
 Contacts are for people who belong in the firm's operational address book but should not necessarily log into CMIForge.
 
+Contact detail pages show linked clients, linked matters, and related parties connected through those matter links.
+
 ### Parties
 
 Parties are first-class searchable conflict entities.
@@ -523,6 +585,12 @@ Parties have:
 - Party-to-party relationships
 
 Party aliases support alternate spellings, DBAs, former names, abbreviations, and other names that should match in a conflict search.
+
+Party aliases can be edited or deleted from party details by users with entity edit rights. Alias changes are normalized for searching and written to the audit log.
+
+Party detail pages show matter roles, related contacts connected through those matters, and direct party-to-party relationships.
+
+Direct-created parties default to `Compliance Review` and show detail-page guidance until conflicts/compliance checks have been completed. A full party status-change approval path is still a later hardening item.
 
 Matter-party roles currently include:
 
@@ -606,6 +674,7 @@ Current conflicts capabilities:
 - `Conflicts` top navigation item.
 - Conflict search list page.
 - Conflict search create/run page.
+- Conflict search create and re-run forms show a staged progress bar while the synchronous server search completes.
 - Conflict search detail page.
 - Reviewer decision capture.
 - Conflict searches can be linked to submissions.
@@ -617,6 +686,7 @@ Current conflicts capabilities:
 - Live conflict preview can be enabled/disabled through `Conflicts.LivePreviewEnabled` in System Settings.
 - Results can be filtered by clearance status, role/match context, and risk level.
 - Results can be selected in bulk for row-level clearance updates.
+- Results can be escalated individually or in bulk to another active firm user for approval, with escalation notes, assigned reviewer approval notes, and audit log entries on the conflict search.
 - Cleared search history remains searchable through the archive/index design.
 - Existing clients/matters are synced into parties during startup seeding.
 - New converted clients/matters sync into parties during conversion.
@@ -638,6 +708,7 @@ Current search behavior:
 - Removes punctuation and common corporate suffixes such as LLC, Inc, Corp, LLP, Ltd, and similar.
 - Searches party names.
 - Searches party aliases.
+- Searches client names and client aliases.
 - Expands matches through party relationships.
 - Includes matter/client context when a party is linked to matters.
 - Searches prior conflict search names, terms, review notes, and AI summaries.
@@ -651,6 +722,7 @@ Current search behavior:
 - Produces risk labels: Low, Medium, High, Critical.
 - Produces per-result explanations.
 - Tracks per-result clearance status, notes, reviewer, and timestamp.
+- Tracks per-result escalation assignee, escalation notes, approval notes, and approval timestamps.
 
 Current AI behavior:
 
@@ -667,7 +739,7 @@ Conflict reviewer decisions:
 - Conflict
 - Needs Info
 
-Conflict decisions can be captured at the overall search level or on individual result rows. Row-level decisions roll up into the search status when the results collectively indicate clear, needs-info, potential-conflict, or conflict outcomes.
+Conflict decisions can be captured at the overall search level or on individual result rows. Row-level decisions roll up into the search status when the results collectively indicate clear, needs-info, potential-conflict, or conflict outcomes. Result rows can also be escalated to another active user for approval; the escalation does not overwrite clearance status, but records who escalated it, who it was assigned to, notes, approval notes, timestamps, and audit log history.
 
 Conflict search pages live at:
 
@@ -796,7 +868,7 @@ Also verified in the running app:
 - Clients, matters, contacts, and users list/detail pages load.
 - User edit saves successfully.
 - Users show first/last name columns.
-- Dashboard shows tenant branding, counts, charts, workflow load, conflict mix, and plan usage meters.
+- Dashboard shows tenant branding, role-oriented dashboard views, counts, charts, workflow load, conflict mix, and plan usage meters.
 - Plan page shows Community, Professional, and Enterprise tiers.
 - Parties show seeded conflict-test records.
 - A rich conflict search against `Stark Stone`, `Globex Bio Systems`, and `Mina Caldera` produced multiple Critical/Medium hits with AI assist and relationship expansion.
@@ -822,12 +894,15 @@ The dashboard now acts as a quick operational cockpit rather than a plain counte
 Current dashboard capabilities:
 
 - Tenant-branded header using the configured firm/customer display name.
+- Dashboard selector with Firm Admin, My Work, and Matter Partner views.
 - Top-level counts for forms, submissions, published versions, and recorded hours.
 - Submission-status donut chart.
 - Conflict-status donut chart.
 - Open workflow task bars grouped by workflow step.
 - Last-14-days submission trend bars.
 - Plan usage meters for users, matters, and clients.
+- My Work view for assigned tasks, team queue counts, personal submissions, personal time, and conflict escalations assigned to the signed-in user.
+- Matter Partner view for lead partner matters, submitted time awaiting approval, pending conflict results, and partner-related submissions.
 
 ## Workflow Slice
 
@@ -844,6 +919,7 @@ Current workflow capabilities:
 - Workflow steps can be assigned to a CMIForge user.
 - Workflow steps can be assigned to a team queue.
 - Form submissions automatically start the workflow attached to their form version.
+- External client form completions create normal form submissions and then start the attached workflow the same way internal submissions do.
 - Workflow instances create open workflow tasks.
 - Workflow tasks carry user and/or team assignment.
 - The Workflow queue has `My Queue`, `Team Queue`, and admin-only `All Open` views.
@@ -861,6 +937,8 @@ Current workflow capabilities:
 - Notification steps continue automatically to the next matching step after sending or logging the notification event.
 - If SMTP is disabled or incomplete, the notification step records a skipped/failed workflow event instead of blocking workflow progress.
 - Workflow events preserve history on the submission.
+- Submission detail pages expose a workflow rail so reviewers can see open actions and recent workflow history next to the intake data.
+- Returned-submission editing respects field-level workflow-step edit rules; fields outside the active step stay read-only and are preserved server-side even if a browser posts a changed value.
 - New submissions for the starter intake form automatically start the seeded workflow.
 - Older unconverted submissions can still start workflow from the submission detail page when no instance exists.
 - Existing open workflow tasks are refreshed from their step assignment during startup seeding.
@@ -918,6 +996,9 @@ Current security capabilities:
 - The main navigation hides form/workflow/entity/security areas when the current user lacks permission.
 - Designer/admin pages also enforce server-side permission checks.
 - Workflow queue task actions verify that the current user is allowed to act on the task.
+- `System.ImpersonateUsers` lets authorized admins temporarily view CMIForge as another active user for support, workflow-routing, dashboard, and approval testing.
+- Impersonation is session-based, shows a visible banner, can be stopped from the banner or Security area, and writes start/stop actions to the audit log.
+- Audit logging keeps the actual signed-in user as the actor and includes the impersonated/effective user in audit details while impersonation is active.
 
 Current seeded teams:
 
@@ -1056,6 +1137,16 @@ CMIForge now has the first low-cost SaaS hardening pass:
 - `AuditLogs` records admin/destructive activity such as user edits, team/role changes, workflow/form designer changes, submission status changes, conversion, and attachment activity.
 - Visible timestamps now render through the user's browser timezone when available, falling back to the configured default timezone.
 
+The next infrastructure-hardening path should prioritize:
+
+- Moving app secrets and Graph credentials into Key Vault or managed identity patterns instead of long-lived app settings.
+- Keeping every tenant on private Blob containers with downloads mediated by app authorization.
+- Using least-privilege SQL users/roles and narrowly scoped Microsoft Graph application access.
+- Keeping live web app identities out of schema ownership; EF schema changes belong to the dedicated migrator identity/WebJob.
+- Enabling Defender for Cloud / Defender for Storage / Defender for SQL alerts as cost allows.
+- Adding explicit backup, restore, retention, and customer export/delete runbooks before onboarding outside customers.
+- Private endpoints/VNet integration are now in place for SQL, Blob, and Key Vault. The next step is moving secrets into Key Vault references and deciding whether future tenants share this private endpoint set or get dedicated storage/account boundaries.
+
 ## System Settings Slice
 
 CMIForge now has a first-pass `System -> Settings` area for admin-editable operational configuration.
@@ -1076,6 +1167,8 @@ Initial seeded settings include:
 - Support email
 - Default timezone fallback
 - Email notifications enabled flag
+- Inbound email intake enabled flag
+- Inbound mailbox anchor, tenant inbound address, allowed sender domains, default form key, and mark-as-read behavior
 - SMTP host
 - SMTP port
 - SMTP SSL/TLS flag

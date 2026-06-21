@@ -39,6 +39,7 @@
                         <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "status")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="status" asp-route-sortDirection="@Model.NextSortDirection("status")">Status</a></th>
                         <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "primary")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="primary" asp-route-sortDirection="@Model.NextSortDirection("primary")">Primary contact</a></th>
                         <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "email")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="email" asp-route-sortDirection="@Model.NextSortDirection("email")">Email</a></th>
+                        <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "aliases")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="aliases" asp-route-sortDirection="@Model.NextSortDirection("aliases")">Aliases</a></th>
                         <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "matters")"><a asp-route-pageNumber="1" asp-route-search="@Model.Search" asp-route-sortColumn="matters" asp-route-sortDirection="@Model.NextSortDirection("matters")">Matters</a></th>
                     </tr>
                 </thead>
@@ -51,6 +52,7 @@
                             <td><span class="badge text-bg-success">@client.Status</span></td>
                             <td>@client.PrimaryContact</td>
                             <td>@client.Email</td>
+                            <td>@client.Aliases.Count</td>
                             <td>@client.Matters.Count</td>
                         </tr>
                     }

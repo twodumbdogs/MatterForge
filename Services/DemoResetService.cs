@@ -42,6 +42,7 @@ public class DemoResetService(
                 await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
                 var deletedRows = 0;
+                deletedRows += await db.InboundEmailAttachments.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await DeleteAttachmentsAsync(db, cancellationToken);
                 deletedRows += await db.AuditLogs.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.TimeEntries.ExecuteDeleteAsync(cancellationToken);
@@ -52,6 +53,9 @@ public class DemoResetService(
                 deletedRows += await db.SubmissionWorkflowEvents.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.SubmissionWorkflowTasks.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.SubmissionWorkflowInstances.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.EmailOutboxMessages.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.ExternalFormInvites.ExecuteDeleteAsync(cancellationToken);
+                deletedRows += await db.InboundEmailMessages.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.FormSubmissions.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.MatterParties.ExecuteDeleteAsync(cancellationToken);
                 deletedRows += await db.MatterContacts.ExecuteDeleteAsync(cancellationToken);

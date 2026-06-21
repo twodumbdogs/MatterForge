@@ -37,6 +37,13 @@ else
 
     <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
+    @if (CMIForge.Services.EntityComplianceService.IsReviewStatus(Model.Client.Status))
+    {
+        <div class="alert alert-warning">
+            This client was created directly and is still in Compliance Review. Complete conflicts/compliance checks, then submit a change request to move it to Active.
+        </div>
+    }
+
     <div class="row g-4">
         <div class="col-lg-5">
             <div class="mf-panel">
@@ -73,8 +80,97 @@ else
                     <dd class="col-sm-7">@Model.Client.Notes</dd>
                 </dl>
             </div>
+
+            <div class="mf-panel mt-3">
+                <h2>Add Alias</h2>
+                @if (Model.CanEditEntities)
+                {
+                    <form method="post" asp-page-handler="Alias" asp-route-id="@Model.Client.Id" class="row g-2 mt-2">
+                        <div class="col-12">
+                            <input asp-for="AliasInput.Alias" class="form-control" placeholder="DBA, prior name, or alternate spelling" />
+                            <span asp-validation-for="AliasInput.Alias" class="text-danger"></span>
+                        </div>
+                        <div class="col-12">
+                            <input asp-for="AliasInput.Notes" class="form-control" placeholder="Notes" />
+                            <span asp-validation-for="AliasInput.Notes" class="text-danger"></span>
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-sm btn-primary" type="submit">Add alias</button>
+                        </div>
+                    </form>
+                }
+                else
+                {
+                    <p class="text-muted mt-2 mb-0">Alias maintenance requires entity edit access.</p>
+                }
+            </div>
         </div>
         <div class="col-lg-7">
+            <div class="mf-panel mb-3">
+                <h2>Aliases</h2>
+                @if (Model.Client.Aliases.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No aliases yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Alias</th>
+                                    <th>Normalized</th>
+                                    <th>Notes</th>
+                                    @if (Model.CanEditEntities)
+                                    {
+                                        <th></th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var alias in Model.Client.Aliases.OrderBy(x => x.Alias))
+                                {
+                                    <tr>
+                                        @if (Model.CanEditEntities)
+                                        {
+                                            <td colspan="4">
+                                                <form method="post" asp-page-handler="UpdateAlias" asp-route-id="@Model.Client.Id" class="row g-2 align-items-start">
+                                                    <input type="hidden" name="AliasEditInput.Id" value="@alias.Id" />
+                                                    <div class="col-md-4">
+                                                        <input class="form-control form-control-sm" name="AliasEditInput.Alias" value="@alias.Alias" />
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <code>@alias.NormalizedAlias</code>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <input class="form-control form-control-sm" name="AliasEditInput.Notes" value="@alias.Notes" />
+                                                    </div>
+                                                    <div class="col-md-2 d-flex gap-2">
+                                                        <button class="btn btn-sm btn-primary" type="submit">Save</button>
+                                                        <button class="btn btn-sm btn-outline-danger"
+                                                                type="submit"
+                                                                formmethod="post"
+                                                                formaction="@Url.Page("./Details", "DeleteAlias", new { id = Model.Client.Id, aliasId = alias.Id })">
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </td>
+                                        }
+                                        else
+                                        {
+                                            <td>@alias.Alias</td>
+                                            <td><code>@alias.NormalizedAlias</code></td>
+                                            <td>@alias.Notes</td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
             <div class="mf-panel">
                 <h2>Matters</h2>
                 @if (Model.Client.Matters.Count == 0)
@@ -143,6 +239,38 @@ else
                                         <td>@link.Role</td>
                                         <td>@(link.IsPrimary ? "Yes" : "No")</td>
                                         <td>@link.Contact?.Email</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <div class="mf-panel mt-3">
+                <h2>Related Parties</h2>
+                @if (Model.RelatedParties.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No parties are linked through this client's matters yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Party</th>
+                                    <th>Matter</th>
+                                    <th>Role</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var party in Model.RelatedParties)
+                                {
+                                    <tr>
+                                        <td><a asp-page="/Entities/Parties/Details" asp-route-id="@party.PartyId">@party.PartyNumber.ToString("D8") - @party.PartyName</a></td>
+                                        <td><a asp-page="/Entities/Matters/Details" asp-route-id="@party.MatterId">@party.MatterNumber.ToString("D8") - @party.MatterName</a></td>
+                                        <td>@party.Role</td>
                                     </tr>
                                 }
                             </tbody>

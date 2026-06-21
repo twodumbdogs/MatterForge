@@ -23,6 +23,11 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         "holdings", "holding", "group"
     };
 
+    private static readonly HashSet<string> ConnectorWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "and"
+    };
+
     public static string NormalizeName(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -30,7 +35,11 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             return string.Empty;
         }
 
-        var decomposed = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var prepared = value.Trim()
+            .Replace("&", " and ", StringComparison.Ordinal)
+            .Replace("+", " and ", StringComparison.Ordinal);
+
+        var decomposed = prepared.ToLowerInvariant().Normalize(NormalizationForm.FormD);
         var chars = decomposed
             .Where(x => CharUnicodeInfo.GetUnicodeCategory(x) != UnicodeCategory.NonSpacingMark)
             .Select(x => char.IsLetterOrDigit(x) ? x : ' ')
@@ -96,7 +105,8 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         search.ArchivedAt = null;
         search.UpdatedAt = DateTimeOffset.UtcNow;
 
-        if (search.Id != Guid.Empty)
+        var searchEntry = db.Entry(search);
+        if (search.Id != Guid.Empty && searchEntry.State != EntityState.Added && searchEntry.State != EntityState.Detached)
         {
             DetachTrackedResults(search.Id);
             search.Results.Clear();
@@ -119,6 +129,17 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             .AsNoTracking()
             .Include(x => x.FromParty)
             .Include(x => x.ToParty)
+            .ToListAsync();
+        var clients = await db.Clients
+            .AsNoTracking()
+            .Include(x => x.Aliases)
+            .Include(x => x.Matters)
+            .OrderBy(x => x.ClientNumber)
+            .ToListAsync();
+        var matters = await db.Matters
+            .AsNoTracking()
+            .Include(x => x.Client)
+            .OrderBy(x => x.MatterNumber)
             .ToListAsync();
 
         var results = new Dictionary<string, ConflictSearchResult>();
@@ -166,6 +187,28 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
                         "Relationship expansion",
                         relationship.RelationshipType);
                 }
+            }
+
+            foreach (var client in clients)
+            {
+                var bestClient = BestClientMatch(term, normalizedTerm, client);
+                if (bestClient.Score < 45)
+                {
+                    continue;
+                }
+
+                AddClientResults(results, search.Id, term, client, bestClient.Score, bestClient.MatchedName, bestClient.MatchedOn, bestClient.MatchType);
+            }
+
+            foreach (var matter in matters)
+            {
+                var bestMatter = BestMatterMatch(term, normalizedTerm, matter);
+                if (bestMatter.Score < 45)
+                {
+                    continue;
+                }
+
+                AddMatterResult(results, search.Id, term, matter, bestMatter.Score, bestMatter.MatchedName, bestMatter.MatchedOn, bestMatter.MatchType);
             }
         }
 
@@ -381,6 +424,73 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         await db.SaveChangesAsync();
     }
 
+    public async Task<List<ConflictSearchResult>> EscalateResultsAsync(IEnumerable<Guid> resultIds, Guid escalatedToUserId, string notes, Guid? escalatedByUserId)
+    {
+        var ids = resultIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var results = await db.ConflictSearchResults
+            .Include(x => x.ConflictSearch)
+            .Include(x => x.EscalatedToUser)
+            .Where(x => ids.Contains(x.Id))
+            .ToListAsync();
+        if (results.Count == 0)
+        {
+            return [];
+        }
+
+        var trimmedNotes = notes?.Trim() ?? string.Empty;
+        var now = DateTimeOffset.UtcNow;
+        foreach (var result in results)
+        {
+            result.EscalatedToUserId = escalatedToUserId;
+            result.EscalatedByUserId = escalatedByUserId;
+            result.EscalatedAt = now;
+            result.EscalationNotes = trimmedNotes;
+            result.EscalationApprovedAt = null;
+            result.EscalationApprovedByUserId = null;
+            result.EscalationApprovalNotes = string.Empty;
+        }
+
+        foreach (var searchId in results.Select(x => x.ConflictSearchId).Distinct())
+        {
+            var search = await db.ConflictSearches.FirstOrDefaultAsync(x => x.Id == searchId);
+            if (search is not null)
+            {
+                search.UpdatedAt = now;
+            }
+        }
+
+        await db.SaveChangesAsync();
+        return results;
+    }
+
+    public async Task<ConflictSearchResult?> ApproveEscalationAsync(Guid resultId, string notes, Guid approvedByUserId)
+    {
+        var result = await db.ConflictSearchResults
+            .Include(x => x.ConflictSearch)
+            .Include(x => x.EscalatedToUser)
+            .FirstOrDefaultAsync(x => x.Id == resultId);
+        if (result is null || result.EscalatedToUserId != approvedByUserId)
+        {
+            return null;
+        }
+
+        result.EscalationApprovedByUserId = approvedByUserId;
+        result.EscalationApprovedAt = DateTimeOffset.UtcNow;
+        result.EscalationApprovalNotes = notes?.Trim() ?? string.Empty;
+        if (result.ConflictSearch is not null)
+        {
+            result.ConflictSearch.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+        return result;
+    }
+
     public async Task RerunSearchAsync(ConflictSearch search, string? additionalTerms)
     {
         var existingTerms = SplitSearchTerms(search.SearchTerms);
@@ -534,6 +644,24 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             ScoreCandidate(term, normalizedTerm, alias.Alias, alias.NormalizedAlias, "Alias", "Alias match")));
 
         return candidates.OrderByDescending(x => x.Score).First();
+    }
+
+    private static ConflictCandidate BestClientMatch(string term, string normalizedTerm, Client client)
+    {
+        var candidates = new List<ConflictCandidate>
+        {
+            ScoreCandidate(term, normalizedTerm, client.Name, NormalizeName(client.Name), "Client name", "Name match")
+        };
+
+        candidates.AddRange(client.Aliases.Select(alias =>
+            ScoreCandidate(term, normalizedTerm, alias.Alias, alias.NormalizedAlias, "Client alias", "Alias match")));
+
+        return candidates.OrderByDescending(x => x.Score).First();
+    }
+
+    private static ConflictCandidate BestMatterMatch(string term, string normalizedTerm, Matter matter)
+    {
+        return ScoreCandidate(term, normalizedTerm, matter.Name, NormalizeName(matter.Name), "Matter name", "Name match");
     }
 
     private async Task AddHistoricalResultsAsync(
@@ -763,6 +891,25 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             return 0;
         }
 
+        var directScore = CalculateScoreCore(normalizedTerm, normalizedCandidate);
+        var connectorInsensitiveTerm = RemoveConnectorWords(normalizedTerm);
+        var connectorInsensitiveCandidate = RemoveConnectorWords(normalizedCandidate);
+
+        if (connectorInsensitiveTerm == normalizedTerm && connectorInsensitiveCandidate == normalizedCandidate)
+        {
+            return directScore;
+        }
+
+        return Math.Max(directScore, CalculateScoreCore(connectorInsensitiveTerm, connectorInsensitiveCandidate));
+    }
+
+    private static int CalculateScoreCore(string normalizedTerm, string normalizedCandidate)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTerm) || string.IsNullOrWhiteSpace(normalizedCandidate))
+        {
+            return 0;
+        }
+
         if (normalizedTerm == normalizedCandidate)
         {
             return 100;
@@ -790,10 +937,18 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         return Math.Clamp(score, 0, 99);
     }
 
+    private static string RemoveConnectorWords(string value)
+    {
+        return string.Join(' ', SplitNormalizedTokens(value).Where(x => !ConnectorWords.Contains(x)));
+    }
+
     private static bool IsPhraseContainment(string normalizedTerm, string normalizedCandidate)
     {
-        return normalizedCandidate.Contains(normalizedTerm, StringComparison.OrdinalIgnoreCase) ||
-            normalizedTerm.Contains(normalizedCandidate, StringComparison.OrdinalIgnoreCase);
+        var termTokens = SplitNormalizedTokens(normalizedTerm);
+        var candidateTokens = SplitNormalizedTokens(normalizedCandidate);
+
+        return ContainsTokenPhrase(candidateTokens, termTokens) ||
+            ContainsTokenPhrase(termTokens, candidateTokens);
     }
 
     private static bool CanUsePhraseContainment(string normalizedTerm, string normalizedCandidate)
@@ -806,6 +961,41 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
     private static int CompactLength(string value)
     {
         return value.Count(char.IsLetterOrDigit);
+    }
+
+    private static List<string> SplitNormalizedTokens(string value)
+    {
+        return value
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+    }
+
+    private static bool ContainsTokenPhrase(IReadOnlyList<string> haystack, IReadOnlyList<string> needle)
+    {
+        if (needle.Count == 0 || haystack.Count < needle.Count)
+        {
+            return false;
+        }
+
+        for (var start = 0; start <= haystack.Count - needle.Count; start++)
+        {
+            var matches = true;
+            for (var offset = 0; offset < needle.Count; offset++)
+            {
+                if (!haystack[start + offset].Equals(needle[offset], StringComparison.OrdinalIgnoreCase))
+                {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if (matches)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static double TrigramSimilarity(string left, string right)
@@ -911,6 +1101,73 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
                 Score = score
             });
         }
+    }
+
+    private static void AddClientResults(
+        Dictionary<string, ConflictSearchResult> results,
+        Guid conflictSearchId,
+        string searchTerm,
+        Client client,
+        int score,
+        string matchedName,
+        string matchedOn,
+        string matchType)
+    {
+        if (client.Matters.Count == 0)
+        {
+            AddOrUpgradeResult(results, new ConflictSearchResult
+            {
+                ConflictSearchId = conflictSearchId,
+                ClientId = client.Id,
+                SearchTerm = searchTerm,
+                MatchedName = matchedName,
+                MatchedOn = matchedOn,
+                MatchType = matchType,
+                PartyRole = "Client",
+                Score = score
+            });
+            return;
+        }
+
+        foreach (var matter in client.Matters)
+        {
+            AddOrUpgradeResult(results, new ConflictSearchResult
+            {
+                ConflictSearchId = conflictSearchId,
+                MatterId = matter.Id,
+                ClientId = client.Id,
+                SearchTerm = searchTerm,
+                MatchedName = matchedName,
+                MatchedOn = matchedOn,
+                MatchType = matchType,
+                PartyRole = "Client",
+                Score = score
+            });
+        }
+    }
+
+    private static void AddMatterResult(
+        Dictionary<string, ConflictSearchResult> results,
+        Guid conflictSearchId,
+        string searchTerm,
+        Matter matter,
+        int score,
+        string matchedName,
+        string matchedOn,
+        string matchType)
+    {
+        AddOrUpgradeResult(results, new ConflictSearchResult
+        {
+            ConflictSearchId = conflictSearchId,
+            MatterId = matter.Id,
+            ClientId = matter.ClientId,
+            SearchTerm = searchTerm,
+            MatchedName = matchedName,
+            MatchedOn = matchedOn,
+            MatchType = matchType,
+            PartyRole = "Matter",
+            Score = score
+        });
     }
 
     private static void AddOrUpgradeResult(Dictionary<string, ConflictSearchResult> results, ConflictSearchResult result)

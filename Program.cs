@@ -22,11 +22,21 @@ builder.Services.AddRazorPages(options =>
         options.Conventions.AllowAnonymousToPage("/Account/AccessDenied");
         options.Conventions.AllowAnonymousToPage("/Signup");
         options.Conventions.AllowAnonymousToPage("/System/Terms");
+        options.Conventions.AllowAnonymousToFolder("/External");
     }
 
     options.Conventions.ConfigureFilter(new ServiceFilterAttribute(typeof(DemoModePageFilter)));
 });
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.IdleTimeout = TimeSpan.FromHours(4);
+});
 builder.Services.AddScoped<ProductPlanService>();
 builder.Services.AddScoped<CurrentUserService>();
 builder.Services.AddScoped<DemoModeService>();
@@ -41,6 +51,9 @@ builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddScoped<EmailOutboxDispatcher>();
 builder.Services.AddScoped<IEmailSender, GraphEmailSender>();
 builder.Services.AddHostedService<EmailOutboxHostedService>();
+builder.Services.AddScoped<InboundEmailIntakeService>();
+builder.Services.AddScoped<GraphInboundEmailReader>();
+builder.Services.AddHostedService<InboundEmailHostedService>();
 builder.Services.AddScoped<ConflictSearchArchiveService>();
 builder.Services.AddScoped<ConflictSearchService>();
 builder.Services.AddScoped<EntityNoteService>();
@@ -50,6 +63,7 @@ builder.Services.AddScoped<UserDateTimeService>();
 builder.Services.AddHttpClient<AddressLookupService>();
 builder.Services.AddHttpClient<EntraUserProvisioningService>();
 builder.Services.AddHttpClient(nameof(GraphEmailSender));
+builder.Services.AddHttpClient(nameof(GraphInboundEmailReader));
 builder.Services.Configure<EntraUserProvisioningOptions>(builder.Configuration.GetSection("EntraProvisioning"));
 builder.Services.Configure<GraphMailOptions>(builder.Configuration.GetSection("Notifications:Graph"));
 builder.Services.Configure<SubmissionAttachmentStorageOptions>(builder.Configuration.GetSection("SubmissionAttachments"));
@@ -130,6 +144,7 @@ app.Use(async (context, next) =>
 });
 app.UseStaticFiles();
 app.UseRouting();
+app.UseSession();
 if (entraOptions.Enabled)
 {
     app.UseAuthentication();

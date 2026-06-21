@@ -16,6 +16,10 @@ public class CreateModel(CMIForgeDbContext db, AuditLogService auditLogService) 
 
     public SelectList PartyTypeOptions { get; } = new(PartyTypes.All);
 
+    public string[] StatusOptions => EntityComplianceService.PartyStatusOptions;
+
+    public string DirectCreateMessage => EntityComplianceService.DirectCreateMessage("party");
+
     public void OnGet()
     {
     }
@@ -85,7 +89,7 @@ public class PartyInput
     [Display(Name = "Party type")]
     public string PartyType { get; set; } = PartyTypes.Organization;
 
-    public string Status { get; set; } = "Active";
+    public string Status { get; set; } = EntityComplianceService.ReviewStatus;
 
     public string? Aliases { get; set; }
 

@@ -24,14 +24,24 @@ else
             </p>
         </div>
         <div class="mf-hero-actions">
-            <form method="post" asp-page-handler="Archive" asp-route-id="@Model.Party.Id" class="d-inline">
-                <button class="btn btn-outline-secondary" type="submit">@(Model.Party.IsArchived ? "Restore" : "Archive")</button>
-            </form>
+            @if (Model.CanEditEntities)
+            {
+                <form method="post" asp-page-handler="Archive" asp-route-id="@Model.Party.Id" class="d-inline">
+                    <button class="btn btn-outline-secondary" type="submit">@(Model.Party.IsArchived ? "Restore" : "Archive")</button>
+                </form>
+            }
             <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
         </div>
     </div>
 
     <partial name="/Pages/Entities/_EntityTabs.cshtml" />
+
+    @if (CMIForge.Services.EntityComplianceService.IsReviewStatus(Model.Party.Status))
+    {
+        <div class="alert alert-warning">
+            This party was created directly and is still in Compliance Review. Complete conflicts/compliance checks before treating it as an active reviewed party.
+        </div>
+    }
 
     <div class="row g-4">
         <div class="col-lg-5">
@@ -49,18 +59,26 @@ else
 
             <div class="mf-panel">
                 <h2>Add Alias</h2>
-                <form method="post" class="row g-2 mt-2">
-                    <div class="col-12">
-                        <input asp-for="AliasInput.Alias" class="form-control" placeholder="Alternate spelling or DBA" />
-                        <span asp-validation-for="AliasInput.Alias" class="text-danger"></span>
-                    </div>
-                    <div class="col-12">
-                        <input asp-for="AliasInput.Notes" class="form-control" placeholder="Notes" />
-                    </div>
-                    <div class="col-12">
-                        <button class="btn btn-sm btn-primary" asp-page-handler="Alias">Add alias</button>
-                    </div>
-                </form>
+                @if (Model.CanEditEntities)
+                {
+                    <form method="post" asp-page-handler="Alias" asp-route-id="@Model.Party.Id" class="row g-2 mt-2">
+                        <div class="col-12">
+                            <input asp-for="AliasInput.Alias" class="form-control" placeholder="Alternate spelling or DBA" />
+                            <span asp-validation-for="AliasInput.Alias" class="text-danger"></span>
+                        </div>
+                        <div class="col-12">
+                            <input asp-for="AliasInput.Notes" class="form-control" placeholder="Notes" />
+                            <span asp-validation-for="AliasInput.Notes" class="text-danger"></span>
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-sm btn-primary" type="submit">Add alias</button>
+                        </div>
+                    </form>
+                }
+                else
+                {
+                    <p class="text-muted mt-2 mb-0">Alias maintenance requires entity edit access.</p>
+                }
             </div>
         </div>
 
@@ -80,15 +98,48 @@ else
                                     <th>Alias</th>
                                     <th>Normalized</th>
                                     <th>Notes</th>
+                                    @if (Model.CanEditEntities)
+                                    {
+                                        <th></th>
+                                    }
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var alias in Model.Party.Aliases.OrderBy(x => x.Alias))
                                 {
                                     <tr>
-                                        <td>@alias.Alias</td>
-                                        <td>@alias.NormalizedAlias</td>
-                                        <td>@alias.Notes</td>
+                                        @if (Model.CanEditEntities)
+                                        {
+                                            <td colspan="4">
+                                                <form method="post" asp-page-handler="UpdateAlias" asp-route-id="@Model.Party.Id" class="row g-2 align-items-start">
+                                                    <input type="hidden" name="AliasEditInput.Id" value="@alias.Id" />
+                                                    <div class="col-md-4">
+                                                        <input class="form-control form-control-sm" name="AliasEditInput.Alias" value="@alias.Alias" />
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <code>@alias.NormalizedAlias</code>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <input class="form-control form-control-sm" name="AliasEditInput.Notes" value="@alias.Notes" />
+                                                    </div>
+                                                    <div class="col-md-2 d-flex gap-2">
+                                                        <button class="btn btn-sm btn-primary" type="submit">Save</button>
+                                                        <button class="btn btn-sm btn-outline-danger"
+                                                                type="submit"
+                                                                formmethod="post"
+                                                                formaction="@Url.Page("./Details", "DeleteAlias", new { id = Model.Party.Id, aliasId = alias.Id })">
+                                                            Delete
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </td>
+                                        }
+                                        else
+                                        {
+                                            <td>@alias.Alias</td>
+                                            <td><code>@alias.NormalizedAlias</code></td>
+                                            <td>@alias.Notes</td>
+                                        }
                                     </tr>
                                 }
                             </tbody>
@@ -134,20 +185,57 @@ else
                 }
 
                 <hr />
-                <form method="post" class="row g-2">
-                    <div class="col-md-5">
-                        <select asp-for="MatterPartyInput.MatterId" asp-items="Model.MatterOptions" class="form-select"></select>
+                @if (Model.CanEditEntities)
+                {
+                    <form method="post" asp-page-handler="MatterParty" asp-route-id="@Model.Party.Id" class="row g-2">
+                        <div class="col-md-5">
+                            <select asp-for="MatterPartyInput.MatterId" asp-items="Model.MatterOptions" class="form-select"></select>
+                        </div>
+                        <div class="col-md-3">
+                            <select asp-for="MatterPartyInput.Role" asp-items="Model.PartyRoleOptions" class="form-select"></select>
+                        </div>
+                        <div class="col-md-3">
+                            <input asp-for="MatterPartyInput.Notes" class="form-control" placeholder="Notes" />
+                        </div>
+                        <div class="col-md-1">
+                            <button class="btn btn-sm btn-primary" type="submit">Add</button>
+                        </div>
+                    </form>
+                }
+            </div>
+
+            <div class="mf-panel mb-3">
+                <h2>Related Contacts</h2>
+                @if (Model.RelatedContacts.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No contacts are linked through this party's matters yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Contact</th>
+                                    <th>Matter</th>
+                                    <th>Role</th>
+                                    <th>Email</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var contact in Model.RelatedContacts)
+                                {
+                                    <tr>
+                                        <td><a asp-page="/Entities/Contacts/Details" asp-route-id="@contact.ContactId">@contact.ContactNumber.ToString("D8") - @contact.ContactName</a></td>
+                                        <td><a asp-page="/Entities/Matters/Details" asp-route-id="@contact.MatterId">@contact.MatterNumber.ToString("D8") - @contact.MatterName</a></td>
+                                        <td>@contact.Role@(contact.IsPrimary ? " / Primary" : string.Empty)</td>
+                                        <td>@contact.Email</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="col-md-3">
-                        <select asp-for="MatterPartyInput.Role" asp-items="Model.PartyRoleOptions" class="form-select"></select>
-                    </div>
-                    <div class="col-md-3">
-                        <input asp-for="MatterPartyInput.Notes" class="form-control" placeholder="Notes" />
-                    </div>
-                    <div class="col-md-1">
-                        <button class="btn btn-sm btn-primary" asp-page-handler="MatterParty">Add</button>
-                    </div>
-                </form>
+                }
             </div>
 
             <div class="mf-panel">
@@ -190,20 +278,23 @@ else
                 }
 
                 <hr />
-                <form method="post" class="row g-2">
-                    <div class="col-md-5">
-                        <select asp-for="RelationshipInput.ToPartyId" asp-items="Model.PartyOptions" class="form-select"></select>
-                    </div>
-                    <div class="col-md-3">
-                        <select asp-for="RelationshipInput.RelationshipType" asp-items="Model.RelationshipTypeOptions" class="form-select"></select>
-                    </div>
-                    <div class="col-md-3">
-                        <input asp-for="RelationshipInput.Notes" class="form-control" placeholder="Notes" />
-                    </div>
-                    <div class="col-md-1">
-                        <button class="btn btn-sm btn-primary" asp-page-handler="Relationship">Add</button>
-                    </div>
-                </form>
+                @if (Model.CanEditEntities)
+                {
+                    <form method="post" asp-page-handler="Relationship" asp-route-id="@Model.Party.Id" class="row g-2">
+                        <div class="col-md-5">
+                            <select asp-for="RelationshipInput.ToPartyId" asp-items="Model.PartyOptions" class="form-select"></select>
+                        </div>
+                        <div class="col-md-3">
+                            <select asp-for="RelationshipInput.RelationshipType" asp-items="Model.RelationshipTypeOptions" class="form-select"></select>
+                        </div>
+                        <div class="col-md-3">
+                            <input asp-for="RelationshipInput.Notes" class="form-control" placeholder="Notes" />
+                        </div>
+                        <div class="col-md-1">
+                            <button class="btn btn-sm btn-primary" type="submit">Add</button>
+                        </div>
+                    </form>
+                }
             </div>
         </div>
     </div>

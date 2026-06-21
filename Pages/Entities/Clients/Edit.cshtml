@@ -22,6 +22,13 @@ else
 
     <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
+    @if (CMIForge.Services.EntityComplianceService.IsReviewStatus(Model.Client.Status))
+    {
+        <div class="alert alert-warning">
+            This client is in Compliance Review because it was created directly. Add review notes before requesting Active status.
+        </div>
+    }
+
     <form method="post" class="mf-panel">
         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
@@ -34,9 +41,10 @@ else
             <div class="col-md-4">
                 <label asp-for="Input.Status" class="form-label"></label>
                 <select asp-for="Input.Status" class="form-select">
-                    <option>Active</option>
-                    <option>Prospective</option>
-                    <option>Inactive</option>
+                    @foreach (var status in Model.StatusOptions)
+                    {
+                        <option value="@status">@status</option>
+                    }
                 </select>
             </div>
             <div class="col-md-8">

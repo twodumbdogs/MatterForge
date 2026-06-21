@@ -22,6 +22,17 @@ public class PermissionService(CMIForgeDbContext db, CurrentUserService currentU
         return await HasAsync(currentUser.Id, permissionKey);
     }
 
+    public async Task<bool> HasAsActualUserAsync(string permissionKey)
+    {
+        var actualUser = await currentUserService.GetActualCurrentUserAsync();
+        if (actualUser is null)
+        {
+            return false;
+        }
+
+        return await HasAsync(actualUser.Id, permissionKey);
+    }
+
     public async Task<bool> HasAsync(Guid userId, string permissionKey)
     {
         var directPermissionKeys = db.UserRoles

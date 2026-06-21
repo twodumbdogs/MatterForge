@@ -33,6 +33,8 @@ public class EnhancementRequest
     public Guid? UpdatedByUserId { get; set; }
 
     public CMIForgeUser? UpdatedByUser { get; set; }
+
+    public List<EnhancementRequestVote> Votes { get; set; } = [];
 }
 
 public static class EnhancementRequestAreas

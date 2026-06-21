@@ -17,6 +17,8 @@ public class DetailsModel(CMIForgeDbContext db, PermissionService permissionServ
 
     public List<EntityChangeRequest> PendingChanges { get; private set; } = [];
 
+    public List<ContactRelatedPartyRow> RelatedParties { get; private set; } = [];
+
     public List<SelectListItem> ClientOptions { get; private set; } = [];
 
     public List<SelectListItem> MatterOptions { get; private set; } = [];
@@ -154,6 +156,31 @@ public class DetailsModel(CMIForgeDbContext db, PermissionService permissionServ
                     .ThenInclude(x => x!.Client)
             .FirstOrDefaultAsync(x => x.Id == id);
 
+        if (Contact is not null)
+        {
+            var matterIds = Contact.MatterLinks.Select(x => x.MatterId).Distinct().ToList();
+            RelatedParties = matterIds.Count == 0
+                ? []
+                : await db.MatterParties
+                    .Include(x => x.Party)
+                    .Include(x => x.Matter)
+                        .ThenInclude(x => x!.Client)
+                    .Where(x => matterIds.Contains(x.MatterId))
+                    .OrderBy(x => x.Matter!.MatterNumber)
+                    .ThenBy(x => x.Role)
+                    .ThenBy(x => x.Party!.Name)
+                    .Select(x => new ContactRelatedPartyRow(
+                        x.PartyId,
+                        x.Party!.PartyNumber,
+                        x.Party.Name,
+                        x.MatterId,
+                        x.Matter!.MatterNumber,
+                        x.Matter.Name,
+                        x.Matter.Client!.Name,
+                        x.Role))
+                    .ToListAsync();
+        }
+
         ClientOptions = await db.Clients
             .Where(x => !x.IsArchived)
             .OrderBy(x => x.ClientNumber)
@@ -208,3 +235,13 @@ public class AddMatterContactInput
 
     public string? Notes { get; set; }
 }
+
+public record ContactRelatedPartyRow(
+    Guid PartyId,
+    int PartyNumber,
+    string PartyName,
+    Guid MatterId,
+    int MatterNumber,
+    string MatterName,
+    string ClientName,
+    string Role);

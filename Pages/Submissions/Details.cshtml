@@ -56,6 +56,8 @@ else
         <div class="alert alert-danger" asp-validation-summary="ModelOnly"></div>
     }
 
+    <div class="mf-submission-workspace">
+    <div class="mf-submission-workspace-main">
     <div class="mf-panel mb-3 mf-submission-summary">
         <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
             <div>
@@ -118,298 +120,394 @@ else
             }
         </div>
 
-        @if (!Model.CanEditReturned && Model.Answers.Count > 0)
+        @if (Model.InboundEmailSource is not null)
+        {
+            <div class="alert alert-info mt-3 mb-0">
+                <div class="d-flex flex-wrap justify-content-between gap-3">
+                    <div>
+                        <strong>Created from inbound email</strong>
+                        <div>@Model.InboundEmailSource.Subject</div>
+                        <small class="text-muted">
+                            From @(string.IsNullOrWhiteSpace(Model.InboundEmailSource.FromName) ? Model.InboundEmailSource.FromEmail : $"{Model.InboundEmailSource.FromName} <{Model.InboundEmailSource.FromEmail}>")
+                            to @Model.InboundEmailSource.InboundAddress on @UserDates.Format(Model.InboundEmailSource.ReceivedAt, "f")
+                        </small>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge text-bg-secondary">@Model.InboundEmailSource.Status</span>
+                        <small class="d-block text-muted">@Model.InboundEmailSource.Attachments.Count attachment source record(s)</small>
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(Model.InboundEmailSource.ParsedClientName) || !string.IsNullOrWhiteSpace(Model.InboundEmailSource.ParsedMatterName))
+                {
+                    <div class="small text-muted mt-2">
+                        Parsed client: @(string.IsNullOrWhiteSpace(Model.InboundEmailSource.ParsedClientName) ? "Not found" : Model.InboundEmailSource.ParsedClientName)
+                        · Parsed matter: @(string.IsNullOrWhiteSpace(Model.InboundEmailSource.ParsedMatterName) ? "Blank" : Model.InboundEmailSource.ParsedMatterName)
+                    </div>
+                }
+            </div>
+        }
+
+        @if (Model.Schema is not null)
         {
             <hr />
             <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-2">
-                <h2>Submitted Data</h2>
+                <div>
+                    <h2>Submission Workspace</h2>
+                    <small class="text-muted">Review the submitted form sections, linked conflict searches, and attachments.</small>
+                </div>
             </div>
-            <dl class="mf-answer-grid mb-0">
-                @foreach (var answer in Model.Answers)
+            <div class="mf-form-tab-shell mf-form-tab-shell-compact" data-form-tabs>
+                <div class="mf-form-tab-list" role="tablist" aria-label="Submission workspace tabs">
+                    @if (!Model.CanEditReturned && Model.Answers.Count > 0)
+                    {
+                        @foreach (var formSection in Model.Schema.ResolvedSections)
+                        {
+                            <button class="mf-form-tab" type="button" role="tab" data-section-tab="submitted-@formSection.Key">@formSection.Label</button>
+                        }
+                    }
+                    <button class="mf-form-tab" type="button" role="tab" data-section-tab="submission-conflicts">Conflict Searches</button>
+                    <button class="mf-form-tab" type="button" role="tab" data-section-tab="submission-attachments">Attachments</button>
+                </div>
+                @if (!Model.CanEditReturned && Model.Answers.Count > 0)
                 {
-                    <div>
-                        <dt>@answer.Label</dt>
-                        <dd>@answer.Value</dd>
+                    @foreach (var formSection in Model.Schema.ResolvedSections)
+                    {
+                        var answers = Model.Answers.Where(x => x.SectionKey.Equals(formSection.Key, StringComparison.OrdinalIgnoreCase)).ToList();
+                        <section class="mf-form-tab-panel" data-section-panel="submitted-@formSection.Key" role="tabpanel">
+                            <dl class="mf-answer-grid mb-0">
+                                @foreach (var answer in answers)
+                                {
+                                    <div>
+                                        <dt>@answer.Label</dt>
+                                        <dd>@answer.Value</dd>
+                                    </div>
+                                }
+                            </dl>
+                        </section>
+                    }
+                }
+                <section class="mf-form-tab-panel" data-section-panel="submission-conflicts" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <h3 class="h6 mb-1">Conflict Searches</h3>
+                            <small class="text-muted">Searches linked to this submission.</small>
+                        </div>
+                        @if (Model.CanRunConflicts)
+                        {
+                            <a class="btn btn-sm btn-outline-primary" asp-page="/Conflicts/Create" asp-route-submissionId="@Model.Submission.Id">Run search</a>
+                        }
+                    </div>
+                    @if (Model.ConflictSearches.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No conflict searches are linked to this submission yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Number</th>
+                                        <th>Status</th>
+                                        <th>Decision</th>
+                                        <th>Results</th>
+                                        <th>AI summary</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var search in Model.ConflictSearches)
+                                    {
+                                        <tr>
+                                            <td><a asp-page="/Conflicts/Details" asp-route-id="@search.Id"><code>@CMIForge.Services.RecordNumbers.ConflictSearch(search.SearchNumber)</code></a></td>
+                                            <td><span class="badge text-bg-primary">@search.Status</span></td>
+                                            <td>@search.ReviewerDecision</td>
+                                            <td>@search.Results.Count</td>
+                                            <td>@search.AiSummary</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </section>
+                <section class="mf-form-tab-panel" data-section-panel="submission-attachments" role="tabpanel">
+                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
+                        <div>
+                            <h3 class="h6 mb-1">Attachments</h3>
+                            <small class="text-muted">PDF, DOC, DOCX, XLS, XLSX up to 25 MB, or an http/https hyperlink.</small>
+                        </div>
+                    </div>
+                    @if (Model.Attachments.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No attachments are linked to this submission yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Source</th>
+                                        <th>Size</th>
+                                        <th>Added by</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var attachment in Model.Attachments)
+                                    {
+                                        var isLink = attachment.AttachmentType == CMIForge.Models.SubmissionAttachmentTypes.Link;
+                                        <tr>
+                                            <td>
+                                                @if (isLink)
+                                                {
+                                                    <a asp-page-handler="DownloadAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id" target="_blank" rel="noopener noreferrer">@attachment.DisplayName</a>
+                                                }
+                                                else
+                                                {
+                                                    <a asp-page-handler="DownloadAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id">@attachment.DisplayName</a>
+                                                }
+                                            </td>
+                                            <td><span class="badge @(isLink ? "text-bg-info" : "text-bg-secondary")">@(isLink ? "Hyperlink" : "File")</span></td>
+                                            <td class="text-break">@(isLink ? attachment.Url : attachment.OriginalFileName)</td>
+                                            <td>@(isLink ? "-" : DetailsModel.FormatAttachmentSize(attachment.SizeBytes))</td>
+                                            <td>
+                                                @(attachment.UploadedByUser?.DisplayName ?? "Unknown")
+                                                <small class="d-block text-muted">@UserDates.Format(attachment.CreatedAt)</small>
+                                            </td>
+                                            <td class="text-end">
+                                                @if (Model.CanManageAttachments)
+                                                {
+                                                    <form method="post" asp-page-handler="DeleteAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id">
+                                                        <input type="hidden" name="id" value="@Model.Submission.Id" />
+                                                        <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
+                                                    </form>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    @if (Model.CanManageAttachments)
+                    {
+                        <hr />
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <form method="post" enctype="multipart/form-data" asp-page-handler="UploadAttachment" asp-route-id="@Model.Submission.Id" class="h-100">
+                                    <input type="hidden" name="id" value="@Model.Submission.Id" />
+                                    <h4 class="h6">Upload file</h4>
+                                    <div class="mb-2">
+                                        <label asp-for="AttachmentDisplayName" class="form-label">Display name</label>
+                                        <input asp-for="AttachmentDisplayName" class="form-control" placeholder="Optional" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label asp-for="AttachmentFile" class="form-label">File</label>
+                                        <input asp-for="AttachmentFile" class="form-control" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                                    </div>
+                                    <button class="btn btn-primary" type="submit">Upload file</button>
+                                </form>
+                            </div>
+                            <div class="col-lg-6">
+                                <form method="post" asp-page-handler="AddAttachmentLink" asp-route-id="@Model.Submission.Id" class="h-100">
+                                    <input type="hidden" name="id" value="@Model.Submission.Id" />
+                                    <h4 class="h6">Add hyperlink</h4>
+                                    <div class="mb-2">
+                                        <label asp-for="LinkDisplayName" class="form-label">Display name</label>
+                                        <input asp-for="LinkDisplayName" class="form-control" placeholder="Optional" />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label asp-for="LinkUrl" class="form-label">Hyperlink</label>
+                                        <input asp-for="LinkUrl" class="form-control" placeholder="https://example.com/document" />
+                                    </div>
+                                    <button class="btn btn-outline-primary" type="submit">Add hyperlink</button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                </section>
+            </div>
+        }
+    </div>
+
+    </div>
+    <aside class="mf-panel mb-3 mf-workflow-rail">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+                <p class="mf-eyebrow">Audit</p>
+                <h2>Activity Rail</h2>
+            </div>
+            <a class="btn btn-sm btn-outline-primary" asp-page="/Workflow/Queue">Queue</a>
+        </div>
+
+        <div class="mf-workflow-rail-section">
+            <h3>Submitted by</h3>
+            <div class="mf-workflow-rail-card">
+                <strong>
+                    @if (Model.Submission.SubmitterUser is not null)
+                    {
+                        <a asp-page="/Entities/Users/Details" asp-route-id="@Model.Submission.SubmitterUser.Id">@Model.Submission.SubmitterUser.DisplayName</a>
+                    }
+                    else
+                    {
+                        @Model.Submission.SubmitterName
+                    }
+                </strong>
+                <small>@UserDates.Format(Model.Submission.SubmittedAt, "f")</small>
+                <span class="badge @StatusClass(Model.Submission.Status) align-self-start">@Model.Submission.Status</span>
+            </div>
+        </div>
+
+        @if (Model.WorkflowInstances.Count > 0)
+        {
+            <div class="mf-workflow-rail-section">
+                <h3>Workflow status</h3>
+                @foreach (var instance in Model.WorkflowInstances.Take(3))
+                {
+                    <div class="mf-workflow-rail-card">
+                        <strong>@instance.WorkflowDefinition?.Name</strong>
+                        <span class="badge text-bg-primary align-self-start">@instance.Status</span>
+                        <small>Started @UserDates.Format(instance.StartedAt)</small>
                     </div>
                 }
-            </dl>
+            </div>
         }
 
         @{
-            var openTasks = Model.WorkflowTasks
+            var railOpenTasks = Model.WorkflowTasks
                 .Where(x => x.Status == CMIForge.Services.WorkflowStatuses.TaskOpen)
                 .OrderBy(x => x.CreatedAt)
                 .ToList();
         }
-        @if (openTasks.Count > 0)
+        @if (railOpenTasks.Count > 0)
         {
-            <hr />
-            <h2 class="h5">Current Workflow Actions</h2>
-            <div class="row g-3 mt-1">
-                @foreach (var task in openTasks)
+            <div class="mf-workflow-rail-section">
+                <h3>Open actions</h3>
+                @foreach (var task in railOpenTasks)
                 {
-                    <div class="col-lg-6">
-                        <div class="border rounded p-3 h-100">
-                            <strong>@task.WorkflowStep?.Name</strong>
-                            <small class="d-block text-muted mb-2">
-                                Assigned to @(task.AssignedUser?.DisplayName ?? task.AssignedTeam?.Name ?? "Unassigned")
-                                @if (task.AssignedTeam is not null && task.AssignedUser is null)
+                    <div class="mf-workflow-rail-card">
+                        <strong>@task.WorkflowStep?.Name</strong>
+                        <small>@(task.AssignedUser?.DisplayName ?? task.AssignedTeam?.Name ?? "Unassigned")</small>
+                        @if (!string.IsNullOrWhiteSpace(task.WorkflowStep?.Instructions))
+                        {
+                            <p>@task.WorkflowStep.Instructions</p>
+                        }
+                        <form method="post" class="d-flex flex-column gap-2">
+                            <input type="hidden" name="id" value="@Model.Submission.Id" />
+                            <input type="hidden" name="taskId" value="@task.Id" />
+                            <input name="Notes" class="form-control form-control-sm" placeholder="Optional note" />
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var outcome in CMIForge.Services.WorkflowOutcomeParser.GetOutcomes(task.WorkflowStep!))
                                 {
-                                    <span> team queue</span>
+                                    var buttonClass = outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Return
+                                        ? "btn-outline-warning"
+                                        : outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Complete
+                                            ? "btn-success"
+                                            : "btn-primary";
+                                    <button class="btn btn-sm @buttonClass" name="outcomeKey" value="@outcome.Key" asp-page-handler="OutcomeTask">@outcome.Label</button>
                                 }
-                            </small>
-                            @if (!string.IsNullOrWhiteSpace(task.WorkflowStep?.Instructions))
-                            {
-                                <p class="mb-2">@task.WorkflowStep.Instructions</p>
-                            }
-                            <form method="post" class="d-flex flex-column gap-2">
-                                <input type="hidden" name="id" value="@Model.Submission.Id" />
-                                <input type="hidden" name="taskId" value="@task.Id" />
-                                <input name="Notes" class="form-control form-control-sm" placeholder="Optional note" />
-                                <div class="d-flex gap-2">
-                                    @foreach (var outcome in CMIForge.Services.WorkflowOutcomeParser.GetOutcomes(task.WorkflowStep!))
-                                    {
-                                        var buttonClass = outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Return
-                                            ? "btn-outline-warning"
-                                            : outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Complete
-                                                ? "btn-success"
-                                                : "btn-primary";
-                                        <button class="btn btn-sm @buttonClass" name="outcomeKey" value="@outcome.Key" asp-page-handler="OutcomeTask">@outcome.Label</button>
-                                    }
-                                </div>
-                            </form>
-                        </div>
+                            </div>
+                        </form>
                     </div>
                 }
             </div>
-        }
-        @if (Model.WorkflowInstances.Count > 0)
-        {
-            <hr />
-            <div class="row g-3">
-                @foreach (var instance in Model.WorkflowInstances)
-                {
-                    <div class="col-md-4">
-                        <strong>@instance.WorkflowDefinition?.Name</strong>
-                        <span class="badge text-bg-primary ms-2">@instance.Status</span>
-                        <small class="d-block text-muted">Started @UserDates.Format(instance.StartedAt)</small>
-                    </div>
-                }
-            </div>
-        }
-    </div>
-
-    <div class="mf-panel mb-3">
-        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
-            <div>
-                <h2>Attachments</h2>
-                <small class="text-muted">PDF, DOC, DOCX, XLS, XLSX up to 25 MB, or an http/https hyperlink.</small>
-            </div>
-        </div>
-        @if (Model.Attachments.Count == 0)
-        {
-            <p class="text-muted mt-3 mb-0">No attachments are linked to this submission yet.</p>
         }
         else
         {
-            <div class="table-responsive mt-3">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Source</th>
-                            <th>Size</th>
-                            <th>Added by</th>
-                            <th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var attachment in Model.Attachments)
-                        {
-                            var isLink = attachment.AttachmentType == CMIForge.Models.SubmissionAttachmentTypes.Link;
-                            <tr>
-                                <td>
-                                    @if (isLink)
-                                    {
-                                        <a asp-page-handler="DownloadAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id" target="_blank" rel="noopener noreferrer">@attachment.DisplayName</a>
-                                    }
-                                    else
-                                    {
-                                        <a asp-page-handler="DownloadAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id">@attachment.DisplayName</a>
-                                    }
-                                </td>
-                                <td><span class="badge @(isLink ? "text-bg-info" : "text-bg-secondary")">@(isLink ? "Hyperlink" : "File")</span></td>
-                                <td class="text-break">@(isLink ? attachment.Url : attachment.OriginalFileName)</td>
-                                <td>@(isLink ? "-" : DetailsModel.FormatAttachmentSize(attachment.SizeBytes))</td>
-                                <td>
-                                    @(attachment.UploadedByUser?.DisplayName ?? "Unknown")
-                                    <small class="d-block text-muted">@UserDates.Format(attachment.CreatedAt)</small>
-                                </td>
-                                <td class="text-end">
-                                    @if (Model.CanManageAttachments)
-                                    {
-                                        <form method="post" asp-page-handler="DeleteAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id">
-                                            <input type="hidden" name="id" value="@Model.Submission.Id" />
-                                            <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
-                                        </form>
-                                    }
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+            <p class="text-muted mt-3 mb-0">No open workflow actions.</p>
         }
 
-        @if (Model.CanManageAttachments)
+        @if (Model.WorkflowTasks.Count > 0)
         {
-            <hr />
-            <div class="row g-3">
-                <div class="col-lg-6">
-                    <form method="post" enctype="multipart/form-data" asp-page-handler="UploadAttachment" asp-route-id="@Model.Submission.Id" class="h-100">
-                        <input type="hidden" name="id" value="@Model.Submission.Id" />
-                        <h3 class="h6">Upload file</h3>
-                        <div class="mb-2">
-                            <label asp-for="AttachmentDisplayName" class="form-label">Display name</label>
-                            <input asp-for="AttachmentDisplayName" class="form-control" placeholder="Optional" />
+            <div class="mf-workflow-rail-section">
+                <h3>Workflow tasks</h3>
+                <div class="mf-rail-table">
+                    @foreach (var task in Model.WorkflowTasks.Take(8))
+                    {
+                        <div>
+                            <strong>@task.WorkflowStep?.Name</strong>
+                            <span class="badge @(task.Status == CMIForge.Services.WorkflowStatuses.TaskOpen ? "text-bg-primary" : task.Status == CMIForge.Services.WorkflowStatuses.TaskReturned ? "text-bg-warning" : task.Status == CMIForge.Services.WorkflowStatuses.TaskCancelled ? "text-bg-danger" : "text-bg-success")">@task.Status</span>
+                            <small>@(task.AssignedUser?.DisplayName ?? task.AssignedTeam?.Name ?? "Unassigned")</small>
                         </div>
-                        <div class="mb-3">
-                            <label asp-for="AttachmentFile" class="form-label">File</label>
-                            <input asp-for="AttachmentFile" class="form-control" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-                        </div>
-                        <button class="btn btn-primary" type="submit">Upload file</button>
-                    </form>
-                </div>
-                <div class="col-lg-6">
-                    <form method="post" asp-page-handler="AddAttachmentLink" asp-route-id="@Model.Submission.Id" class="h-100">
-                        <input type="hidden" name="id" value="@Model.Submission.Id" />
-                        <h3 class="h6">Add hyperlink</h3>
-                        <div class="mb-2">
-                            <label asp-for="LinkDisplayName" class="form-label">Display name</label>
-                            <input asp-for="LinkDisplayName" class="form-control" placeholder="Optional" />
-                        </div>
-                        <div class="mb-3">
-                            <label asp-for="LinkUrl" class="form-label">Hyperlink</label>
-                            <input asp-for="LinkUrl" class="form-control" placeholder="https://example.com/document" />
-                        </div>
-                        <button class="btn btn-outline-primary" type="submit">Add hyperlink</button>
-                    </form>
+                    }
                 </div>
             </div>
         }
-    </div>
 
-    @if (Model.WorkflowTasks.Count > 0)
-    {
-        <div class="mf-panel mb-3">
-            <h2>Workflow Tasks</h2>
-            <div class="table-responsive mt-3">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th>Step</th>
-                            <th>Assigned to</th>
-                            <th>Status</th>
-                            <th>Outcome</th>
-                            <th>Completed</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var task in Model.WorkflowTasks)
-                        {
-                            <tr>
-                                <td>
-                                    <strong>@task.WorkflowStep?.Name</strong>
-                                    @if (!string.IsNullOrWhiteSpace(task.Notes))
-                                    {
-                                        <small class="d-block text-muted">@task.Notes</small>
-                                    }
-                                </td>
-                                <td>@(task.AssignedUser?.DisplayName ?? task.AssignedTeam?.Name ?? "Unassigned")</td>
-                                <td><span class="badge @(task.Status == CMIForge.Services.WorkflowStatuses.TaskOpen ? "text-bg-primary" : task.Status == CMIForge.Services.WorkflowStatuses.TaskReturned ? "text-bg-warning" : task.Status == CMIForge.Services.WorkflowStatuses.TaskCancelled ? "text-bg-danger" : "text-bg-success")">@task.Status</span></td>
-                                <td>@task.Outcome</td>
-                                <td>@UserDates.FormatNullable(task.CompletedAt)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+        @if (Model.WorkflowEvents.Count > 0)
+        {
+            <div class="mf-workflow-rail-section">
+                <h3>Workflow history</h3>
+                <ol class="mf-workflow-timeline">
+                    @foreach (var workflowEvent in Model.WorkflowEvents.Take(6))
+                    {
+                        <li>
+                            <strong>@workflowEvent.EventType</strong>
+                            <span>@UserDates.Format(workflowEvent.CreatedAt)</span>
+                            <small>@workflowEvent.Message</small>
+                        </li>
+                    }
+                </ol>
             </div>
-        </div>
-    }
+        }
 
-    <div class="mf-panel mb-3">
-        <div class="d-flex justify-content-between align-items-center">
-            <h2>Conflict Searches</h2>
-            @if (Model.CanRunConflicts)
+        <div class="mf-workflow-rail-section">
+            <h3>Audit history</h3>
+            @if (Model.AuditHistory.Count == 0)
             {
-                <a asp-page="/Conflicts/Create" asp-route-submissionId="@Model.Submission.Id">Run search</a>
+                <p class="text-muted mb-0">No audited activity yet.</p>
+            }
+            else
+            {
+                <ol class="mf-workflow-timeline">
+                    @foreach (var audit in Model.AuditHistory)
+                    {
+                        <li>
+                            <strong>@audit.Action</strong>
+                            <span>@UserDates.Format(audit.CreatedAt, "g")</span>
+                            <small>@(audit.ActorDisplayName == "Unknown" ? "System" : audit.ActorDisplayName) · @audit.Summary</small>
+                        </li>
+                    }
+                </ol>
             }
         </div>
-        @if (Model.ConflictSearches.Count == 0)
-        {
-            <p class="text-muted mt-3 mb-0">No conflict searches are linked to this submission yet.</p>
-        }
-        else
-        {
-            <div class="table-responsive mt-3">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th>Number</th>
-                            <th>Status</th>
-                            <th>Decision</th>
-                            <th>Results</th>
-                            <th>AI summary</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var search in Model.ConflictSearches)
-                        {
-                            <tr>
-                                <td><a asp-page="/Conflicts/Details" asp-route-id="@search.Id"><code>@CMIForge.Services.RecordNumbers.ConflictSearch(search.SearchNumber)</code></a></td>
-                                <td><span class="badge text-bg-primary">@search.Status</span></td>
-                                <td>@search.ReviewerDecision</td>
-                                <td>@search.Results.Count</td>
-                                <td>@search.AiSummary</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-    </div>
 
-    @if (Model.WorkflowEvents.Count > 0)
-    {
-        <div class="mf-panel mb-3">
-            <h2>Workflow History</h2>
-            <div class="table-responsive mt-3">
-                <table class="table align-middle">
-                    <thead>
-                        <tr>
-                            <th>When</th>
-                            <th>Event</th>
-                            <th>Actor</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var workflowEvent in Model.WorkflowEvents)
-                        {
-                            <tr>
-                                <td>@UserDates.Format(workflowEvent.CreatedAt)</td>
-                                <td>
-                                    <strong>@workflowEvent.EventType</strong>
-                                    <small class="d-block text-muted">@workflowEvent.Message</small>
-                                </td>
-                                <td>@(workflowEvent.ActorUser?.DisplayName ?? "System")</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+        <div class="mf-workflow-rail-section">
+            <h3>Attachments</h3>
+            @if (Model.Attachments.Count == 0)
+            {
+                <p class="text-muted mb-0">No attachments linked.</p>
+            }
+            else
+            {
+                <div class="mf-rail-table">
+                    @foreach (var attachment in Model.Attachments.Take(6))
+                    {
+                        var isLink = attachment.AttachmentType == CMIForge.Models.SubmissionAttachmentTypes.Link;
+                        <div>
+                            <strong>
+                                @if (isLink)
+                                {
+                                    <a asp-page-handler="DownloadAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id" target="_blank" rel="noopener noreferrer">@attachment.DisplayName</a>
+                                }
+                                else
+                                {
+                                    <a asp-page-handler="DownloadAttachment" asp-route-id="@Model.Submission.Id" asp-route-attachmentId="@attachment.Id">@attachment.DisplayName</a>
+                                }
+                            </strong>
+                            <span class="badge @(isLink ? "text-bg-info" : "text-bg-secondary")">@(isLink ? "Link" : "File")</span>
+                            <small>@(attachment.UploadedByUser?.DisplayName ?? "Unknown") · @UserDates.Format(attachment.CreatedAt, "g")</small>
+                        </div>
+                    }
+                </div>
+            }
         </div>
-    }
+    </aside>
+    </div>
 
     @if (Model.CanEditReturned && Model.Schema is not null)
     {
@@ -421,69 +519,91 @@ else
                 </div>
                 <button class="btn btn-primary" type="submit">Save and resubmit</button>
             </div>
-            @foreach (var field in Model.Schema.Fields)
-            {
-                var value = Model.EditValues.GetValueOrDefault(field.Key) ?? string.Empty;
-                <div class="mb-3">
-                    <label class="form-label" for="edit-@field.Key">@field.Label@if (field.Required)
-                        {<span class="text-danger"> *</span>}</label>
-                    @switch (field.Type)
+            <div class="mf-form-tab-shell" data-form-tabs data-form-conditions>
+                <div class="mf-form-tab-list" role="tablist" aria-label="Returned edit sections">
+                    @foreach (var formSection in Model.Schema.ResolvedSections)
                     {
-                        case CMIForge.Services.FieldType.TextArea:
-                            <textarea class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" rows="4">@value</textarea>
-                            break;
-                        case CMIForge.Services.FieldType.Select:
-                            <select class="form-select" id="edit-@field.Key" name="Fields[@field.Key]">
-                                <option value="">Choose...</option>
-                                @foreach (var option in field.Options)
-                                {
-                                    <option value="@option" selected="@(value == option)">@option</option>
-                                }
-                            </select>
-                            break;
-                        case CMIForge.Services.FieldType.Address:
-                            var address = CMIForge.Services.FormAddressValue.Parse(value);
-                            <div class="mf-address-field-grid" data-address-lookup-group>
-                                <div class="col-span-8">
-                                    <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key].AddressLine1" value="@address.AddressLine1" placeholder="Address line 1" autocomplete="street-address" data-address-lookup-input data-address-field="line1" />
-                                </div>
-                                <div class="col-span-4">
-                                    <input class="form-control" name="Fields[@field.Key].AddressLine2" value="@address.AddressLine2" placeholder="Suite, floor, etc." data-address-field="line2" />
-                                </div>
-                                <div class="col-span-4">
-                                    <input class="form-control" name="Fields[@field.Key].City" value="@address.City" placeholder="City" data-address-field="city" />
-                                </div>
-                                <div class="col-span-3">
-                                    <input class="form-control" name="Fields[@field.Key].State" value="@address.State" placeholder="State" data-address-field="state" />
-                                </div>
-                                <div class="col-span-2">
-                                    <input class="form-control" name="Fields[@field.Key].PostalCode" value="@address.PostalCode" placeholder="Postal code" data-address-field="postalCode" />
-                                </div>
-                                <div class="col-span-3">
-                                    <input class="form-control" name="Fields[@field.Key].Country" value="@address.Country" placeholder="Country" data-address-field="country" />
-                                </div>
-                            </div>
-                            break;
-                        case CMIForge.Services.FieldType.Checkbox:
-                            <div class="form-check">
-                                <input type="hidden" name="Fields[@field.Key]" value="false" />
-                                <input class="form-check-input" id="edit-@field.Key" name="Fields[@field.Key]" type="checkbox" value="true" checked="@(value.Equals("Yes", StringComparison.OrdinalIgnoreCase) || value.Equals("true", StringComparison.OrdinalIgnoreCase))" />
-                                <label class="form-check-label" for="edit-@field.Key">Yes</label>
-                            </div>
-                            break;
-                        case CMIForge.Services.FieldType.Date:
-                            <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" type="date" value="@value" />
-                            break;
-                        case CMIForge.Services.FieldType.Currency:
-                        case CMIForge.Services.FieldType.Number:
-                            <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" type="number" step="0.01" value="@value" />
-                            break;
-                        default:
-                            <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" value="@value" />
-                            break;
+                        <button class="mf-form-tab" type="button" role="tab" data-section-tab="edit-@formSection.Key">@formSection.Label</button>
                     }
                 </div>
-            }
+                @foreach (var formSection in Model.Schema.ResolvedSections)
+                {
+                    <section class="mf-form-tab-panel" data-section-panel="edit-@formSection.Key" role="tabpanel">
+                        @foreach (var field in Model.Schema.FieldsForSection(formSection.Key))
+                        {
+                            var value = Model.EditValues.GetValueOrDefault(field.Key) ?? string.Empty;
+                            var isEditable = CMIForge.Services.FormFieldRules.IsEditableForWorkflowStep(field, Model.EditableStepNames);
+                            <div class="mb-3" data-form-field data-field-key="@field.Key" data-visible-field="@field.VisibleWhenFieldKey" data-visible-value="@field.VisibleWhenValue">
+                                <label class="form-label" for="edit-@field.Key">@field.Label@if (field.Required)
+                                    {<span class="text-danger"> *</span>}</label>
+                                @if (!isEditable)
+                                {
+                                    <input class="form-control" id="edit-@field.Key" value="@value" disabled />
+                                    <small class="text-muted">Read-only until workflow step "@field.EditableStepName" is open.</small>
+                                }
+                                else
+                                {
+                                    @switch (field.Type)
+                                    {
+                                        case CMIForge.Services.FieldType.TextArea:
+                                            <textarea class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" rows="4" data-field-input>@value</textarea>
+                                            break;
+                                        case CMIForge.Services.FieldType.Select:
+                                            <select class="form-select" id="edit-@field.Key" name="Fields[@field.Key]" data-field-input>
+                                                <option value="">Choose...</option>
+                                                @foreach (var option in field.Options)
+                                                {
+                                                    <option value="@option" selected="@(value == option)">@option</option>
+                                                }
+                                            </select>
+                                            break;
+                                        case CMIForge.Services.FieldType.Address:
+                                            var address = CMIForge.Services.FormAddressValue.Parse(value);
+                                            <div class="mf-address-field-grid" data-address-lookup-group>
+                                                <div class="col-span-8">
+                                                    <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key].AddressLine1" value="@address.AddressLine1" placeholder="Address line 1" autocomplete="street-address" data-address-lookup-input data-address-field="line1" data-field-input />
+                                                </div>
+                                                <div class="col-span-4">
+                                                    <input class="form-control" name="Fields[@field.Key].AddressLine2" value="@address.AddressLine2" placeholder="Suite, floor, etc." data-address-field="line2" data-field-input />
+                                                </div>
+                                                <div class="col-span-4">
+                                                    <input class="form-control" name="Fields[@field.Key].City" value="@address.City" placeholder="City" data-address-field="city" data-field-input />
+                                                </div>
+                                                <div class="col-span-3">
+                                                    <input class="form-control" name="Fields[@field.Key].State" value="@address.State" placeholder="State" data-address-field="state" data-field-input />
+                                                </div>
+                                                <div class="col-span-2">
+                                                    <input class="form-control" name="Fields[@field.Key].PostalCode" value="@address.PostalCode" placeholder="Postal code" data-address-field="postalCode" data-field-input />
+                                                </div>
+                                                <div class="col-span-3">
+                                                    <input class="form-control" name="Fields[@field.Key].Country" value="@address.Country" placeholder="Country" data-address-field="country" data-field-input />
+                                                </div>
+                                            </div>
+                                            break;
+                                        case CMIForge.Services.FieldType.Checkbox:
+                                            <div class="form-check">
+                                                <input type="hidden" name="Fields[@field.Key]" value="false" data-field-input />
+                                                <input class="form-check-input" id="edit-@field.Key" name="Fields[@field.Key]" type="checkbox" value="true" checked="@(value.Equals("Yes", StringComparison.OrdinalIgnoreCase) || value.Equals("true", StringComparison.OrdinalIgnoreCase))" data-field-input />
+                                                <label class="form-check-label" for="edit-@field.Key">Yes</label>
+                                            </div>
+                                            break;
+                                        case CMIForge.Services.FieldType.Date:
+                                            <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" type="date" value="@value" data-field-input />
+                                            break;
+                                        case CMIForge.Services.FieldType.Currency:
+                                        case CMIForge.Services.FieldType.Number:
+                                            <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" type="number" step="0.01" value="@value" data-field-input />
+                                            break;
+                                        default:
+                                            <input class="form-control" id="edit-@field.Key" name="Fields[@field.Key]" value="@value" data-field-input />
+                                            break;
+                                    }
+                                }
+                            </div>
+                        }
+                    </section>
+                }
+            </div>
             <button class="btn btn-primary" type="submit">Save and resubmit</button>
         </form>
     }
@@ -494,6 +614,10 @@ else
     @if (Model.Schema?.Fields.Any(x => x.Type == CMIForge.Services.FieldType.Address) == true)
     {
         <script src="~/js/address-lookup.js" asp-append-version="true"></script>
+    }
+    @if (Model.Schema is not null)
+    {
+        <script src="~/js/form-tabs.js" asp-append-version="true"></script>
     }
 }
 

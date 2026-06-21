@@ -9,190 +9,491 @@
 <section class="mf-hero">
     <div>
         <h1>@tenantDisplayName</h1>
-        <p class="lead">Manage intake, approvals, conflicts, clients, matters, and handoff in one place.</p>
+        @if (Model.View == CMIForge.Pages.DashboardViews.User)
+        {
+            <p class="lead">Your queue, submissions, time, and conflict escalations in one place.</p>
+        }
+        else if (Model.View == CMIForge.Pages.DashboardViews.Partner)
+        {
+            <p class="lead">Partner-facing matter health, approvals, submissions, and conflict attention.</p>
+        }
+        else
+        {
+            <p class="lead">Manage intake, approvals, conflicts, clients, matters, and handoff in one place.</p>
+        }
     </div>
     <div class="mf-hero-metrics" aria-label="Dashboard highlights">
-        <span><strong>@Model.OpenWorkflowTaskCount</strong> open workflow tasks</span>
-        <span><strong>@Model.ConflictSearchCount</strong> conflict searches</span>
+        @if (Model.View == CMIForge.Pages.DashboardViews.User)
+        {
+            <span><strong>@(Model.MyOpenTaskCount + Model.MyTeamTaskCount)</strong> open tasks</span>
+            <span><strong>@Model.MyEscalationCount</strong> escalations</span>
+        }
+        else if (Model.View == CMIForge.Pages.DashboardViews.Partner)
+        {
+            <span><strong>@Model.PartnerLeadMatterCount</strong> lead matters</span>
+            <span><strong>@Model.PartnerTimeApprovalCount</strong> time approvals</span>
+        }
+        else
+        {
+            <span><strong>@Model.OpenWorkflowTaskCount</strong> open workflow tasks</span>
+            <span><strong>@Model.ConflictSearchCount</strong> conflict searches</span>
+        }
     </div>
 </section>
 
-<section class="mf-stat-grid" aria-label="@tenantDisplayName counts">
-    <a class="mf-stat mf-stat-link" asp-page="/Forms/Index" aria-label="View active forms">
-        <span>@Model.FormCount</span>
-        <strong>Active forms</strong>
-    </a>
-    <a class="mf-stat mf-stat-link" asp-page="/Submissions/Index" aria-label="View submissions">
-        <span>@Model.SubmissionCount</span>
-        <strong>Submissions</strong>
-    </a>
-    <a class="mf-stat mf-stat-link" asp-page="/Forms/Index" aria-label="View published form versions">
-        <span>@Model.PublishedVersionCount</span>
-        <strong>Published versions</strong>
-    </a>
-    <a class="mf-stat mf-stat-link" asp-page="/Time/Index" aria-label="View recorded hours">
-        <span>@Model.TimeHours.ToString("0.0")</span>
-        <strong>Recorded hours</strong>
-    </a>
-</section>
+<nav class="mf-dashboard-switcher" aria-label="Dashboard view">
+    <a class="@(Model.View == CMIForge.Pages.DashboardViews.Firm ? "active" : "")" asp-page="/Index" asp-route-view="firm">Firm Admin</a>
+    <a class="@(Model.View == CMIForge.Pages.DashboardViews.User ? "active" : "")" asp-page="/Index" asp-route-view="user">My Work</a>
+    <a class="@(Model.View == CMIForge.Pages.DashboardViews.Partner ? "active" : "")" asp-page="/Index" asp-route-view="partner">Matter Partner</a>
+</nav>
 
-<section class="mf-dashboard-grid mb-4">
-    <article class="mf-panel mf-chart-card">
-        <div class="mf-chart-heading">
-            <div>
-                <p class="mf-eyebrow">Intake pulse</p>
-                <h2>Submission Status</h2>
-            </div>
-            <strong>@Model.SubmissionCount.ToString("N0") total</strong>
-        </div>
-        <div class="mf-donut-wrap">
-            <div class="mf-donut" style="--mf-donut: @Model.SubmissionStatusGradient">
-                <span>@Model.SubmissionCount.ToString("N0")</span>
-            </div>
-            <ul class="mf-chart-legend">
-                @if (Model.SubmissionStatusSlices.Count == 0)
+@if (Model.View == CMIForge.Pages.DashboardViews.User)
+{
+    <section class="mf-stat-grid" aria-label="My dashboard counts">
+        <a class="mf-stat mf-stat-link" asp-page="/Workflow/Queue" asp-route-view="mine">
+            <span>@Model.MyOpenTaskCount</span>
+            <strong>Assigned to me</strong>
+        </a>
+        <a class="mf-stat mf-stat-link" asp-page="/Workflow/Queue" asp-route-view="team">
+            <span>@Model.MyTeamTaskCount</span>
+            <strong>Team queue</strong>
+        </a>
+        <a class="mf-stat mf-stat-link" asp-page="/Submissions/Index" asp-route-view="mine">
+            <span>@Model.MySubmissionCount</span>
+            <strong>My submissions</strong>
+        </a>
+        <a class="mf-stat mf-stat-link" asp-page="/Time/Index">
+            <span>@Model.MyTimeHours.ToString("0.0")</span>
+            <strong>My hours</strong>
+        </a>
+    </section>
+
+    <section class="row g-4 mt-1">
+        <div class="col-xl-7">
+            <div class="mf-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>Open Work</h2>
+                    <a asp-page="/Workflow/Queue" asp-route-view="mine">Queue</a>
+                </div>
+                @if (Model.MyOpenTasks.Count == 0)
                 {
-                    <li><span style="--slice-color: #e5ebf2"></span>No submissions yet</li>
+                    <p class="text-muted mb-0">No open work assigned right now.</p>
                 }
                 else
                 {
-                    @foreach (var slice in Model.SubmissionStatusSlices)
-                    {
-                        <li><span style="--slice-color: @slice.Color"></span><strong>@slice.Label</strong> @slice.Count.ToString("N0")</li>
-                    }
+                    <div class="mf-dashboard-list">
+                        @foreach (var task in Model.MyOpenTasks)
+                        {
+                            <a class="mf-dashboard-row" asp-page="/Submissions/Details" asp-route-id="@task.SubmissionId">
+                                <span>
+                                    <strong>@task.StepName</strong>
+                                    <small>@task.WorkflowName · @CMIForge.Services.RecordNumbers.Submission(task.SubmissionNumber) · @task.FormName</small>
+                                </span>
+                                <em>@UserDates.Format(task.CreatedAt)</em>
+                            </a>
+                        }
+                    </div>
                 }
-            </ul>
-        </div>
-    </article>
-
-    <article class="mf-panel mf-chart-card">
-        <div class="mf-chart-heading">
-            <div>
-                <p class="mf-eyebrow">Risk desk</p>
-                <h2>Conflict Mix</h2>
             </div>
-            <strong>@Model.ConflictSearchCount.ToString("N0") total</strong>
         </div>
-        <div class="mf-donut-wrap">
-            <div class="mf-donut mf-donut-small" style="--mf-donut: @Model.ConflictStatusGradient">
-                <span>@Model.ConflictSearchCount.ToString("N0")</span>
-            </div>
-            <ul class="mf-chart-legend">
-                @if (Model.ConflictStatusSlices.Count == 0)
+        <div class="col-xl-5">
+            <div class="mf-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>Conflict Escalations</h2>
+                    <a asp-page="/Conflicts/Index">Conflicts</a>
+                </div>
+                @if (Model.MyEscalations.Count == 0)
                 {
-                    <li><span style="--slice-color: #e5ebf2"></span>No conflict searches yet</li>
+                    <p class="text-muted mb-0">No conflict results are waiting on you.</p>
                 }
                 else
                 {
-                    @foreach (var slice in Model.ConflictStatusSlices)
-                    {
-                        <li><span style="--slice-color: @slice.Color"></span><strong>@slice.Label</strong> @slice.Count.ToString("N0")</li>
-                    }
+                    <div class="mf-dashboard-list">
+                        @foreach (var escalation in Model.MyEscalations)
+                        {
+                            <a class="mf-dashboard-row" asp-page="/Conflicts/Details" asp-route-id="@escalation.SearchId">
+                                <span>
+                                    <strong>@escalation.MatchedName</strong>
+                                    <small>@CMIForge.Services.RecordNumbers.ConflictSearch(escalation.SearchNumber) · @escalation.RiskLevel · @escalation.Score%</small>
+                                </span>
+                                <em>@(escalation.EscalatedAt.HasValue ? UserDates.Format(escalation.EscalatedAt.Value) : "Open")</em>
+                            </a>
+                        }
+                    </div>
                 }
-            </ul>
-        </div>
-    </article>
-
-    <article class="mf-panel mf-chart-card">
-        <div class="mf-chart-heading">
-            <div>
-                <p class="mf-eyebrow">Queue heat</p>
-                <h2>Open Work</h2>
             </div>
-            <strong>@Model.OpenWorkflowTaskCount.ToString("N0") open</strong>
         </div>
-        <div class="mf-bar-stack">
-            @if (Model.WorkflowTaskBars.Count == 0)
-            {
-                <p class="text-muted mb-0">Nothing waiting in workflow right now.</p>
-            }
-            else
-            {
-                @foreach (var bar in Model.WorkflowTaskBars)
+        <div class="col-xl-6">
+            <div class="mf-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>Recent Submissions</h2>
+                    <a asp-page="/Submissions/Index" asp-route-view="mine">All mine</a>
+                </div>
+                @if (Model.MyRecentSubmissions.Count == 0)
                 {
-                    <div class="mf-bar-row">
-                        <div>
-                            <strong>@bar.Label</strong>
-                            <span>@bar.Count.ToString("N0")</span>
+                    <p class="text-muted mb-0">No submissions yet.</p>
+                }
+                else
+                {
+                    <div class="mf-dashboard-list">
+                        @foreach (var submission in Model.MyRecentSubmissions)
+                        {
+                            <a class="mf-dashboard-row" asp-page="/Submissions/Details" asp-route-id="@submission.Id">
+                                <span>
+                                    <strong>@CMIForge.Services.RecordNumbers.Submission(submission.SubmissionNumber) · @submission.Status</strong>
+                                    <small>@submission.FormName · @(string.IsNullOrWhiteSpace(submission.MatterName) ? submission.ClientName : submission.MatterName)</small>
+                                </span>
+                                <em>@UserDates.Format(submission.SubmittedAt)</em>
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="mf-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>My Time</h2>
+                    <a asp-page="/Time/Create">Record time</a>
+                </div>
+                <div class="mf-mini-metrics mb-3">
+                    <span><strong>@Model.MyDraftTimeCount</strong> Draft</span>
+                    <span><strong>@Model.MySubmittedTimeCount</strong> Submitted</span>
+                </div>
+                @if (Model.MyRecentTimeEntries.Count == 0)
+                {
+                    <p class="text-muted mb-0">No time entries yet.</p>
+                }
+                else
+                {
+                    <div class="mf-dashboard-list">
+                        @foreach (var entry in Model.MyRecentTimeEntries)
+                        {
+                            <a class="mf-dashboard-row" asp-page="/Time/Details" asp-route-id="@entry.Id">
+                                <span>
+                                    <strong>@entry.Hours.ToString("0.0") hrs · @entry.Status</strong>
+                                    <small>@entry.WorkDate.ToString("MMM d") · @entry.MatterName</small>
+                                </span>
+                                <em>@CMIForge.Services.RecordNumbers.TimeEntry(entry.TimeEntryNumber)</em>
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+}
+else if (Model.View == CMIForge.Pages.DashboardViews.Partner)
+{
+    <section class="mf-stat-grid" aria-label="Matter partner dashboard counts">
+        <a class="mf-stat mf-stat-link" asp-page="/Entities/Matters/Index">
+            <span>@Model.PartnerOpenMatterCount</span>
+            <strong>Open lead matters</strong>
+        </a>
+        <a class="mf-stat mf-stat-link" asp-page="/Time/Index" asp-route-status="@CMIForge.Services.TimeEntryStatuses.Submitted">
+            <span>@Model.PartnerTimeApprovalCount</span>
+            <strong>Time approvals</strong>
+        </a>
+        <a class="mf-stat mf-stat-link" asp-page="/Conflicts/Index">
+            <span>@Model.PartnerPendingConflictCount</span>
+            <strong>Pending conflicts</strong>
+        </a>
+        <a class="mf-stat mf-stat-link" asp-page="/Submissions/Index" asp-route-view="all">
+            <span>@Model.PartnerSubmissionCount</span>
+            <strong>Partner submissions</strong>
+        </a>
+    </section>
+
+    <section class="row g-4 mt-1">
+        <div class="col-xl-7">
+            <div class="mf-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>Lead Matters</h2>
+                    <a asp-page="/Entities/Matters/Index">Matters</a>
+                </div>
+                @if (Model.PartnerMatters.Count == 0)
+                {
+                    <p class="text-muted mb-0">No matters are assigned to you as lead partner.</p>
+                }
+                else
+                {
+                    <div class="mf-dashboard-list">
+                        @foreach (var matter in Model.PartnerMatters)
+                        {
+                            <a class="mf-dashboard-row" asp-page="/Entities/Matters/Details" asp-route-id="@matter.Id">
+                                <span>
+                                    <strong>@CMIForge.Services.RecordNumbers.Matter(matter.MatterNumber) · @matter.Name</strong>
+                                    <small>@matter.ClientName · @matter.Status · @matter.SubmittedTimeCount time approvals</small>
+                                </span>
+                                <em>@matter.OpenWorkflowTasks open tasks</em>
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-xl-5">
+            <div class="mf-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>Time Waiting</h2>
+                    <a asp-page="/Time/Index" asp-route-status="@CMIForge.Services.TimeEntryStatuses.Submitted">Time</a>
+                </div>
+                @if (Model.PartnerTimeApprovals.Count == 0)
+                {
+                    <p class="text-muted mb-0">No submitted time is waiting for partner approval.</p>
+                }
+                else
+                {
+                    <div class="mf-dashboard-list">
+                        @foreach (var entry in Model.PartnerTimeApprovals)
+                        {
+                            <a class="mf-dashboard-row" asp-page="/Time/Details" asp-route-id="@entry.Id">
+                                <span>
+                                    <strong>@entry.Hours.ToString("0.0") hrs · @entry.WorkDate.ToString("MMM d")</strong>
+                                    <small>@entry.MatterName</small>
+                                </span>
+                                <em>@CMIForge.Services.RecordNumbers.TimeEntry(entry.TimeEntryNumber)</em>
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="mf-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>Conflict Attention</h2>
+                    <a asp-page="/Conflicts/Index">Conflicts</a>
+                </div>
+                @if (Model.PartnerConflictEscalations.Count == 0)
+                {
+                    <p class="text-muted mb-0">No pending conflict results on your lead matters.</p>
+                }
+                else
+                {
+                    <div class="mf-dashboard-list">
+                        @foreach (var conflict in Model.PartnerConflictEscalations)
+                        {
+                            <a class="mf-dashboard-row" asp-page="/Conflicts/Details" asp-route-id="@conflict.SearchId">
+                                <span>
+                                    <strong>@conflict.MatchedName</strong>
+                                    <small>@CMIForge.Services.RecordNumbers.ConflictSearch(conflict.SearchNumber) · @conflict.RiskLevel · @conflict.Score%</small>
+                                </span>
+                                <em>Review</em>
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="mf-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>Partner Submissions</h2>
+                    <a asp-page="/Submissions/Index" asp-route-view="all">Submissions</a>
+                </div>
+                @if (Model.PartnerSubmissions.Count == 0)
+                {
+                    <p class="text-muted mb-0">No submissions are tied to your lead partner work yet.</p>
+                }
+                else
+                {
+                    <div class="mf-dashboard-list">
+                        @foreach (var submission in Model.PartnerSubmissions)
+                        {
+                            <a class="mf-dashboard-row" asp-page="/Submissions/Details" asp-route-id="@submission.Id">
+                                <span>
+                                    <strong>@CMIForge.Services.RecordNumbers.Submission(submission.SubmissionNumber) · @submission.Status</strong>
+                                    <small>@submission.FormName · @(string.IsNullOrWhiteSpace(submission.MatterName) ? submission.ClientName : submission.MatterName)</small>
+                                </span>
+                                <em>@UserDates.Format(submission.SubmittedAt)</em>
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+}
+else
+{
+    <section class="mf-stat-grid" aria-label="@tenantDisplayName counts">
+        <a class="mf-stat mf-stat-link" asp-page="/Forms/Index" aria-label="View active forms">
+            <span>@Model.FormCount</span>
+            <strong>Active forms</strong>
+        </a>
+        <a class="mf-stat mf-stat-link" asp-page="/Submissions/Index" aria-label="View submissions">
+            <span>@Model.SubmissionCount</span>
+            <strong>Submissions</strong>
+        </a>
+        <a class="mf-stat mf-stat-link" asp-page="/Forms/Index" aria-label="View published form versions">
+            <span>@Model.PublishedVersionCount</span>
+            <strong>Published versions</strong>
+        </a>
+        <a class="mf-stat mf-stat-link" asp-page="/Time/Index" aria-label="View recorded hours">
+            <span>@Model.TimeHours.ToString("0.0")</span>
+            <strong>Recorded hours</strong>
+        </a>
+    </section>
+
+    <section class="mf-dashboard-grid mb-4">
+        <article class="mf-panel mf-chart-card">
+            <div class="mf-chart-heading">
+                <div>
+                    <p class="mf-eyebrow">Intake pulse</p>
+                    <h2>Submission Status</h2>
+                </div>
+                <strong>@Model.SubmissionCount.ToString("N0") total</strong>
+            </div>
+            <div class="mf-donut-wrap">
+                <div class="mf-donut" style="--mf-donut: @Model.SubmissionStatusGradient">
+                    <span>@Model.SubmissionCount.ToString("N0")</span>
+                </div>
+                <ul class="mf-chart-legend">
+                    @if (Model.SubmissionStatusSlices.Count == 0)
+                    {
+                        <li><span style="--slice-color: #e5ebf2"></span>No submissions yet</li>
+                    }
+                    else
+                    {
+                        @foreach (var slice in Model.SubmissionStatusSlices)
+                        {
+                            <li><span style="--slice-color: @slice.Color"></span><strong>@slice.Label</strong> @slice.Count.ToString("N0")</li>
+                        }
+                    }
+                </ul>
+            </div>
+        </article>
+
+        <article class="mf-panel mf-chart-card">
+            <div class="mf-chart-heading">
+                <div>
+                    <p class="mf-eyebrow">Risk desk</p>
+                    <h2>Conflict Mix</h2>
+                </div>
+                <strong>@Model.ConflictSearchCount.ToString("N0") total</strong>
+            </div>
+            <div class="mf-donut-wrap">
+                <div class="mf-donut mf-donut-small" style="--mf-donut: @Model.ConflictStatusGradient">
+                    <span>@Model.ConflictSearchCount.ToString("N0")</span>
+                </div>
+                <ul class="mf-chart-legend">
+                    @if (Model.ConflictStatusSlices.Count == 0)
+                    {
+                        <li><span style="--slice-color: #e5ebf2"></span>No conflict searches yet</li>
+                    }
+                    else
+                    {
+                        @foreach (var slice in Model.ConflictStatusSlices)
+                        {
+                            <li><span style="--slice-color: @slice.Color"></span><strong>@slice.Label</strong> @slice.Count.ToString("N0")</li>
+                        }
+                    }
+                </ul>
+            </div>
+        </article>
+
+        <article class="mf-panel mf-chart-card">
+            <div class="mf-chart-heading">
+                <div>
+                    <p class="mf-eyebrow">Queue heat</p>
+                    <h2>Open Work</h2>
+                </div>
+                <strong>@Model.OpenWorkflowTaskCount.ToString("N0") open</strong>
+            </div>
+            <div class="mf-bar-stack">
+                @if (Model.WorkflowTaskBars.Count == 0)
+                {
+                    <p class="text-muted mb-0">Nothing waiting in workflow right now.</p>
+                }
+                else
+                {
+                    @foreach (var bar in Model.WorkflowTaskBars)
+                    {
+                        <div class="mf-bar-row">
+                            <div>
+                                <strong>@bar.Label</strong>
+                                <span>@bar.Count.ToString("N0")</span>
+                            </div>
+                            <div class="mf-bar"><span style="width: @Model.FormatPercent(bar.Percent)%"></span></div>
                         </div>
-                        <div class="mf-bar"><span style="width: @Model.FormatPercent(bar.Percent)%"></span></div>
+                    }
+                }
+            </div>
+        </article>
+
+        <article class="mf-panel mf-chart-card">
+            <div class="mf-chart-heading">
+                <div>
+                    <p class="mf-eyebrow">Last 14 days</p>
+                    <h2>Submission Trend</h2>
+                </div>
+            </div>
+            <div class="mf-spark-bars" aria-label="Recent submissions by day">
+                @foreach (var bar in Model.RecentSubmissionBars)
+                {
+                    var height = Math.Max(8m, bar.Percent);
+                    <span style="height: @Model.FormatPercent(height)%" title="@bar.Label: @bar.Count.ToString("N0")"></span>
+                }
+            </div>
+        </article>
+    </section>
+
+    <section class="row g-4 mt-1">
+        <div class="col-lg-5">
+            <div class="mf-panel">
+                <h2>Current Limits</h2>
+                <div class="mf-limit-list">
+                    <div class="mf-limit-row">
+                        <div>
+                            <strong>Users</strong>
+                            <span>@Model.Usage.UserCount / @(Model.CurrentPlan.UserLimit?.ToString("N0") ?? "Unlimited")</span>
+                        </div>
+                        <div class="mf-meter"><span style="width: @Model.FormatPercent(Model.GetUsagePercent(Model.Usage.UserCount, Model.CurrentPlan.UserLimit))%"></span></div>
+                    </div>
+                    <div class="mf-limit-row">
+                        <div>
+                            <strong>Matters</strong>
+                            <span>@Model.Usage.MatterCount / @(Model.CurrentPlan.MatterLimit?.ToString("N0") ?? "Unlimited")</span>
+                        </div>
+                        <div class="mf-meter"><span style="width: @Model.FormatPercent(Model.GetUsagePercent(Model.Usage.MatterCount, Model.CurrentPlan.MatterLimit))%"></span></div>
+                    </div>
+                    <div class="mf-limit-row">
+                        <div>
+                            <strong>Clients</strong>
+                            <span>@Model.Usage.ClientCount / @(Model.CurrentPlan.ClientLimit?.ToString("N0") ?? "Unlimited")</span>
+                        </div>
+                        <div class="mf-meter"><span style="width: @Model.FormatPercent(Model.GetUsagePercent(Model.Usage.ClientCount, Model.CurrentPlan.ClientLimit))%"></span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="mf-panel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>Latest Forms</h2>
+                    <a asp-page="/Forms/Create">New form</a>
+                </div>
+                @if (Model.LatestForms.Count == 0)
+                {
+                    <p class="text-muted mb-0">No forms yet. Create the first intake form to start shaping the platform.</p>
+                }
+                else
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var form in Model.LatestForms)
+                        {
+                            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" asp-page="/Forms/Submit" asp-route-id="@form.Id">
+                                <span>
+                                    <strong>@form.Name</strong>
+                                    <small class="d-block text-muted">@form.Description</small>
+                                </span>
+                                <span class="badge text-bg-primary">Fill</span>
+                            </a>
+                        }
                     </div>
                 }
-            }
-        </div>
-    </article>
-
-    <article class="mf-panel mf-chart-card">
-        <div class="mf-chart-heading">
-            <div>
-                <p class="mf-eyebrow">Last 14 days</p>
-                <h2>Submission Trend</h2>
             </div>
         </div>
-        <div class="mf-spark-bars" aria-label="Recent submissions by day">
-            @foreach (var bar in Model.RecentSubmissionBars)
-            {
-                var height = Math.Max(8m, bar.Percent);
-                <span style="height: @Model.FormatPercent(height)%" title="@bar.Label: @bar.Count.ToString("N0")"></span>
-            }
-        </div>
-    </article>
-</section>
-
-<section class="row g-4 mt-1">
-    <div class="col-lg-5">
-        <div class="mf-panel">
-            <h2>Current Limits</h2>
-            <div class="mf-limit-list">
-                <div class="mf-limit-row">
-                    <div>
-                        <strong>Users</strong>
-                        <span>@Model.Usage.UserCount / @(Model.CurrentPlan.UserLimit?.ToString("N0") ?? "Unlimited")</span>
-                    </div>
-                    <div class="mf-meter"><span style="width: @Model.FormatPercent(Model.GetUsagePercent(Model.Usage.UserCount, Model.CurrentPlan.UserLimit))%"></span></div>
-                </div>
-                <div class="mf-limit-row">
-                    <div>
-                        <strong>Matters</strong>
-                        <span>@Model.Usage.MatterCount / @(Model.CurrentPlan.MatterLimit?.ToString("N0") ?? "Unlimited")</span>
-                    </div>
-                    <div class="mf-meter"><span style="width: @Model.FormatPercent(Model.GetUsagePercent(Model.Usage.MatterCount, Model.CurrentPlan.MatterLimit))%"></span></div>
-                </div>
-                <div class="mf-limit-row">
-                    <div>
-                        <strong>Clients</strong>
-                        <span>@Model.Usage.ClientCount / @(Model.CurrentPlan.ClientLimit?.ToString("N0") ?? "Unlimited")</span>
-                    </div>
-                    <div class="mf-meter"><span style="width: @Model.FormatPercent(Model.GetUsagePercent(Model.Usage.ClientCount, Model.CurrentPlan.ClientLimit))%"></span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-7">
-        <div class="mf-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2>Latest Forms</h2>
-                <a asp-page="/Forms/Create">New form</a>
-            </div>
-            @if (Model.LatestForms.Count == 0)
-            {
-                <p class="text-muted mb-0">No forms yet. Create the first intake form to start shaping the platform.</p>
-            }
-            else
-            {
-                <div class="list-group list-group-flush">
-                    @foreach (var form in Model.LatestForms)
-                    {
-                        <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" asp-page="/Forms/Submit" asp-route-id="@form.Id">
-                            <span>
-                                <strong>@form.Name</strong>
-                                <small class="d-block text-muted">@form.Description</small>
-                            </span>
-                            <span class="badge text-bg-primary">Fill</span>
-                        </a>
-                    }
-                </div>
-            }
-        </div>
-    </div>
-</section>
+    </section>
+}

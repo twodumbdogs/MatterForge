@@ -29,6 +29,7 @@ public class IndexModel(CMIForgeDbContext db) : PageModel
     public async Task OnGetAsync()
     {
         var query = db.Clients
+            .Include(x => x.Aliases)
             .Where(x => !x.IsArchived);
 
         Search = Search?.Trim();
@@ -48,7 +49,10 @@ public class IndexModel(CMIForgeDbContext db) : PageModel
                 x.State.Contains(Search) ||
                 x.PostalCode.Contains(Search) ||
                 x.Country.Contains(Search) ||
-                x.Notes.Contains(Search));
+                x.Notes.Contains(Search) ||
+                x.Aliases.Any(alias =>
+                    alias.Alias.Contains(Search) ||
+                    alias.NormalizedAlias.Contains(Search)));
         }
 
         Pagination = RecordPage.Create(PageNumber, await query.CountAsync());
@@ -82,6 +86,7 @@ public class IndexModel(CMIForgeDbContext db) : PageModel
             "status" => descending ? query.OrderByDescending(x => x.Status).ThenBy(x => x.ClientNumber) : query.OrderBy(x => x.Status).ThenBy(x => x.ClientNumber),
             "primary" => descending ? query.OrderByDescending(x => x.PrimaryContact).ThenBy(x => x.ClientNumber) : query.OrderBy(x => x.PrimaryContact).ThenBy(x => x.ClientNumber),
             "email" => descending ? query.OrderByDescending(x => x.Email).ThenBy(x => x.ClientNumber) : query.OrderBy(x => x.Email).ThenBy(x => x.ClientNumber),
+            "aliases" => descending ? query.OrderByDescending(x => x.Aliases.Count).ThenBy(x => x.ClientNumber) : query.OrderBy(x => x.Aliases.Count).ThenBy(x => x.ClientNumber),
             "matters" => descending ? query.OrderByDescending(x => x.Matters.Count).ThenBy(x => x.ClientNumber) : query.OrderBy(x => x.Matters.Count).ThenBy(x => x.ClientNumber),
             _ => descending ? query.OrderByDescending(x => x.ClientNumber) : query.OrderBy(x => x.ClientNumber)
         };
@@ -89,7 +94,7 @@ public class IndexModel(CMIForgeDbContext db) : PageModel
 
     private static string NormalizeSortColumn(string? column)
     {
-        return column is "number" or "name" or "status" or "primary" or "email" or "matters"
+        return column is "number" or "name" or "status" or "primary" or "email" or "aliases" or "matters"
             ? column
             : "number";
     }

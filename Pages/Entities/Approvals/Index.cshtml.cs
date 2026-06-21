@@ -55,6 +55,7 @@ public class IndexModel(
         }
 
         var actor = await currentUserService.GetCurrentUserAsync();
+        var complianceReviewCompleted = false;
         if (request.EntityType == EntityChangeService.ClientEntityType)
         {
             var client = await db.Clients.FirstOrDefaultAsync(x => x.Id == request.EntityId);
@@ -64,6 +65,10 @@ public class IndexModel(
                 return RedirectToPage();
             }
 
+            complianceReviewCompleted = EntityComplianceService.MovesFromReviewToCompliant(
+                request.EntityType,
+                client.Status,
+                proposed.Status);
             EntityChangeService.Apply(client, proposed);
         }
         else if (request.EntityType == EntityChangeService.MatterEntityType)
@@ -75,6 +80,10 @@ public class IndexModel(
                 return RedirectToPage();
             }
 
+            complianceReviewCompleted = EntityComplianceService.MovesFromReviewToCompliant(
+                request.EntityType,
+                matter.Status,
+                proposed.Status);
             EntityChangeService.Apply(matter, proposed);
         }
         else if (request.EntityType == EntityChangeService.ContactEntityType)
@@ -102,6 +111,24 @@ public class IndexModel(
             request.EntityNumber,
             $"Approved {request.EntityType.ToLowerInvariant()} change request for {request.EntityName}.",
             new { request.Id, request.Summary, request.ReviewNotes });
+
+        if (complianceReviewCompleted)
+        {
+            await auditLogService.LogAsync(
+                "EntityComplianceReviewed",
+                request.EntityType,
+                request.EntityId,
+                request.EntityNumber,
+                $"Marked {request.EntityType.ToLowerInvariant()} {request.EntityName} as compliance reviewed.",
+                new
+                {
+                    request.Id,
+                    request.Summary,
+                    request.RequestNotes,
+                    request.ReviewNotes,
+                    ReviewedByUserId = actor?.Id
+                });
+        }
 
         return RedirectToPage(new { pageNumber = PageNumber, Search });
     }

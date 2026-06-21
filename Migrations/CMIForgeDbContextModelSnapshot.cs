@@ -278,6 +278,43 @@ namespace CMIForge.Migrations
                     b.ToTable("Clients");
                 });
 
+            modelBuilder.Entity("CMIForge.Models.ClientAlias", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Alias")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("NormalizedAlias")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedAlias");
+
+                    b.HasIndex("ClientId", "NormalizedAlias")
+                        .IsUnique();
+
+                    b.ToTable("ClientAliases");
+                });
+
             modelBuilder.Entity("CMIForge.Models.ClientContact", b =>
                 {
                     b.Property<Guid>("Id")
@@ -746,6 +783,31 @@ namespace CMIForge.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<DateTimeOffset?>("EscalatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("EscalatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("EscalatedToUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EscalationApprovalNotes")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset?>("EscalationApprovedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("EscalationApprovedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EscalationNotes")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<string>("Explanation")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -794,6 +856,8 @@ namespace CMIForge.Migrations
 
                     b.HasIndex("ClientId");
 
+                    b.HasIndex("EscalatedByUserId");
+
                     b.HasIndex("MatterId");
 
                     b.HasIndex("PartyId");
@@ -803,6 +867,10 @@ namespace CMIForge.Migrations
                     b.HasIndex("ConflictSearchId", "ClearanceStatus");
 
                     b.HasIndex("ConflictSearchId", "Score");
+
+                    b.HasIndex("EscalatedToUserId", "EscalatedAt");
+
+                    b.HasIndex("EscalationApprovedByUserId", "EscalationApprovedAt");
 
                     b.ToTable("ConflictsResults", (string)null);
                 });
@@ -1137,6 +1205,31 @@ namespace CMIForge.Migrations
                     b.ToTable("EnhancementRequests");
                 });
 
+            modelBuilder.Entity("CMIForge.Models.EnhancementRequestVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("EnhancementRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnhancementRequestId", "UserId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("EnhancementRequestVotes");
+                });
+
             modelBuilder.Entity("CMIForge.Models.EntityChangeRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1246,6 +1339,95 @@ namespace CMIForge.Migrations
                     b.HasIndex("EntityType", "EntityId", "CreatedAt");
 
                     b.ToTable("EntityNotes");
+                });
+
+            modelBuilder.Entity("CMIForge.Models.ExternalFormInvite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("EmailQueuedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("FormDefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("FormSubmissionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FormVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LeadPartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset?>("OpenedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("RecipientContactId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RecipientEmail")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<string>("RecipientName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("SenderUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormSubmissionId");
+
+                    b.HasIndex("FormVersionId");
+
+                    b.HasIndex("LeadPartnerId");
+
+                    b.HasIndex("RecipientContactId");
+
+                    b.HasIndex("SenderUserId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("FormDefinitionId", "CreatedAt");
+
+                    b.HasIndex("Status", "ExpiresAt");
+
+                    b.ToTable("ExternalFormInvites");
                 });
 
             modelBuilder.Entity("CMIForge.Models.FormDefinition", b =>
@@ -1483,6 +1665,185 @@ namespace CMIForge.Migrations
                         .IsUnique();
 
                     b.ToTable("ImportBatchRows");
+                });
+
+            modelBuilder.Entity("CMIForge.Models.InboundEmailAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("GraphAttachmentId")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<Guid>("InboundEmailMessageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("OcrError")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("OcrStatus")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("OcrText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("SubmissionAttachmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InboundEmailMessageId");
+
+                    b.HasIndex("SubmissionAttachmentId");
+
+                    b.ToTable("InboundEmailAttachments");
+                });
+
+            modelBuilder.Entity("CMIForge.Models.InboundEmailMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BodyPreview")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("BodyText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ConversationId")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("FormSubmissionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FromEmail")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<string>("FromName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("GraphMessageId")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("InboundAddress")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<string>("InternetMessageId")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastError")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("MailboxAddress")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("nvarchar(254)");
+
+                    b.Property<string>("ParsedClientName")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("ParsedMatterName")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<DateTimeOffset?>("ProcessedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ValidationMessage")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormSubmissionId");
+
+                    b.HasIndex("GraphMessageId")
+                        .IsUnique()
+                        .HasFilter("[GraphMessageId] <> ''");
+
+                    b.HasIndex("InternetMessageId")
+                        .IsUnique()
+                        .HasFilter("[InternetMessageId] <> ''");
+
+                    b.HasIndex("Status", "ReceivedAt");
+
+                    b.ToTable("InboundEmailMessages");
                 });
 
             modelBuilder.Entity("CMIForge.Models.LegalAgreementAcceptance", b =>
@@ -2809,6 +3170,17 @@ namespace CMIForge.Migrations
                     b.Navigation("ActorUser");
                 });
 
+            modelBuilder.Entity("CMIForge.Models.ClientAlias", b =>
+                {
+                    b.HasOne("CMIForge.Models.Client", "Client")
+                        .WithMany("Aliases")
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+                });
+
             modelBuilder.Entity("CMIForge.Models.ClientContact", b =>
                 {
                     b.HasOne("CMIForge.Models.Client", "Client")
@@ -2962,6 +3334,21 @@ namespace CMIForge.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("CMIForge.Models.CMIForgeUser", "EscalatedByUser")
+                        .WithMany()
+                        .HasForeignKey("EscalatedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("CMIForge.Models.CMIForgeUser", "EscalatedToUser")
+                        .WithMany()
+                        .HasForeignKey("EscalatedToUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("CMIForge.Models.CMIForgeUser", "EscalationApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("EscalationApprovedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("CMIForge.Models.Matter", "Matter")
                         .WithMany()
                         .HasForeignKey("MatterId")
@@ -2977,6 +3364,12 @@ namespace CMIForge.Migrations
                     b.Navigation("Client");
 
                     b.Navigation("ConflictSearch");
+
+                    b.Navigation("EscalatedByUser");
+
+                    b.Navigation("EscalatedToUser");
+
+                    b.Navigation("EscalationApprovedByUser");
 
                     b.Navigation("Matter");
 
@@ -3024,6 +3417,25 @@ namespace CMIForge.Migrations
                     b.Navigation("UpdatedByUser");
                 });
 
+            modelBuilder.Entity("CMIForge.Models.EnhancementRequestVote", b =>
+                {
+                    b.HasOne("CMIForge.Models.EnhancementRequest", "EnhancementRequest")
+                        .WithMany("Votes")
+                        .HasForeignKey("EnhancementRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CMIForge.Models.CMIForgeUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("EnhancementRequest");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CMIForge.Models.EntityChangeRequest", b =>
                 {
                     b.HasOne("CMIForge.Models.CMIForgeUser", "RequestedByUser")
@@ -3049,6 +3461,53 @@ namespace CMIForge.Migrations
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("CMIForge.Models.ExternalFormInvite", b =>
+                {
+                    b.HasOne("CMIForge.Models.FormDefinition", "FormDefinition")
+                        .WithMany()
+                        .HasForeignKey("FormDefinitionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("CMIForge.Models.FormSubmission", "FormSubmission")
+                        .WithMany()
+                        .HasForeignKey("FormSubmissionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("CMIForge.Models.FormVersion", "FormVersion")
+                        .WithMany()
+                        .HasForeignKey("FormVersionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("CMIForge.Models.CMIForgeUser", "LeadPartner")
+                        .WithMany()
+                        .HasForeignKey("LeadPartnerId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("CMIForge.Models.Contact", "RecipientContact")
+                        .WithMany()
+                        .HasForeignKey("RecipientContactId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("CMIForge.Models.CMIForgeUser", "SenderUser")
+                        .WithMany()
+                        .HasForeignKey("SenderUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("FormDefinition");
+
+                    b.Navigation("FormSubmission");
+
+                    b.Navigation("FormVersion");
+
+                    b.Navigation("LeadPartner");
+
+                    b.Navigation("RecipientContact");
+
+                    b.Navigation("SenderUser");
                 });
 
             modelBuilder.Entity("CMIForge.Models.FormSubmission", b =>
@@ -3135,6 +3594,34 @@ namespace CMIForge.Migrations
                         .IsRequired();
 
                     b.Navigation("ImportBatch");
+                });
+
+            modelBuilder.Entity("CMIForge.Models.InboundEmailAttachment", b =>
+                {
+                    b.HasOne("CMIForge.Models.InboundEmailMessage", "InboundEmailMessage")
+                        .WithMany("Attachments")
+                        .HasForeignKey("InboundEmailMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CMIForge.Models.SubmissionAttachment", "SubmissionAttachment")
+                        .WithMany()
+                        .HasForeignKey("SubmissionAttachmentId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("InboundEmailMessage");
+
+                    b.Navigation("SubmissionAttachment");
+                });
+
+            modelBuilder.Entity("CMIForge.Models.InboundEmailMessage", b =>
+                {
+                    b.HasOne("CMIForge.Models.FormSubmission", "FormSubmission")
+                        .WithMany()
+                        .HasForeignKey("FormSubmissionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("FormSubmission");
                 });
 
             modelBuilder.Entity("CMIForge.Models.LegalAgreementAcceptance", b =>
@@ -3596,6 +4083,8 @@ namespace CMIForge.Migrations
 
             modelBuilder.Entity("CMIForge.Models.Client", b =>
                 {
+                    b.Navigation("Aliases");
+
                     b.Navigation("Contacts");
 
                     b.Navigation("Matters");
@@ -3620,6 +4109,11 @@ namespace CMIForge.Migrations
                     b.Navigation("MatterLinks");
                 });
 
+            modelBuilder.Entity("CMIForge.Models.EnhancementRequest", b =>
+                {
+                    b.Navigation("Votes");
+                });
+
             modelBuilder.Entity("CMIForge.Models.FormDefinition", b =>
                 {
                     b.Navigation("Versions");
@@ -3642,6 +4136,11 @@ namespace CMIForge.Migrations
             modelBuilder.Entity("CMIForge.Models.ImportBatch", b =>
                 {
                     b.Navigation("Rows");
+                });
+
+            modelBuilder.Entity("CMIForge.Models.InboundEmailMessage", b =>
+                {
+                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("CMIForge.Models.Matter", b =>

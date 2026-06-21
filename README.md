@@ -2,9 +2,9 @@
 
 CMIForge is a C# / ASP.NET Core prototype for configurable legal intake, workflow approvals, operational entity management, and conflict searches.
 
-Current version: `20260619.1`.
+Current version: `20260620.7`.
 
-The product currently has two public-facing surfaces:
+The product currently has three public-facing surfaces:
 
 - Marketing site: `https://cmiforge.com`
 - Public live demo: `https://demo.cmiforge.com`
@@ -25,19 +25,27 @@ The repo also now includes a Customer 0 deployment slice for a real, non-demo te
 
 - Dynamic form definitions
 - Versioned JSON form schemas
+- Form sections/tabs, basic field display conditions, and workflow-step editability rules
 - Runtime form rendering
 - Form submissions stored against the exact published form version
+- Secure external form invites for saved contacts to complete client-facing intake links
 - Submission queue and detail view
+- Role-oriented dashboard views for firm admins, individual users, and matter partners
 - Clients, matters, contacts, users, parties, aliases, and relationships
 - Native conflicts search with deterministic AI-style explanations
+- In-app conflict search-term help with examples for names, aliases, punctuation, history, and match strength
+- Conflict result escalation to another active firm user, with escalation notes, approval notes, and audit history
 - Floating live conflict preview on submission forms
 - Workflow definitions, approval queues, outcomes, and answer-based routing
+- Submission details with a right-side workflow rail for open actions and recent workflow history
 - Workflow notification steps with recipient/template configuration
+- Inbound email intake groundwork for trusted firm mailboxes to create reviewed submissions from `Client:` / optional `Matter:` subjects
 - CSV import center for clients, matters, and parties
 - Client photo OCR import drafting
 - Private submission attachments
 - Time recording, approval, locking, phase/task codes, timer capture, built-in operational reports, and a basic report builder
 - Team, role, permission, and audit-log foundation
+- Admin-only user impersonation for support, workflow-routing, and approval testing
 - Conversation-style notes on clients, matters, and parties
 - Archive/unarchive support for clients, matters, parties, and users
 - Admin-editable system settings for operational configuration
@@ -49,6 +57,68 @@ The repo also now includes a Customer 0 deployment slice for a real, non-demo te
 - Demo-mode scheduled/manual reset controls with reset run history
 - Hardcoded Community/Professional/Enterprise plan limiter
 - Azure SQL-ready EF Core model and migration
+
+## 2026-06-20 Nightly Wrap-Up
+
+This wrap-up records the current live-app working agreement and the latest polish pass:
+
+- Gabe's standing preference is now documented: after CMIForge changes, build/verify and deploy affected live surfaces unless Gabe explicitly says not to deploy.
+- The Help page now explains how conflict search terms are split, normalized, matched, scored, and reported, with user-facing examples.
+- Conflict search now treats `and` like an ampersand connector for names such as `Elm & Vine` vs. `Elm and Vine Capital`, while keeping acronym matching conservative.
+- Conflict search create and re-run screens now show a staged progress bar so users get immediate feedback while the server scans entities, history, scores candidates, and opens the results.
+- Conflict search matching was tuned so acronym-style names such as `A.A.W.` normalize sensibly and do not get overconfident one-letter matches against unrelated words.
+- Clients, parties, and conflicts lists were tightened into compact one-line rows to match the cleaner Users list style.
+- Enhancement requests now behave as a tenant-local firm queue: all signed-in users in the same firm can see the active firm requests and add/remove a support vote, while admins can still triage status and internal notes.
+- Client aliases are now first-class records on client create/detail screens, editable after creation, shown on the client list, and included in conflict matching. Party aliases are also editable/removable from party details.
+- Entity detail screens are better aligned: client, matter, party, and contact pages now surface related children/relationships in consistent side panels, including matter time entries, related parties, related contacts, client/matter links, and matter roles.
+- Direct-created clients, matters, and parties now default to `Compliance Review` and show guidance/warnings until reviewed. Moving a client to `Active` or a matter to `Open` requires change-request notes and writes a separate compliance-reviewed audit event when approved.
+- Published forms can now be sent to saved contacts as secure, expiring external intake links. The raw invite token is never stored, the external page uses a minimal client-safe layout, completed links become normal form submissions, and email-enabled tenants can queue the invite through the Email Outbox while non-email tenants get a copyable link.
+- Inbound email intake now has the first real app lane: tenant settings define the Graph mailbox, tenant inbound address, allowed sender domains, and default form key; unread trusted messages with `Client: Acme Corp` or `Client: Acme Corp; Matter: Lease Review` create normal reviewable submissions and copy supported attachments into the private submission attachment store. Blank or omitted `Matter:` is allowed so the reviewer can create/link only a client.
+- Form definitions now support named sections that render as tabs on internal and external intake pages. Fields can also have a basic "show if field equals value" condition and an optional workflow-step edit rule so returned submissions can be locked down by step.
+- Submission detail pages now use a left-side Submission Workspace tab set for form sections, linked conflict searches, and attachments, while keeping a sticky right-side activity/audit rail for submitter context, workflow actions, tasks, history, recent audit events, and attachment summaries.
+- Older submissions whose saved form-version JSON predates explicit sections get display-only inferred tabs on the detail page, so historical records can still read as Client Details, Matter Details, Related Parties, Conflicts Search, Compliance Review, or Review without mutating stored submission history.
+- Customer 0 startup seeding now keeps demo/sample conflict reference parties behind `CMIForge:SeedSampleData=true`, so core production-style tenants do not try to seed demo data by accident.
+- The security hardening direction is to keep moving toward managed identity, Key Vault-backed secrets, private storage, least-privilege SQL/Graph access, Defender alerts, private networking where cost-appropriate, and explicit audit/retention controls.
+
+## 2026-06-20 Private Networking Hardening
+
+CMIForge now has a shared private-networking slice for the current demo and Customer 0 apps:
+
+- VNet: `cmiforge-vnet` in `gw-rg` / Central US.
+- App Service integration subnet: `appsvc-integration` (`10.42.1.0/26`), delegated to `Microsoft.Web/serverFarms`.
+- Private endpoint subnet: `private-endpoints` (`10.42.2.0/27`).
+- Private endpoints:
+  - SQL server `gwmatterforge` -> `pe-cmiforge-sql` / `10.42.2.4`
+  - Blob storage account `cmiforgeattachasgmt7` -> `pe-cmiforge-blob` / `10.42.2.5`
+  - Key Vault `cmiforge-kv-gw` -> `pe-cmiforge-keyvault` / `10.42.2.6`
+- Private DNS zones are linked for SQL, Blob, and Key Vault private-link names.
+- `cmiforge-dev-web-06161223` and `cmiforge-customer0-web` are VNet-integrated.
+- Public network access is disabled for Azure SQL server `gwmatterforge`.
+- Public network access is disabled for storage account `cmiforgeattachasgmt7`, with default network action `Deny`.
+- Key Vault `cmiforge-kv-gw` is created with RBAC authorization and purge protection. Its private endpoint is ready, but public network access intentionally remains enabled until app secrets are actually moved into Key Vault and an operator access path is confirmed.
+
+Production EF migrations now use a dedicated migration lane instead of normal web-app startup:
+
+- Migrator managed identity: `cmiforge-migrator-mi`
+- Triggered WebJob host: `cmiforge-db-migrator`
+- WebJob project: `CMIForge.Migrator`
+- Runner script: `deploy/migrations/run-tenant-migrations.ps1`
+- The migrator host is integrated with `cmiforge-vnet/appsvc-integration`, runs through the SQL private endpoint, and is stopped when idle.
+- `cmiforge-dev-web-06161223` and `cmiforge-customer0-web` should keep `CMIForge__RunMigrationsOnStartup=false`.
+
+Because Azure SQL public access is disabled, local EF migrations against the cloud databases should not be the default path. Use the dedicated migration runner. `-AllowTemporarySqlPublicAccess` is reserved for one-time/local SQL grant maintenance, then the scripts restore SQL public access to disabled.
+
+The repeatable customer provisioning path is private-network aware:
+
+- `deployme.ps1` can integrate a newly created App Service into `cmiforge-vnet/appsvc-integration`.
+- `deploy/customer/provision-customer.ps1` passes that VNet integration by default for future customer environments.
+- New tenant attachment containers are created through Azure Resource Manager (`az storage container-rm`) so provisioning is not blocked by storage public network access being disabled.
+- The provisioning script can grant Key Vault secret-read access to the tenant app identity.
+- EF migrations are applied through the dedicated VNet-integrated migrator WebJob. Local SQL grant steps require either an Azure/VNet execution path or the explicit `-AllowTemporarySqlPublicAccess` maintenance switch.
+
+## Deployment Working Agreement
+
+Codex should deploy as it works on CMIForge. The default loop is: inspect, implement, build or otherwise verify, deploy the affected app/site surface, and smoke-check the live URL. Schema-changing work should deploy code and database together. Code/UI/docs-only work can skip database migrations, but should still publish the app or site unless Gabe explicitly asks to hold deployment.
 
 ## 2026-06-19 Session Snapshot
 
@@ -89,9 +159,10 @@ CMIForge is still intentionally simple: a server-rendered ASP.NET Core Razor Pag
 Current dev architecture:
 
 - ASP.NET Core Razor Pages app on Azure App Service
-- Azure SQL database for operational data, workflow state, submissions, conflicts, conflict archives, imports, audit logs, reports, time entries, tenant provisioning requests, and legal agreement acceptance records
+- Azure SQL database for operational data, workflow state, submissions, external form invites, conflicts, conflict archives, imports, audit logs, reports, time entries, tenant provisioning requests, and legal agreement acceptance records
 - Azure Blob Storage for private submission attachment files
 - Managed identity from App Service to Azure SQL
+- Dedicated migrator managed identity/WebJob for EF schema changes
 - Managed identity from App Service to Blob Storage in the cloud dev environment
 - Static Web App for the public marketing site at `cmiforge.com`
 - Azure DNS hosts `cmiforge.com` so app/customer/demo subdomains can be provisioned from Azure instead of manually through the registrar
@@ -135,6 +206,16 @@ DNS is now managed in Azure DNS while the domain registration remains at Nameche
 - `TXT @ -> MS=ms36377677`
 
 The Entra identity/mailbox direction is now Microsoft-owned for `cmiforge.com`. Keep mailbox licensing, shared mailbox delegation, MFA, password resets, and mail-flow policy in Microsoft 365 / Entra rather than inside CMIForge.
+
+Inbound email intake is separate from outbound notifications. The app now has settings and a Microsoft Graph polling worker for reading a tenant mailbox, but it should stay disabled until the mailbox alias exists, allowed sender domains are set, and the managed identity has narrowly scoped Graph mail-read/write access to the intake mailbox. The current subject rule is:
+
+```text
+Client: Acme Corp
+Client: Acme Corp; Matter:
+Client: Acme Corp; Matter: Lease Review
+```
+
+Messages without `Client:` are rejected into the inbound email log. Messages from domains outside `InboundEmail.AllowedSenderDomains` are also rejected.
 
 ## Run Locally
 
@@ -186,10 +267,11 @@ Submission attachments in the dev App Service use private Azure Blob Storage thr
 ## Current Build Path
 
 1. Dynamic form definitions + submissions
-2. Workflow steps + approval queues
-3. Rules-based routing + workflow notifications
-4. Matter/client record creation
-5. Reporting, permissions, integrations
+2. Secure client-facing form invites for saved contacts
+3. Workflow steps + approval queues
+4. Rules-based routing + workflow notifications
+5. Matter/client record creation
+6. Reporting, permissions, integrations
 6. Fancy admin designer UX
 
 ## Current Hardcoded Plan

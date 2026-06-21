@@ -14,6 +14,11 @@
 
 <partial name="/Pages/Entities/_EntityTabs.cshtml" />
 
+<div class="alert alert-info">
+    <strong>Direct entity creation:</strong> @Model.DirectCreateMessage
+    Move the client to Active through the normal change-approval path when the review is complete.
+</div>
+
 @if (!Model.ClientLimit.CanCreate)
 {
     <div class="alert alert-warning">
@@ -34,9 +39,10 @@
         <div class="col-md-4">
             <label asp-for="Input.Status" class="form-label"></label>
             <select asp-for="Input.Status" class="form-select">
-                <option>Active</option>
-                <option>Prospective</option>
-                <option>Inactive</option>
+                @foreach (var status in Model.StatusOptions)
+                {
+                    <option value="@status">@status</option>
+                }
             </select>
         </div>
         <div class="col-md-8">
@@ -79,6 +85,10 @@
         <div class="col-12">
             <label asp-for="Input.Notes" class="form-label"></label>
             <textarea asp-for="Input.Notes" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="col-12">
+            <label asp-for="Input.Aliases" class="form-label"></label>
+            <textarea asp-for="Input.Aliases" class="form-control" rows="3" placeholder="One alias, DBA, prior name, or alternate spelling per line"></textarea>
         </div>
     </div>
 

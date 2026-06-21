@@ -41,4 +41,6 @@ public class Client
     public List<ClientContact> Contacts { get; set; } = [];
 
     public List<TimeEntry> TimeEntries { get; set; } = [];
+
+    public List<ClientAlias> Aliases { get; set; } = [];
 }

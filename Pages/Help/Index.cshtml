@@ -54,11 +54,14 @@
             <h2>Dashboard</h2>
             <p>The dashboard is the operational landing page for each tenant. It now combines quick counts with chart-style views so a reviewer can see the intake pulse without opening five separate lists.</p>
             <ul>
+                <li>The dashboard selector switches between <strong>Firm Admin</strong>, <strong>My Work</strong>, and <strong>Matter Partner</strong> views.</li>
                 <li>Top cards show active forms, submissions, published versions, and recorded time.</li>
                 <li>Submission and conflict donuts show the current status mix.</li>
                 <li>Open-work bars show where workflow tasks are waiting.</li>
                 <li>The recent-submission trend shows the last 14 days of intake activity.</li>
                 <li>Plan limit meters show current users, matters, and clients against the active plan limits.</li>
+                <li>My Work focuses on the signed-in user's assigned workflow tasks, team queue, recent submissions, time entries, and conflict escalations.</li>
+                <li>Matter Partner focuses on matters where the signed-in user is lead partner, including pending time approvals, conflict attention, and related submissions.</li>
             </ul>
         </section>
 
@@ -137,15 +140,74 @@
 
         <section id="conflicts" class="mf-panel">
             <h2>Conflicts</h2>
-            <p>Conflict searches compare entered search terms against the party index and prior conflict history. The search engine normalizes names, checks aliases, scores fuzzy matches, expands strong matches through known party relationships, and checks previous search/review text for recurring issues.</p>
+            <p>Conflict searches compare entered search terms against parties, party aliases, clients, client aliases, matter names, and prior conflict history. The search engine normalizes names, scores fuzzy matches, expands strong party matches through known relationships, and checks previous search/review text for recurring issues.</p>
             <ul>
                 <li>Searches can be linked to a submission or a matter.</li>
                 <li>Results show match strength, risk, matched item, matter/client context, explanation, AI assist assessment, and row-level clearance state.</li>
                 <li>Reviewer decisions can be recorded at the overall search level or on individual result rows.</li>
+                <li>Individual or selected result rows can be escalated to another active user for approval with escalation notes. The assigned reviewer can approve the escalation with approval notes, and both actions are written to audit history.</li>
                 <li>Previous conflict search names, terms, review notes, AI summaries, and result clearance notes are included as searchable history.</li>
                 <li>Submission forms can show a floating live conflict preview while a user types client and matter names, giving early warnings before the form is submitted.</li>
             </ul>
-            <p class="mb-0"><strong>Current review behavior:</strong> use row-level clearance to document how each hit was resolved. Result decisions roll up into the overall search status when they collectively indicate clear, needs-info, potential-conflict, or conflict outcomes.</p>
+            <h3>How Search Terms Work</h3>
+            <p>Enter the names or phrases you want checked. Each line, comma, or semicolon becomes its own search term, so one conflict search can check several parties at once.</p>
+            <ul>
+                <li><strong>Separate terms:</strong> <code>Acme Anvil Works, Swindon Logistics; Mina Caldera</code> is treated as three terms.</li>
+                <li><strong>Cleanup:</strong> searches ignore case, punctuation, accents, and common company suffixes such as <code>Inc.</code>, <code>LLC</code>, <code>Ltd.</code>, <code>Group</code>, and <code>Holdings</code>. Connectors such as <code>&amp;</code>, <code>+</code>, and <code>and</code> are treated alike.</li>
+                <li><strong>Initials:</strong> dotted initials stay together, so <code>A.A.W.</code> is searched like <code>AAW</code>, not as three unrelated letters.</li>
+                <li><strong>Aliases count:</strong> CMIForge checks party names, party aliases, client names, and client aliases.</li>
+                <li><strong>Matters count:</strong> matter names are searched directly, and results show matter, client, and party-role context when available.</li>
+                <li><strong>Strong matches expand:</strong> when a term strongly matches a party, related parties can appear as lower-scored relationship results.</li>
+                <li><strong>History counts:</strong> prior search text and prior clearance notes can appear when they are close enough to the term.</li>
+            </ul>
+            <div class="table-responsive mt-3">
+                <table class="table align-middle mf-compact-table">
+                    <thead>
+                        <tr>
+                            <th>Typed term</th>
+                            <th>How CMIForge reads it</th>
+                            <th>What that means</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>Acme Anvil Works, Inc.</code></td>
+                            <td><code>acme anvil works</code></td>
+                            <td>The company suffix is ignored, so this can match <code>Acme Anvil Works</code>, <code>Acme Anvils</code>, or a close alias.</td>
+                        </tr>
+                        <tr>
+                            <td><code>A.A.W.</code></td>
+                            <td><code>aaw</code></td>
+                            <td>Initials are preserved as one compact term, so it should match an <code>A.A.W.</code> alias without randomly matching a word that merely contains one letter.</td>
+                        </tr>
+                        <tr>
+                            <td><code>Stark &amp; Stone Legal</code></td>
+                            <td><code>stark and stone legal</code></td>
+                            <td>Ampersands and written connectors are treated alike, so spacing or <code>&amp;</code> versus <code>and</code> does not block a match.</td>
+                        </tr>
+                        <tr>
+                            <td><code>Elm &amp; Vine</code></td>
+                            <td><code>elm and vine</code></td>
+                            <td>Connectors normalize together, so this can match names such as <code>Elm and Vine Capital</code> or <code>Elm &amp; Vine Manufacturing</code>.</td>
+                        </tr>
+                        <tr>
+                            <td><code>Mina Q. Caldera</code></td>
+                            <td><code>mina q caldera</code></td>
+                            <td>Middle initials stay searchable, while close aliases like <code>Mina Caldera</code> can still score as fuzzy matches.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <h3>Reading Match Strength</h3>
+            <p>Match strength is a similarity score from 0 to 100. It is not the final legal conflicts decision; it is a triage signal that helps reviewers decide what deserves attention.</p>
+            <ul>
+                <li><strong>Exact normalized match:</strong> the cleaned-up term and cleaned-up party or alias are the same.</li>
+                <li><strong>Strong phrase match:</strong> one cleaned-up phrase contains the other, and both sides are long enough to be meaningful.</li>
+                <li><strong>Strong fuzzy match:</strong> the names are similar by token, spelling, or trigram comparison even when they are not exact.</li>
+                <li><strong>Token/contains match:</strong> the result is weaker but still close enough to show as a safety-net hit.</li>
+                <li><strong>Risk level:</strong> risk also considers context such as adverse-party roles, linked matters, relationships, and prior history, so two results with similar scores can have different risk labels.</li>
+            </ul>
+            <p class="mb-0"><strong>Current review behavior:</strong> use row-level clearance to document how each hit was resolved. Result decisions roll up into the overall search status when they collectively indicate clear, needs-info, potential-conflict, or conflict outcomes. Use escalation when another firm user needs to approve or weigh in on a specific hit before the search is finalized.</p>
         </section>
 
         <section id="imports" class="mf-panel">
@@ -199,6 +261,8 @@
                 <li>Users inherit permissions from their teams.</li>
                 <li>Navigation and server-side page handlers both enforce permissions.</li>
                 <li>Optional Microsoft Entra login can map authenticated people to rows in the <code>Users</code> table.</li>
+                <li>Authorized admins can use Security &gt; Impersonation to temporarily view CMIForge as another active user for support, workflow routing, and approval testing.</li>
+                <li>Impersonation shows a visible banner and can be stopped from the banner or Security area.</li>
                 <li>Demo mode protects system user <code>00000001</code> and blocks destructive demo actions.</li>
             </ul>
         </section>
@@ -209,6 +273,7 @@
             <ul>
                 <li>Audited actions include administrative/security changes, conversion, attachment changes, settings updates, and destructive actions as those actions are added.</li>
                 <li>Audit entries capture actor details, action, entity type, entity identifier, summary, IP address, user agent, and optional JSON details.</li>
+                <li>When impersonation is active, audit entries still keep the actual signed-in user as the actor and include the impersonated user in the details.</li>
                 <li>The Security area includes an audit log view for users with the right permissions.</li>
                 <li>Audit timestamps render through the same user-local timezone helper used elsewhere in the app.</li>
             </ul>

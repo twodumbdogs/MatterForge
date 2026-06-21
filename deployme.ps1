@@ -31,10 +31,19 @@ param(
     [string]$EmailFromEmail,
     [string]$EmailReplyToEmail,
     [string]$EmailFromName,
+    [bool]$InboundEmailEnabled = $false,
+    [string]$InboundEmailMailboxAddress,
+    [string]$InboundEmailAddress,
+    [string]$InboundEmailAllowedSenderDomains,
+    [string]$InboundEmailDefaultFormKey = "new-matter-intake",
     [bool]$NotificationsGraphEnabled = $true,
     [string]$NotificationsGraphTenantId,
     [string]$NotificationsGraphManagedIdentityClientId,
+    [string]$VNetResourceGroup,
+    [string]$VNetName,
+    [string]$VNetIntegrationSubnetName,
     [switch]$AssignManagedIdentity,
+    [switch]$SkipVNetIntegration,
     [switch]$SkipPublish,
     [switch]$SkipDeploy
 )
@@ -51,7 +60,7 @@ function Show-Usage {
     }
 
     Write-Host "Usage:" -ForegroundColor Yellow
-    Write-Host "  .\deployme.ps1 -ResourceGroup <rg> -PlanName <plan> -WebAppName <app> [-Location centralus] [-PlanSku F1|B1|S1] [-SqlConnectionString <value>] [-BlobConnectionString <value>] [-BlobAccountName <name>] [-UseManagedIdentityForBlobStorage `$true] [-EntraEnabled `$true] [-EntraTenantId <tenant>] [-EntraClientId <client>] [-BootstrapAdminEmail <email>] [-AssignManagedIdentity]" -ForegroundColor Yellow
+    Write-Host "  .\deployme.ps1 -ResourceGroup <rg> -PlanName <plan> -WebAppName <app> [-Location centralus] [-PlanSku F1|B1|S1] [-SqlConnectionString <value>] [-BlobConnectionString <value>] [-BlobAccountName <name>] [-UseManagedIdentityForBlobStorage `$true] [-EntraEnabled `$true] [-EntraTenantId <tenant>] [-EntraClientId <client>] [-BootstrapAdminEmail <email>] [-VNetName <name>] [-VNetIntegrationSubnetName <name>] [-AssignManagedIdentity]" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Notes:" -ForegroundColor Yellow
     Write-Host "  - F1 is fine for a cheap dev cloud home, but App Service custom domains require a paid tier."
@@ -131,6 +140,41 @@ if ($AssignManagedIdentity.IsPresent) {
         --only-show-errors | Out-Null
 }
 
+if (-not $SkipVNetIntegration.IsPresent -and
+    -not [string]::IsNullOrWhiteSpace($VNetName) -and
+    -not [string]::IsNullOrWhiteSpace($VNetIntegrationSubnetName)) {
+    $effectiveVNetResourceGroup = if ([string]::IsNullOrWhiteSpace($VNetResourceGroup)) { $ResourceGroup } else { $VNetResourceGroup }
+    Write-Host "Ensuring VNet integration '$VNetName/$VNetIntegrationSubnetName'..." -ForegroundColor Cyan
+    $targetVNetId = az network vnet show `
+        --resource-group $effectiveVNetResourceGroup `
+        --name $VNetName `
+        --query id `
+        -o tsv
+    if ([string]::IsNullOrWhiteSpace($targetVNetId)) {
+        throw "Could not find VNet '$VNetName' in resource group '$effectiveVNetResourceGroup'."
+    }
+
+    $targetSubnetId = az network vnet subnet show `
+        --resource-group $effectiveVNetResourceGroup `
+        --vnet-name $VNetName `
+        --name $VNetIntegrationSubnetName `
+        --query id `
+        -o tsv
+    if ([string]::IsNullOrWhiteSpace($targetSubnetId)) {
+        throw "Could not find subnet '$VNetIntegrationSubnetName' in VNet '$VNetName' / resource group '$effectiveVNetResourceGroup'."
+    }
+
+    $webApp = Invoke-AzJson webapp show --resource-group $ResourceGroup --name $WebAppName
+    if ($webApp.virtualNetworkSubnetId -ne $targetSubnetId) {
+        az webapp vnet-integration add `
+            --resource-group $ResourceGroup `
+            --name $WebAppName `
+            --vnet $targetVNetId `
+            --subnet $targetSubnetId `
+            --only-show-errors | Out-Null
+    }
+}
+
 $appSettings = @(
     "ASPNETCORE_ENVIRONMENT=Production",
     "SubmissionAttachments__ContainerName=$BlobContainerName",
@@ -199,6 +243,26 @@ if (-not [string]::IsNullOrWhiteSpace($EmailReplyToEmail)) {
 
 if (-not [string]::IsNullOrWhiteSpace($EmailFromName)) {
     $appSettings += "CMIForge__SystemSettings__Email.FromName=$EmailFromName"
+}
+
+if ($InboundEmailEnabled) {
+    $appSettings += "CMIForge__SystemSettings__InboundEmail.Enabled=true"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($InboundEmailMailboxAddress)) {
+    $appSettings += "CMIForge__SystemSettings__InboundEmail.MailboxAddress=$InboundEmailMailboxAddress"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($InboundEmailAddress)) {
+    $appSettings += "CMIForge__SystemSettings__InboundEmail.InboundAddress=$InboundEmailAddress"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($InboundEmailAllowedSenderDomains)) {
+    $appSettings += "CMIForge__SystemSettings__InboundEmail.AllowedSenderDomains=$InboundEmailAllowedSenderDomains"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($InboundEmailDefaultFormKey)) {
+    $appSettings += "CMIForge__SystemSettings__InboundEmail.DefaultFormKey=$InboundEmailDefaultFormKey"
 }
 
 $appSettings += "Notifications__Graph__Enabled=$NotificationsGraphEnabled"

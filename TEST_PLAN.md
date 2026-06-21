@@ -1,10 +1,10 @@
 # CMIForge Feature Walkthrough Test Plan
 
-Current version: `20260619.1`
+Current version: `20260620.7`
 
 This is a practical manual test plan for getting familiar with CMIForge while also smoke-testing the major product slices. It is written as a guided tour, not just a bug-hunt checklist.
 
-If you want the shortest useful pass, run Sections 1 through 7 in order. If you want the fuller product tour, run the whole thing.
+If you want the shortest useful pass, run Sections 1 through 8 in order. If you want the fuller product tour, run the whole thing.
 
 ## Goal
 
@@ -12,6 +12,7 @@ By the end of this walkthrough, you should have personally exercised:
 
 - Navigation and overall product shape
 - Dynamic forms and form versioning
+- Secure client-facing external form invites
 - Submissions and submission statuses
 - Workflow definitions, approval queues, and notification steps
 - Clients, matters, contacts, parties, and users
@@ -41,6 +42,7 @@ By the end of this walkthrough, you should have personally exercised:
 - The current hardcoded plan is `Professional`, so all features should be available with the Professional user and matter limits.
 - Azure SQL and Azure Blob attachment storage are already configured.
 - In the live dev app, private submission attachments use Azure Blob Storage through managed identity.
+- After CMIForge changes, the normal Codex workflow is to build/verify, deploy affected live surfaces, and smoke-check the live URL unless Gabe explicitly says not to deploy.
 
 ## Suggested Time
 
@@ -81,19 +83,22 @@ Steps:
 1. Open `/`.
 2. Confirm the dashboard shows:
    - tenant/firm branding
+   - Firm Admin, My Work, and Matter Partner dashboard selector
    - top count cards
    - submission status chart
    - conflict status chart
    - open workflow load
    - recent submission trend
    - plan usage meters
-3. Confirm the top navigation now shows:
+3. Open the `My Work` dashboard view and confirm it shows assigned work, team queue counts, recent submissions, personal time, and conflict escalations assigned to the signed-in user.
+4. Open the `Matter Partner` dashboard view and confirm it shows lead matters, submitted time waiting for approval, pending conflicts, and partner-related submissions.
+5. Confirm the top navigation now shows:
    - `Submissions`
    - `Entities`
    - `Conflicts`
    - `System`
    - `Help`
-4. Open the `System` dropdown and confirm it contains:
+6. Open the `System` dropdown and confirm it contains:
    - `Forms`
    - `Workflows`
    - `Imports`
@@ -130,7 +135,10 @@ Steps:
 4. Confirm the page shows direct roles, team membership, and lead-partner matters if any are assigned.
 5. Open `/Security`.
 6. Open `/Security/Teams`.
-7. Review seeded teams such as:
+7. Open `/Security/Impersonation`.
+8. If the current user has `System.ImpersonateUsers`, choose a different active user and start impersonation.
+9. Confirm the impersonation banner appears, then stop impersonation from the banner or page.
+10. Review seeded teams such as:
    - `Admins`
    - `Intake Team`
    - `CDD Team`
@@ -143,6 +151,8 @@ Expected results:
 - Gabe appears wired into the seeded admin/intake setup.
 - Users with the Partner role can appear in lead-partner pickers.
 - Archived users are hidden from normal pickers and can be restored from System -> Archive.
+- User impersonation is available only to authorized admins, changes the effective current user for permissions/routing, and shows a visible banner while active.
+- Starting and stopping impersonation writes audit-log entries that keep the actual signed-in user as the actor.
 
 ## 3. Entities Walkthrough
 
@@ -157,13 +167,24 @@ Steps:
 3. Confirm the list shows pagination text such as `Showing 1-50 of ...` when enough records exist.
 4. Create a new client.
 5. Use a clear test name, such as `Northwind Harbor Holdings`.
-6. Open the created client detail page.
+6. Add one or more aliases on create, such as `Northwind Harbor DBA` or `NHH`.
+7. Open the created client detail page.
+8. Confirm the direct-create warning appears and the status defaults to `Compliance Review`.
+9. Edit one alias, save it, then delete a throwaway alias.
+10. Submit a client change request moving status from `Compliance Review` to `Active`; first try without request notes, then add notes and submit.
+11. Approve the change request from `/Entities/Approvals`.
+12. Return to `/Entities/Clients` and search by alias text.
 
 Expected results:
 
 - Client numbers are zero-padded like `00000001`.
 - The client number is clickable.
+- The client list shows an alias count and can be searched by alias.
 - The detail page loads without error.
+- Client aliases can be added, edited, and deleted by users with entity edit rights.
+- The detail page shows related matters, linked contacts, and related parties derived from the client's matters.
+- Direct-created clients default to `Compliance Review` and show a compliance-review warning.
+- Moving a client from `Compliance Review` to `Active` requires request notes and creates an `EntityComplianceReviewed` audit entry when approved.
 - The detail page shows a conversation-style notes area.
 - The detail page shows entity audit/history information when changes have been recorded.
 - Archive/unarchive controls hide the client from default lists without deleting it.
@@ -178,13 +199,20 @@ Steps:
 3. Set Gabe as the responsible user if desired.
 4. Set a lead partner if a partner-role user is available.
 5. Open the matter detail page.
+6. Confirm the direct-create warning appears and the status defaults to `Compliance Review`.
+7. Submit a matter change request moving status from `Compliance Review` to `Open`; first try without request notes, then add notes and submit.
+8. Approve the change request from `/Entities/Approvals`.
 
 Expected results:
 
-- Matter numbers are zero-padded and linked.
+- Matter numbers and matter names are zero-padded/readable and linked.
 - The matter links back to the client.
 - The matter shows the responsible user correctly.
 - The matter shows the lead partner correctly.
+- The matter detail page keeps core matter facts on the left and child records on the right.
+- The right-side related-record rail shows time entries, parties, and contacts when present.
+- Direct-created matters default to `Compliance Review` and show a compliance-review warning.
+- Moving a matter from `Compliance Review` to `Open` requires request notes and creates an `EntityComplianceReviewed` audit entry when approved.
 - The detail page shows a conversation-style notes area.
 - The detail page shows entity audit/history information when changes have been recorded.
 - Archive/unarchive controls hide the matter from default lists without deleting it.
@@ -201,11 +229,17 @@ Steps:
    - `Globex`
    - `Caldera`
 4. Confirm aliases and relationship-style data exist on the party side.
+5. Add or edit a harmless party alias.
+6. Delete a throwaway party alias.
+7. Create a direct party and confirm it defaults to `Compliance Review`.
 
 Expected results:
 
 - Parties feel distinct from clients and matters.
 - The seeded demo data looks intentionally designed for conflict-match richness.
+- Party aliases can be added, edited, and deleted by users with entity edit rights.
+- Party detail pages show matter roles, related contacts from linked matters, and party relationships.
+- Direct-created parties default to `Compliance Review` and show a compliance-review warning on details.
 - Party detail pages show notes and archive/unarchive behavior.
 - Party detail pages show entity audit/history information when changes have been recorded.
 
@@ -215,10 +249,11 @@ Steps:
 
 1. Open `/Entities/Contacts`.
 2. Create a new contact, such as `Riley Contact` at `Northwind Harbor Holdings`.
-3. Open the contact detail page.
-4. Link the contact to a client with the role `Primary Contact`.
-5. Link the contact to a matter with the role `Matter Contact`.
-6. Open the linked client and matter details.
+3. Confirm the direct-create guidance appears on the create page.
+4. Open the contact detail page.
+5. Link the contact to a client with the role `Primary Contact`.
+6. Link the contact to a matter with the role `Matter Contact`.
+7. Open the linked client and matter details.
 
 Expected results:
 
@@ -227,6 +262,7 @@ Expected results:
 - Client and matter detail pages show the linked contact.
 - Contacts can be archived from the detail page.
 - Archived contacts are hidden from normal contact lists and restore from `/System/Archive`.
+- Contact detail pages show linked clients, linked matters, and related parties from those matters.
 - Contact detail pages show entity audit/history information when changes have been recorded.
 
 ### 3E. Entity Change Approvals, Archive, and Pagination
@@ -268,14 +304,18 @@ Steps:
    - select
    - currency or numeric-style field
    - textarea
-5. Confirm blank extra rows do not block publishing.
-6. Publish the form.
-7. Re-open that form in edit mode.
-8. Make one small change, such as:
+5. Put fields into at least two named sections, such as `Client`, `Matter`, and `Review`.
+6. Add one basic display condition by setting a field to show only when another field key has a matching value.
+7. Add one workflow-step edit rule by setting a field's editable step to an approval step name.
+8. Confirm blank extra rows do not block publishing.
+9. Publish the form.
+10. Re-open that form in edit mode.
+11. Make one small change, such as:
    - add a field
    - change description
    - attach or change workflow
-9. Save again to create a new version.
+12. Save again to create a new version.
+13. Return to `/Forms` and confirm published forms expose a `Send` action plus open/completed client-link counts.
 
 Expected results:
 
@@ -283,8 +323,41 @@ Expected results:
 - Edit publishes a new version instead of rewriting history.
 - Blank designer rows are ignored.
 - Select-style fields only require options when they actually use options.
+- Form sections survive publish/edit and become tabs on runtime forms.
+- Conditional fields hide until their matching answer is present.
+- The forms list makes the client-facing invite path visible without crowding the normal fill/edit actions.
 
-## 5. Submit a Form and Review the Submission
+## 5. Send a Client-Facing Form Link
+
+Purpose: confirm a firm user can send a secure intake form link to a saved contact without exposing the internal app.
+
+Steps:
+
+1. Open `/Forms`.
+2. Click `Send` on a published form.
+3. Choose a saved contact with an email address.
+4. Optionally choose a lead partner, add a short client message, and keep the expiration between 1 and 30 days.
+5. Click `Create secure link`.
+6. If email is configured, confirm the page reports that the invite was queued for email. If email is not configured, copy the displayed secure link.
+7. Open the generated `/external/forms/{token}` link in an anonymous/private browser context.
+8. Confirm the page uses the minimal secure-form layout and does not show internal-only controls such as `Submitted by`, internal user pickers, conflict preview, or app navigation.
+9. Confirm section tabs render on the external form when the published form has sections.
+10. If the form has a conditional field, confirm it appears only after the trigger answer is entered.
+11. Complete the required form fields and submit.
+12. Confirm the client-facing confirmation page shows a submission number.
+13. Return to `/Forms/Send/{id}` and confirm the recent invite shows as completed with a linked submission number.
+14. Re-open the same external link and confirm it is no longer usable after completion.
+
+Expected results:
+
+- Invite recipients must come from saved contacts, not free-typed email addresses.
+- The raw access token is shown only in the generated URL and is not visible as stored app data.
+- External forms use the same section/tab rendering and basic display-condition behavior as internal forms.
+- External form links expire and cannot be reused after completion.
+- External submissions become normal form submissions and start the attached workflow when the form version has one.
+- The audit history records that the external invite was created and completed.
+
+## 6. Submit a Form and Review the Submission
 
 Purpose: follow the core intake flow from the user side.
 
@@ -294,24 +367,28 @@ Steps:
 2. Click into a form submission page.
 3. Confirm `Submitted by` is a picker from the `Users` table.
 4. Confirm `Lead partner` is a picker limited to active, non-archived users with the Partner role.
-5. Submit a new intake using the suggested data above.
-6. Open `/Submissions`.
-7. Confirm the new submission appears with:
+5. Confirm section tabs render when the selected published form has sections.
+6. If the form has a conditional field, confirm it hides until the trigger answer is entered and required validation ignores it while hidden.
+7. Submit a new intake using the suggested data above.
+8. Open `/Submissions`.
+9. Confirm the new submission appears with:
    - a zero-padded submission number
    - a linked number in the first column
    - submitter name
    - lead partner when selected
    - status
-8. Open the submission detail page.
+10. Open the submission detail page.
 
 Expected results:
 
 - The submission stores and renders correctly.
-- The submission detail page shows the answer set cleanly.
+- The submission detail page shows a main Submission Workspace tab set for form sections, linked conflict searches, and attachments.
+- Older submissions whose saved form version only has the old `General` section still render with sensible display-only tabs inferred from field keys/labels.
+- The submission detail page keeps submitter context, workflow actions/tasks/history, recent audit events, and attachment summaries in the right-side activity rail.
 - The submission detail page shows the selected lead partner.
 - The initial status is sensible for a newly submitted intake.
 
-## 6. Attachments and Links
+## 7. Attachments and Links
 
 Purpose: confirm first-pass submission attachment handling.
 
@@ -331,7 +408,34 @@ Expected results:
 - Downloads work through the app.
 - Delete/remove succeeds cleanly.
 
-## 7. Workflow Definitions and Queue
+## 7A. Inbound Email Intake
+
+Purpose: confirm trusted mailbox email can become a reviewable intake submission without bypassing workflow.
+
+Steps:
+
+1. Open `/System/Settings` and review the `Inbound Email` settings.
+2. Confirm inbound processing is disabled unless the tenant mailbox, inbound address, allowed sender domains, and Graph mailbox permissions are ready.
+3. For a configured tenant, send or simulate a message from an allowed sender domain with subject `Client: Acme Corp`.
+4. Confirm a submission is created from the default intake form.
+5. Confirm the submitted client value is `Acme Corp` and the matter value is blank.
+6. Send or simulate `Client: Acme Corp; Matter: Lease Review`.
+7. Confirm both client and matter values populate.
+8. Confirm supported attachments are copied into the submission attachments tab.
+9. Open `/System/InboundEmail` and review the processed message entry.
+10. Send or simulate a message without `Client:` or from an unapproved domain.
+11. Confirm it is rejected into the inbound email log and does not create a submission.
+
+Expected results:
+
+- Inbound emails create normal reviewable submissions, not direct client/matter records.
+- Blank or omitted `Matter:` is allowed.
+- Attachments flow through the same private attachment storage and app download permissions as manual uploads.
+- Source email details appear on the submission detail page.
+- Rejected/failed messages are visible to admins under System -> Inbound Email.
+- Each accepted or rejected message writes audit history.
+
+## 8. Workflow Definitions and Queue
 
 Purpose: understand how submissions move through approval.
 
@@ -354,7 +458,10 @@ Steps:
    - a return-style action
    - an approve/final-approve path
 12. After a return-style action, open the returned submission detail page.
-13. Edit at least one answer in the `Edit Returned Submission` form and click `Save and resubmit`.
+13. Confirm the returned edit form keeps the form sections/tabs.
+14. Edit at least one answer allowed by the current workflow step.
+15. Confirm any field configured for a different workflow step is read-only.
+16. Click `Save and resubmit`.
 
 Expected results:
 
@@ -363,10 +470,11 @@ Expected results:
 - Taking an outcome updates task and submission state.
 - Notification steps log a workflow event or send email when tenant notifications are enabled and the SaaS/platform sender is configured, then continue to the next matching step.
 - Returned submissions can move to `Returned`.
-- Returned submissions expose an editable form and can be resubmitted into review.
+- Returned submissions expose a sectioned edit form and can be resubmitted into review.
+- Returned-submission editability follows the form field's workflow-step rule, and locked fields are preserved server-side.
 - Approved submissions can move toward `Approved`.
 
-## 8. Submission Statuses and Conversion
+## 9. Submission Statuses and Conversion
 
 Purpose: validate the intake-to-operations bridge.
 
@@ -397,7 +505,7 @@ Expected results:
 - The submission status becomes `Converted`.
 - The created matter shows the selected lead partner.
 
-## 9. Conflicts Walkthrough
+## 10. Conflicts Walkthrough
 
 Purpose: learn the native conflicts slice and current review behavior.
 
@@ -410,12 +518,37 @@ Steps:
    - `Stark Stone`
    - `Globex Bio Systems`
    - `Mina Caldera`
-3. Open the resulting detail page.
+3. Confirm the staged progress bar appears after clicking `Run search`.
+4. Open the resulting detail page.
+5. Add one additional term and click `Re-run search`.
+6. Confirm the staged progress bar appears during the re-run.
 
 Expected results:
 
+- The create and re-run flows give immediate visual feedback while the search is running.
 - You should see multiple interesting hits from the seeded data.
 - Results should include score, risk, explanation, and AI-style assessment.
+
+### 9A.1 Search Term Handling Examples
+
+Steps:
+
+1. Open `/Help` and review the conflict search term examples.
+2. Run a conflict search for `Acme Anvil Works, Inc.; A.A.W.`.
+3. Run a conflict search for `Elm & Vine`.
+4. Run a separate search for a person-style name, such as `Mina Caldera`.
+5. Run a mixed search with punctuation or line breaks, such as `Globex Bio Systems` plus a contact or matter phrase.
+6. Create or identify a client alias, then run a conflict search using that alias text.
+7. If sample/demo data is available, compare acronym hits such as `A.A.W.` against unrelated words that merely contain one matching letter.
+
+Expected results:
+
+- Common punctuation, commas, semicolons, and line breaks are treated as separators or cleanup, not as meaningful legal text.
+- Corporate suffixes such as `Inc.`, `LLC`, and similar endings should not be the reason a result looks strong.
+- Connector words and punctuation should normalize together, so `Elm & Vine` can find `Elm and Vine Capital` or `Elm & Vine Manufacturing`.
+- Party aliases, client aliases, and normalized initials can help find a party/client such as `A.A.W.`, but a single shared letter should not create an inflated match.
+- Matter context, related parties, prior search text, and prior clearance notes can add useful hits, but the UI should explain what matched.
+- `Match strength` should describe text similarity. It should not pretend to be the final legal conflict decision.
 
 ### 9B. Review and Clear Results
 
@@ -427,12 +560,17 @@ Steps:
 4. Save the row.
 5. Select multiple result rows, apply `Clear` from the bulk action panel, and confirm the selected rows update.
 6. Use the select-all checkbox in the results table header and apply a bulk decision.
-7. Repeat for enough rows to confirm the overall search status rolls up appropriately.
+7. Select one or more result rows, choose an active user in `Escalate to`, add notes, and submit the escalation.
+8. On an escalated row, approve the escalation as the assigned reviewer and add approval notes.
+9. Repeat for enough rows to confirm the overall search status rolls up appropriately.
 
 Expected results:
 
 - Each result can store its own status, notes, reviewer, and timestamp.
 - Multiple conflict result rows can be selected and updated together, including all rows via the header checkbox.
+- Multiple conflict result rows can be escalated together to another active user.
+- Escalated rows show assigned reviewer, escalation notes, escalation timestamp, approval status, and approval notes.
+- Escalation and escalation approval appear in recent audit history for the conflict search.
 - The saved row-level clearance persists after reload.
 - Search-level status updates when result decisions collectively indicate clear, needs info, potential conflict, or conflict.
 
@@ -489,7 +627,7 @@ Checks:
 - Confirm previous searches remain available as history.
 - Confirm conflict searching can surface prior search text and previous result clearance notes.
 
-## 10. Import Center
+## 11. Import Center
 
 Purpose: understand the migration/import story for real firm data.
 
@@ -522,7 +660,7 @@ Expected results:
 - Party imports link to matters by `MatterNumber`.
 - Photo OCR extracts visible text, drafts client fields for review, and does not create the client until the user confirms.
 
-## 11. My Submissions vs All Submissions
+## 12. My Submissions vs All Submissions
 
 Purpose: understand the queue split and visibility model.
 
@@ -538,7 +676,7 @@ Expected results:
 - Personal queue behavior is distinguishable from admin/global visibility.
 - The page reinforces that not every user should see all operational intake.
 
-## 12. Plan and Product Gating
+## 13. Plan and Product Gating
 
 Purpose: understand how the current hardcoded product tiers are represented.
 
@@ -557,7 +695,7 @@ Expected results:
 - Billing is presented as product gating, not real payment plumbing.
 - The current build is feature-unlocked for development, while still showing Professional user and matter limits.
 
-## 12A. Reports
+## 13A. Reports
 
 Purpose: confirm reporting feels like separate useful reports, not just one dashboard page.
 
@@ -583,7 +721,7 @@ Expected results:
 - The basic report builder can produce a simple filtered list without needing a saved report definition.
 - CSV export downloads for both built-in and custom reports.
 
-## 12B. Time Approval, Locking, Codes, And Timer
+## 13B. Time Approval, Locking, Codes, And Timer
 
 Purpose: confirm the v1 time-entry approval and billing-data rules work together.
 
@@ -598,19 +736,22 @@ Steps:
 7. Confirm the entry remains Submitted until the matter lead partner approves it.
 8. As the lead partner with time approval permission, approve the submitted entry.
 9. Export approved time from `/Time` and reopen the exported entry.
-10. Open `/Time/Create`, use the timer Start and Stop controls, assign the elapsed time to a matter, and save the entry.
+10. Open `/Time/Create`, confirm the hours field displays and accepts two decimal places, and use the numeric stepper after selecting matters with actual-time, 6-minute, and 15-minute rules.
+11. Use the timer Start and Stop controls, assign the elapsed time to a matter, and save the entry.
+12. With a 6-minute matter selected, apply an elapsed timer value that rounds to `0.20` hours and submit without touching the numeric stepper.
 
 Expected results:
 
-- Matter increment rules control the time-entry step and rounded minutes.
+- Matter increment rules control the time-entry step, minimum, rounded minutes, and two-decimal hours display.
 - Submitted time auto-approves only when the matter does not require approval.
 - Approval-required submitted time waits for the matter lead partner.
 - Approved and exported entries are read-only from the normal edit path.
 - Client narrative appears in export/reporting outputs while internal notes stay available in-app.
 - Phase and task options come from the selected matter's time code set.
-- The local timer fills elapsed time into the time-entry form.
+- The local timer fills elapsed time into the time-entry form using the selected matter's increment rule and a two-decimal hour value.
+- Timer-applied values such as `0.20` pass browser number validation immediately instead of requiring an up/down stepper nudge.
 
-## 13. System Settings
+## 14. System Settings
 
 Purpose: confirm operational settings exist, are grouped clearly, and are protected in demo mode.
 
@@ -631,7 +772,28 @@ Expected results:
 - Tenant settings do not require customers to provide SMTP infrastructure; SMTP transport is a platform/SaaS configuration concern.
 - Entra remains the expected place for password resets, verification, MFA, and sign-in policy.
 
-## 14. Demo Mode Guardrails
+### 13A. Enhancement Requests
+
+Purpose: confirm product ideas behave like a shared firm queue instead of a private personal list.
+
+Steps:
+
+1. Open `System -> Enhancement Requests`.
+2. Create a new request with a clear title and description.
+3. Confirm the request appears in the firm request queue.
+4. Use the Support button on an existing request.
+5. Click the same request's support control again to remove your support vote.
+6. As an admin, update request status or internal notes.
+
+Expected results:
+
+- Active enhancement requests are visible to signed-in users in the same tenant/firm.
+- Each user can support a request once, and support can be toggled off.
+- The support count updates after each toggle.
+- Newly submitted requests automatically count the submitting user as supporting the idea.
+- Admin-only status/internal-note controls remain protected.
+
+## 15. Demo Mode Guardrails
 
 Purpose: confirm the public demo stays safe, disposable, and clearly labeled.
 
@@ -654,7 +816,7 @@ Expected results:
 - Admin/destructive demo actions redirect to the demo-blocked page.
 - User `00000001` remains protected.
 
-## 15. Optional Entra Login Review
+## 16. Optional Entra Login Review
 
 Purpose: understand the authentication direction, even if not active locally.
 
@@ -671,7 +833,7 @@ Expected results:
 
 - Authentication and authorization are separate concepts in the platform design.
 
-## 16. Signup, Demo Reset, and Onboarding
+## 17. Signup, Demo Reset, and Onboarding
 
 Purpose: verify the public-to-admin provisioning path and the safer public demo reset path.
 
@@ -704,9 +866,11 @@ Expected results:
 - The onboarding checklist gives a clear first-customer setup path.
 - Demo reset attempts persist in reset history with status, timing, deleted row count, and message.
 
-## 16A. Local Build and Migration Health
+## 17A. Local Build and Migration Health
 
 Purpose: confirm code, EF migrations, and the model snapshot agree before deployment.
+
+For normal Codex work, deployment is part of the completion loop unless Gabe explicitly says not to deploy. Use `-SkipDatabaseUpdate` only for changes that do not need schema updates or when migrations have already been handled separately.
 
 Steps:
 
@@ -732,6 +896,8 @@ dotnet tool run dotnet-ef database update
    - conflict archive index
    - enhancement requests
    - legal agreement acceptances
+   - conflict result escalations
+   - enhancement request votes and client aliases
 
 Expected results:
 
@@ -740,7 +906,7 @@ Expected results:
 - Database update applies cleanly in the intended environment.
 - The app starts after migration and the dashboard loads.
 
-## 17. Cloud Domains, DNS, and Email Smoke
+## 18. Cloud Domains, DNS, and Email Smoke
 
 Purpose: confirm the current public architecture works after DNS, hosting, and mail changes.
 
@@ -778,10 +944,12 @@ Expected results:
 - `cmiforge.com`, `demo.cmiforge.com`, and `app.cmiforge.com` resolve without browser certificate errors after DNS propagation.
 - Demo and Customer 0 remain separate environments.
 - Public request access routes to Customer 0 `/Signup`.
+- Demo and Customer 0 continue loading after SQL and Blob public network access are disabled.
+- Azure SQL `gwmatterforge` and Blob storage `cmiforgeattachasgmt7` should be reached by the apps through private endpoints, not public access.
 - Email DNS shows `cmiforge-com.mail.protection.outlook.com` as the MX target and `include:spf.protection.outlook.com` in SPF.
 - `gabe@cmiforge.com` should be licensed as needed, and `support@cmiforge.com` should exist as a shared mailbox delegated to Gabe when support mail is active.
 
-## 18. Suggested Smoke Regression Pass
+## 19. Suggested Smoke Regression Pass
 
 Use this as the short “did we break anything obvious?” sweep after future changes:
 
@@ -789,6 +957,7 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] Demo domain loads
 - [ ] Customer app domain redirects to Entra
 - [ ] Signup page loads
+- [ ] Customer provisioning WhatIf shows `cmiforge-vnet/appsvc-integration`
 - [ ] Signup requires legal agreement acceptance
 - [ ] Terms page loads anonymously
 - [ ] Dashboard loads
@@ -797,6 +966,9 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] System menu opens
 - [ ] System Archive loads in non-demo admin environments
 - [ ] Forms list loads
+- [ ] Forms list shows client-link counts and Send actions for published forms
+- [ ] Secure external form invite link loads anonymously and submits into the normal submission queue
+- [ ] Completed external form invite link cannot be reused
 - [ ] Create form works
 - [ ] Edit form publishes a new version
 - [ ] Submit form works
@@ -804,11 +976,15 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] Floating conflict preview appears while typing client/matter names
 - [ ] Submission detail loads
 - [ ] Attachment upload works
+- [ ] Inbound email settings and log page load
+- [ ] Inbound email with `Client:` and blank `Matter:` creates a submission with no matter value
+- [ ] Inbound email from a disallowed domain is rejected without creating a submission
 - [ ] Workflow queue loads
 - [ ] Workflow definition editor shows approval and notification step types
 - [ ] Workflow queue pagination works with high task volume
 - [ ] Workflow action updates status
 - [ ] Approved submission converts to client/matter
+- [ ] Approved submission with blank matter converts to client-only
 - [ ] Client detail loads
 - [ ] Client notes and archive controls work
 - [ ] Client audit history appears when available
@@ -825,6 +1001,7 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] Entity approvals page loads and shows pending/recent requests
 - [ ] Entity list pagination works
 - [ ] Conflict search runs
+- [ ] Conflict search term examples in Help match current behavior
 - [ ] Conflict review saves
 - [ ] Conflict result filters narrow visible rows
 - [ ] Conflict multi-select clearance updates selected rows
@@ -833,6 +1010,7 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] CSV validation works
 - [ ] CSV import works
 - [ ] Security pages load
+- [ ] Security impersonation starts, shows a banner, affects permissions/routing, and stops
 - [ ] Security audit log loads
 - [ ] System settings page loads in non-demo or is read-only in demo
 - [ ] Attachment upload/download still works after storage key rotation
@@ -843,7 +1021,7 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] `dotnet build` passes
 - [ ] EF reports no pending model changes
 
-## 18A. Customer 0 Volume Data Check
+## 19A. Customer 0 Volume Data Check
 
 Purpose: confirm the load-test dataset is present and still distinguishable from real data.
 
@@ -864,7 +1042,7 @@ Suggested checks:
 - Open `/Workflow/Queue` and confirm the seeded open workflow tasks do not make the queue unusably slow.
 - Open the dashboard and confirm the charts render with the larger dataset.
 
-## 19. What To Notice While Testing
+## 20. What To Notice While Testing
 
 This is the “buyer brain” part of the walkthrough. As you test, pay attention to:
 
@@ -874,7 +1052,7 @@ This is the “buyer brain” part of the walkthrough. As you test, pay attentio
 - Does the platform feel more like firm software than a demo CRUD app?
 - Which screens feel “beta but useful” versus “next obvious polish target”?
 
-## 20. Notes Template
+## 21. Notes Template
 
 Use this if you want to jot reactions as you go:
 

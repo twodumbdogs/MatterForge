@@ -55,10 +55,10 @@ public static class SeedData
         await EnsureStarterTimeCodeSetsAsync(db);
         await EnsureStarterFormAsync(db, seedSampleData);
         await EnsureStarterWorkflowAsync(db);
-        await EnsureStarterConflictReferencePartiesAsync(db);
 
         if (seedSampleData)
         {
+            await EnsureStarterConflictReferencePartiesAsync(db);
             await EnsureStarterConflictDataAsync(db);
             await EnsureStarterMarketingDemoDataAsync(db);
             await EnsureStarterTimeEntriesAsync(db);
@@ -176,6 +176,7 @@ public static class SeedData
         var permissions = new (string Key, string Name, string Category, string Description)[]
         {
             (PermissionKeys.SystemAdmin, "System administrator", "System", "Full CMIForge platform access."),
+            (PermissionKeys.SystemImpersonateUsers, "Impersonate users", "System", "Temporarily view the app as another active user for support, routing, and approval testing."),
             (PermissionKeys.FormsView, "View forms", "Forms", "View available form definitions."),
             (PermissionKeys.FormsSubmit, "Submit forms", "Forms", "Submit available intake forms."),
             (PermissionKeys.FormsDesign, "Design forms", "Forms", "Create and publish form versions."),
@@ -336,7 +337,14 @@ public static class SeedData
             new SettingSeed("Email.MailboxAddress", "Email", "Mailbox anchor", "Shared mailbox CMIForge uses through Microsoft Graph when sending this tenant's outbound mail.", "intake@cmiforge.com", SystemSettingValueTypes.Email),
             new SettingSeed("Email.FromEmail", "Email", "From email", "Tenant sender address used on outbound CMIForge notifications.", "customer0@cmiforge.com", SystemSettingValueTypes.Email),
             new SettingSeed("Email.ReplyToEmail", "Email", "Reply-to email", "Tenant reply address used on outbound CMIForge notifications.", "customer0@cmiforge.com", SystemSettingValueTypes.Email),
-            new SettingSeed("Email.FromName", "Email", "From name", "Display name used as the sender for outbound CMIForge notifications.", "Customer 0", SystemSettingValueTypes.Text)
+            new SettingSeed("Email.FromName", "Email", "From name", "Display name used as the sender for outbound CMIForge notifications.", "Customer 0", SystemSettingValueTypes.Text),
+            new SettingSeed(InboundEmailSettingKeys.Enabled, "Inbound Email", "Enable inbound email intake", "Turns on Microsoft Graph mailbox polling for creating intake submissions from trusted inbound emails.", "false", SystemSettingValueTypes.Boolean),
+            new SettingSeed(InboundEmailSettingKeys.MailboxAddress, "Inbound Email", "Inbound mailbox anchor", "Shared mailbox CMIForge reads through Microsoft Graph for this tenant's inbound intake mail.", "intake@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingSeed(InboundEmailSettingKeys.InboundAddress, "Inbound Email", "Tenant inbound address", "Address or alias firms should send intake messages to, such as customer0@cmiforge.com.", "customer0@cmiforge.com", SystemSettingValueTypes.Email),
+            new SettingSeed(InboundEmailSettingKeys.AllowedSenderDomains, "Inbound Email", "Allowed sender domains", "Comma- or semicolon-separated firm domains allowed to create inbound email intakes. Leave blank to reject all inbound messages.", string.Empty, SystemSettingValueTypes.Text),
+            new SettingSeed(InboundEmailSettingKeys.DefaultFormKey, "Inbound Email", "Default intake form key", "Published form key used for submissions created from inbound email.", "new-matter-intake", SystemSettingValueTypes.Text),
+            new SettingSeed(InboundEmailSettingKeys.MarkProcessedAsRead, "Inbound Email", "Mark processed email as read", "Marks mailbox messages as read after a successful CMIForge intake is created.", "true", SystemSettingValueTypes.Boolean),
+            new SettingSeed(InboundEmailSettingKeys.OcrEnabled, "Inbound Email", "Enable inbound attachment OCR", "Queues supported inbound attachments for OCR extraction once an OCR provider is configured.", "false", SystemSettingValueTypes.Boolean)
         };
 
         foreach (var seed in settings)
@@ -800,6 +808,22 @@ public static class SeedData
             "Wayne Wainwright CP",
             "Wainwright Capital",
             "WW Capital Partners");
+        var elmVineCapital = await EnsurePartyAsync(
+            db,
+            "Elm and Vine Capital",
+            PartyTypes.Organization,
+            "Active",
+            "Demo conflicts party: ampersand/and connector and phrase-containment regression test.",
+            "Elm & Vine Capital",
+            "Elm Vine Capital");
+        var elmVineManufacturing = await EnsurePartyAsync(
+            db,
+            "Elm & Vine Manufacturing",
+            PartyTypes.Organization,
+            "Prospective",
+            "Demo conflicts party: shared two-token brand with a different business descriptor.",
+            "Elm and Vine Manufacturing",
+            "Elm Vine Mfg");
         var acme = await EnsurePartyAsync(
             db,
             "Acme Anvil Works, Inc.",
@@ -869,6 +893,8 @@ public static class SeedData
         await EnsureMatterPartyAsync(db, demoMatter, starkHoldings, PartyRoles.AdverseParty, "Seeded as an adverse-party conflict test.");
         await EnsureMatterPartyAsync(db, demoMatter, starkLlp, PartyRoles.OpposingCounsel, "Seeded as opposing counsel with a close-name alias.");
         await EnsureMatterPartyAsync(db, demoMatter, wayneWainwright, PartyRoles.RelatedParty, "Seeded as a financing-related party.");
+        await EnsureMatterPartyAsync(db, demoMatter, elmVineCapital, PartyRoles.RelatedParty, "Seeded as a phrase-containment conflict test.");
+        await EnsureMatterPartyAsync(db, demoMatter, elmVineManufacturing, PartyRoles.Witness, "Seeded as a second Elm/Vine phrase-containment test.");
         await EnsureMatterPartyAsync(db, demoMatter, acme, PartyRoles.Witness, "Seeded as a witness/vendor party.");
         await EnsureMatterPartyAsync(db, demoMatter, mina, PartyRoles.RelatedParty, "Seeded as a principal/contact test party.");
         await EnsureMatterPartyAsync(db, demoMatter, city, PartyRoles.AdverseParty, "Seeded as a government-adverse test party.");
@@ -1202,11 +1228,11 @@ public static class SeedData
 
         var fields = new List<FormField>
         {
-            new() { Key = "clientName", Label = "Client name", Type = FieldType.Client, Required = true },
-            new() { Key = "matterName", Label = "Matter name", Type = FieldType.Text, Required = true },
-            new() { Key = "practiceArea", Label = "Practice area", Type = FieldType.Select, Required = true, Options = ["Corporate", "Litigation", "Real Estate", "Employment"] },
-            new() { Key = "estimatedFees", Label = "Estimated fees", Type = FieldType.Currency },
-            new() { Key = "summary", Label = "Matter summary", Type = FieldType.TextArea, Required = true }
+            new() { SectionKey = "client", Key = "clientName", Label = "Client name", Type = FieldType.Client, Required = true },
+            new() { SectionKey = "matter", Key = "matterName", Label = "Matter name", Type = FieldType.Text, Required = true },
+            new() { SectionKey = "matter", Key = "practiceArea", Label = "Practice area", Type = FieldType.Select, Required = true, Options = ["Corporate", "Litigation", "Real Estate", "Employment"] },
+            new() { SectionKey = "matter", Key = "estimatedFees", Label = "Estimated fees", Type = FieldType.Currency },
+            new() { SectionKey = "review", Key = "summary", Label = "Matter summary", Type = FieldType.TextArea, Required = true }
         };
 
         if (seedSampleData)
@@ -1215,6 +1241,7 @@ public static class SeedData
             {
                 Key = "assignedUser",
                 Label = "Assigned user",
+                SectionKey = "review",
                 Type = FieldType.Select,
                 Options = ["Ima User"]
             });
@@ -1223,8 +1250,15 @@ public static class SeedData
         var schema = new FormSchema
         {
             Title = "New Matter Intake",
+            Sections =
+            [
+                new FormSection { Key = "client", Label = "Client" },
+                new FormSection { Key = "matter", Label = "Matter" },
+                new FormSection { Key = "review", Label = "Review" }
+            ],
             Fields = fields
         };
+        schema.Normalize();
 
         form.Versions.Add(new FormVersion
         {
@@ -1293,6 +1327,7 @@ public static class SeedData
         {
             Key = "assignedUser",
             Label = "Assigned user",
+            SectionKey = "review",
             Type = FieldType.Select,
             Options = ["Ima User"]
         };

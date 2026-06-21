@@ -95,6 +95,10 @@ Do not remove the Azure hostname redirect until the custom domain has been teste
 7. Open **System > Security**.
 8. Confirm the signed-in user has administrator access.
 
+## Deployment And Smoke Note
+
+After Entra/auth changes, deploy Customer 0 unless Gabe explicitly says to hold deployment. Smoke-check both the anonymous `/Signup` route and the authenticated root route. The expected root behavior for an unauthenticated browser is a redirect to Microsoft sign-in, while `/Signup` should remain publicly reachable.
+
 ## Notes
 
 - Entra handles password resets, MFA, account verification, and conditional access.

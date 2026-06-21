@@ -13,7 +13,7 @@
     <a class="btn btn-outline-secondary" asp-page="./Index">Back</a>
 </div>
 
-<form method="post" class="mf-panel">
+<form method="post" class="mf-panel" data-conflict-search-form data-conflict-search-progress-title="Running conflict search">
     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
     <input type="hidden" asp-for="SubmissionId" />
 
@@ -49,14 +49,28 @@
         </div>
     </div>
 
+    <div class="mf-conflict-search-progress mt-4" data-conflict-search-progress hidden aria-live="polite" aria-atomic="true">
+        <div class="d-flex justify-content-between gap-3">
+            <div>
+                <strong data-conflict-search-progress-title>Running conflict search</strong>
+                <small class="d-block text-muted" data-conflict-search-progress-message>Preparing search terms...</small>
+            </div>
+            <span class="badge text-bg-light" data-conflict-search-progress-percent>0%</span>
+        </div>
+        <div class="progress mt-3" role="progressbar" aria-label="Conflict search progress" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" data-conflict-search-progress-bar style="width: 0%"></div>
+        </div>
+    </div>
+
     <div class="d-flex gap-2 mt-4">
-        <button class="btn btn-primary" type="submit">Run search</button>
+        <button class="btn btn-primary" type="submit" data-conflict-search-submit>Run search</button>
         <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
     </div>
 </form>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/conflict-search-progress.js" asp-append-version="true"></script>
     <script>
         (() => {
             const searchName = document.querySelector('[name="Input.SearchName"]');

@@ -11,6 +11,8 @@ public static class FormJson
 
     public static FormSchema DeserializeSchema(string schemaJson)
     {
-        return JsonSerializer.Deserialize<FormSchema>(schemaJson, Options) ?? new FormSchema();
+        var schema = JsonSerializer.Deserialize<FormSchema>(schemaJson, Options) ?? new FormSchema();
+        schema.Normalize();
+        return schema;
     }
 }

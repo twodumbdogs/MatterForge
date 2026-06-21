@@ -114,7 +114,7 @@ public class SubmitModel(
 
         PostedValues = ReadPostedValues(Schema, Request.Form);
 
-        foreach (var required in Schema.Fields.Where(x => x.Required))
+        foreach (var required in Schema.Fields.Where(x => x.Required && FormFieldRules.IsVisible(x, PostedValues)))
         {
             if (!PostedValues.TryGetValue(required.Key, out var value) || string.IsNullOrWhiteSpace(value))
             {
@@ -129,7 +129,9 @@ public class SubmitModel(
 
         var answers = Schema.Fields.ToDictionary<FormField, string, object?>(
             field => field.Key,
-            field => field.Type == FieldType.Checkbox
+            field => !FormFieldRules.IsVisible(field, PostedValues)
+                ? null
+                : field.Type == FieldType.Checkbox
                 ? PostedValues.ContainsKey(field.Key)
                 : PostedValues.GetValueOrDefault(field.Key));
 

@@ -19,6 +19,8 @@ public class IndexModel(CMIForgeDbContext db, PermissionService permissionServic
 
     public int AuditLogCount { get; private set; }
 
+    public bool CanImpersonateUsers { get; private set; }
+
     public async Task<IActionResult> OnGetAsync()
     {
         if (!await permissionService.HasAsync(PermissionKeys.SecurityManage))
@@ -27,6 +29,7 @@ public class IndexModel(CMIForgeDbContext db, PermissionService permissionServic
         }
 
         CurrentUser = await permissionService.GetCurrentUserAsync();
+        CanImpersonateUsers = await permissionService.HasAsActualUserAsync(PermissionKeys.SystemImpersonateUsers);
 
         Teams = await db.Teams
             .Include(x => x.Members)

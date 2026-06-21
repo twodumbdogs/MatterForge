@@ -30,6 +30,10 @@ public class EditModel(
 
     public List<SelectListItem> TimeCodeSetOptions { get; private set; } = [];
 
+    public string[] StatusOptions => EntityComplianceService.MatterStatusOptions;
+
+    public bool IsOpeningFromComplianceReview { get; private set; }
+
     public async Task<IActionResult> OnGetAsync(Guid id)
     {
         if (!await permissionService.HasAsync(PermissionKeys.EntitiesEdit))
@@ -103,6 +107,16 @@ public class EditModel(
 
         var current = EntityChangeService.ToSnapshot(Matter);
         var proposed = Input.ToSnapshot();
+        IsOpeningFromComplianceReview = EntityComplianceService.MovesFromReviewToCompliant(
+            EntityChangeService.MatterEntityType,
+            current.Status,
+            proposed.Status);
+        if (IsOpeningFromComplianceReview && string.IsNullOrWhiteSpace(Input.RequestNotes))
+        {
+            ModelState.AddModelError("Input.RequestNotes", "Add the compliance/checks note that supports moving this matter to Open.");
+            return Page();
+        }
+
         var summary = EntityChangeService.Summarize(current, proposed);
         if (summary.StartsWith("No field changes", StringComparison.OrdinalIgnoreCase))
         {
@@ -196,7 +210,7 @@ public class MatterEditInput
     [Display(Name = "Practice area")]
     public string PracticeArea { get; set; } = "Corporate";
 
-    public string Status { get; set; } = "Open";
+    public string Status { get; set; } = EntityComplianceService.ReviewStatus;
 
     [Display(Name = "Opened date")]
     public DateOnly? OpenedDate { get; set; }

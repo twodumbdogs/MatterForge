@@ -16,9 +16,23 @@ public class CurrentUserService(
     private const string AdministratorRoleKey = "administrator";
     private const string DefaultCurrentUserEmail = "imauser@twodumbdogs.com";
     private const string DefaultCurrentUserDisplayName = "Ima User";
+    private const string ImpersonatorUserIdSessionKey = "CMIForge.ImpersonatorUserId";
+    private const string ImpersonatedUserIdSessionKey = "CMIForge.ImpersonatedUserId";
     private static readonly TimeSpan LastLoginUpdateInterval = TimeSpan.FromMinutes(5);
 
     public async Task<CMIForgeUser?> GetCurrentUserAsync()
+    {
+        var actualUser = await GetActualCurrentUserAsync();
+        if (actualUser is null)
+        {
+            return null;
+        }
+
+        var impersonation = await GetImpersonationContextAsync(actualUser);
+        return impersonation?.ImpersonatedUser ?? actualUser;
+    }
+
+    public async Task<CMIForgeUser?> GetActualCurrentUserAsync()
     {
         var authenticatedIdentity = GetAuthenticatedIdentity();
         if (authenticatedIdentity is not null)
@@ -61,6 +75,46 @@ public class CurrentUserService(
         }
 
         return fallbackUser;
+    }
+
+    public async Task<UserImpersonationContext?> GetImpersonationContextAsync()
+    {
+        var actualUser = await GetActualCurrentUserAsync();
+        return await GetImpersonationContextAsync(actualUser);
+    }
+
+    public async Task<UserImpersonationContext?> StartImpersonationAsync(Guid impersonatedUserId)
+    {
+        var actualUser = await GetActualCurrentUserAsync();
+        if (actualUser is null)
+        {
+            return null;
+        }
+
+        var impersonatedUser = await db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == impersonatedUserId && x.IsActive && !x.IsArchived);
+        if (impersonatedUser is null)
+        {
+            return null;
+        }
+
+        var session = httpContextAccessor.HttpContext?.Session;
+        if (session is null)
+        {
+            return null;
+        }
+
+        session.SetString(ImpersonatorUserIdSessionKey, actualUser.Id.ToString());
+        session.SetString(ImpersonatedUserIdSessionKey, impersonatedUser.Id.ToString());
+        return new UserImpersonationContext(actualUser, impersonatedUser);
+    }
+
+    public void StopImpersonation()
+    {
+        var session = httpContextAccessor.HttpContext?.Session;
+        session?.Remove(ImpersonatorUserIdSessionKey);
+        session?.Remove(ImpersonatedUserIdSessionKey);
     }
 
     public async Task<List<Guid>> GetCurrentUserTeamIdsAsync()
@@ -231,6 +285,35 @@ public class CurrentUserService(
         user.LastLoginAt = now;
     }
 
+    private async Task<UserImpersonationContext?> GetImpersonationContextAsync(CMIForgeUser? actualUser)
+    {
+        if (actualUser is null)
+        {
+            return null;
+        }
+
+        var session = httpContextAccessor.HttpContext?.Session;
+        var impersonatorUserId = session?.GetString(ImpersonatorUserIdSessionKey);
+        var impersonatedUserId = session?.GetString(ImpersonatedUserIdSessionKey);
+        if (!Guid.TryParse(impersonatorUserId, out var impersonatorId) ||
+            !Guid.TryParse(impersonatedUserId, out var targetUserId) ||
+            impersonatorId != actualUser.Id)
+        {
+            return null;
+        }
+
+        var impersonatedUser = await db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == targetUserId && x.IsActive && !x.IsArchived);
+        if (impersonatedUser is null)
+        {
+            StopImpersonation();
+            return null;
+        }
+
+        return new UserImpersonationContext(actualUser, impersonatedUser);
+    }
+
     private async Task<CMIForgeUser?> FindExistingAuthenticatedUserAsync(AuthenticatedIdentity identity)
     {
         if (!string.IsNullOrWhiteSpace(identity.TenantId) && !string.IsNullOrWhiteSpace(identity.ObjectId))
@@ -333,3 +416,7 @@ public class CurrentUserService(
         string? TenantId,
         string? DisplayName);
 }
+
+public sealed record UserImpersonationContext(
+    CMIForgeUser ActualUser,
+    CMIForgeUser ImpersonatedUser);

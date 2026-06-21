@@ -3,6 +3,7 @@ namespace CMIForge.Services;
 public static class PermissionKeys
 {
     public const string SystemAdmin = "System.Admin";
+    public const string SystemImpersonateUsers = "System.ImpersonateUsers";
 
     public const string FormsView = "Forms.View";
     public const string FormsSubmit = "Forms.Submit";

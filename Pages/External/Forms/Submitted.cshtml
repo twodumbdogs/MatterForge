@@ -1,0 +1,15 @@
+@page "/external/forms/submitted/{submissionNumber:int}"
+@model CMIForge.Pages.External.Forms.SubmittedModel
+@{
+    Layout = "/Pages/Shared/_ExternalFormLayout.cshtml";
+    ViewData["Title"] = "Submission received";
+}
+
+<div class="mf-panel">
+    <p class="mf-eyebrow">Submitted</p>
+    <h1>Your form was submitted.</h1>
+    <p class="text-muted">CMIForge saved your response and sent it into the firm's intake workflow.</p>
+    <hr />
+    <p class="mb-2">Submission number</p>
+    <p class="display-6 mb-0"><code>@CMIForge.Services.RecordNumbers.Submission(Model.SubmissionNumber)</code></p>
+</div>

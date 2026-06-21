@@ -27,6 +27,11 @@ Provisioned status:
 - App Service plan: `cmiforge-customer0-plan`
 - App Service SKU: `B1`
 - SQL tier: `Basic`
+- Shared VNet: `cmiforge-vnet`
+- App Service integration subnet: `appsvc-integration`
+- SQL private endpoint: `pe-cmiforge-sql`
+- Blob private endpoint: `pe-cmiforge-blob`
+- Key Vault private endpoint: `pe-cmiforge-keyvault`
 - DNS host: Azure DNS zone `cmiforge.com`
 - Bootstrap admin email: `gwms@twodumbdogs.com`
 - Entra redirect URIs:
@@ -35,6 +40,16 @@ Provisioned status:
 - Entra custom domain verification TXT value: `MS=ms36377677`
 
 This keeps the disposable public demo away from real testing data.
+
+## Standing Deploy Behavior
+
+Customer 0 should stay in step with shared app behavior unless Gabe explicitly says to hold deployment. After CMIForge app changes, deploy Customer 0 after the demo app and smoke-check `https://app.cmiforge.com` or the affected Customer 0 route.
+
+For code/UI/docs-only releases, keep database migrations skipped or disabled. For schema changes, apply migrations deliberately with the dedicated migrator lane, not normal Customer 0 web-app startup. Customer 0 should keep `CMIForge__SeedSampleData=false`; demo conflict fixtures and other public-demo filler data belong only in sample/demo environments.
+
+Customer 0 data-plane access now runs through the shared private-networking slice. Azure SQL public network access is disabled, and the attachment storage account has public network access disabled with default action `Deny`. EF migrations should run through `deploy/migrations/run-tenant-migrations.ps1`, which uses `cmiforge-migrator-mi` and the VNet-integrated `cmiforge-db-migrator` triggered WebJob host.
+
+The Customer 0 deployment wrapper now keeps the app VNet-integrated through `cmiforge-vnet/appsvc-integration` when it calls the shared `deployme.ps1` path. It also creates/ensures the attachment container through Azure Resource Manager instead of the storage data plane, so storage public access can remain disabled.
 
 ## Volume Test Data
 
@@ -139,7 +154,7 @@ The script will:
 
 1. Create or confirm the Customer 0 SQL database.
 2. Create or confirm the private blob container.
-3. Apply EF migrations.
+3. Apply EF migrations through the dedicated migrator WebJob.
 4. Create or confirm the App Service plan and web app.
 5. Configure Entra login app settings.
 6. Configure managed-identity SQL and blob settings.
@@ -148,7 +163,7 @@ The script will:
 9. Try to grant SQL access to the web app managed identity if `Invoke-Sqlcmd` is available.
 10. Restart the app after role assignments.
 
-For schema-changing app releases, do not pass `-SkipDatabaseUpdate` unless the database migration has already been applied another way. If local EF migration access is blocked by Azure SQL firewall rules, add a narrow temporary rule for the current public IP, deploy/apply migrations, smoke test, and remove the rule.
+For schema-changing app releases, do not pass `-SkipDatabaseUpdate` unless the database migration has already been applied another way. If the migrator SQL user needs a one-time grant from a local operator machine, use `-AllowTemporarySqlPublicAccess`; normal EF schema updates should run through the migrator WebJob and keep the live web app's `CMIForge__RunMigrationsOnStartup=false`.
 
 ## SQL Managed Identity Grant
 
@@ -222,7 +237,7 @@ After the first successful boot, `CMIForge__RunSeedDataOnStartup` can be changed
 
 The repeatable v1 customer provisioning command now lives at `deploy/customer/provision-customer.ps1`.
 
-That script is the operator-safe path for the next real customer. It validates a subdomain, creates the customer database and private attachment container, deploys/configures the App Service app, creates Azure DNS records, binds the custom hostname, creates/binds an App Service managed certificate, adds Entra redirect URIs, applies migrations, configures core seed startup, and can update a `TenantProvisioningRequest` to `Provisioning`, `Ready`, or `Failed`.
+That script is the operator-safe path for the next real customer. It validates a subdomain, creates the customer database and private attachment container, deploys/configures the App Service app, creates Azure DNS records, binds the custom hostname, creates/binds an App Service managed certificate, adds Entra redirect URIs, applies migrations through the dedicated migrator WebJob, configures core seed startup, and can update a `TenantProvisioningRequest` to `Provisioning`, `Ready`, or `Failed`.
 
 ## Future Customer Provisioning Button
 

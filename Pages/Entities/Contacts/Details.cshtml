@@ -196,6 +196,38 @@ else
                 }
             </div>
 
+            <div class="mf-panel mb-3">
+                <h2>Related Parties</h2>
+                @if (Model.RelatedParties.Count == 0)
+                {
+                    <p class="text-muted mt-3 mb-0">No parties are linked through this contact's matters yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive mt-3">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Party</th>
+                                    <th>Matter</th>
+                                    <th>Role</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var party in Model.RelatedParties)
+                                {
+                                    <tr>
+                                        <td><a asp-page="/Entities/Parties/Details" asp-route-id="@party.PartyId">@party.PartyNumber.ToString("D8") - @party.PartyName</a></td>
+                                        <td><a asp-page="/Entities/Matters/Details" asp-route-id="@party.MatterId">@party.MatterNumber.ToString("D8") - @party.MatterName</a></td>
+                                        <td>@party.Role</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
             <div class="mf-panel">
                 <h2>Link Matter</h2>
                 @if (Model.MatterOptions.Count == 0)

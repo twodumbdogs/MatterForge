@@ -20,8 +20,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Remove="artifacts\**\*;deploy\**\*;*.log" />
-    <None Remove="artifacts\**\*;deploy\**\*;*.log" />
+    <Compile Remove="artifacts\**\*.cs;CMIForge.Migrator\**\*.cs" />
+    <Content Remove="artifacts\**\*;deploy\**\*;CMIForge.Migrator\**\*;*.log" />
+    <None Remove="artifacts\**\*;deploy\**\*;CMIForge.Migrator\**\*;*.log" />
   </ItemGroup>
 
 </Project>
