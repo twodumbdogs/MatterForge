@@ -44,6 +44,16 @@ public class DemoModeService(IConfiguration configuration)
             return false;
         }
 
+        if (AllowsSafeDesignerCopy(path, handlerName))
+        {
+            return false;
+        }
+
+        if (AllowsSafeNoteDelete(path, handlerName))
+        {
+            return false;
+        }
+
         if (ContainsDestructiveHandler(handlerName))
         {
             return true;
@@ -54,6 +64,29 @@ public class DemoModeService(IConfiguration configuration)
             path.StartsWithSegments("/Imports") ||
             path.StartsWithSegments("/Forms/Create") ||
             path.StartsWithSegments("/Forms/Edit") ||
+            path.StartsWithSegments("/Workflow/Definitions");
+    }
+
+    private static bool AllowsSafeNoteDelete(PathString path, string? handlerName)
+    {
+        if (handlerName?.Equals("OnPostDeleteNoteAsync", StringComparison.OrdinalIgnoreCase) != true)
+        {
+            return false;
+        }
+
+        return path.StartsWithSegments("/Entities/Clients") ||
+            path.StartsWithSegments("/Entities/Matters") ||
+            path.StartsWithSegments("/Entities/Parties");
+    }
+
+    private static bool AllowsSafeDesignerCopy(PathString path, string? handlerName)
+    {
+        if (handlerName?.Equals("OnPostCopyAsync", StringComparison.OrdinalIgnoreCase) != true)
+        {
+            return false;
+        }
+
+        return path.StartsWithSegments("/Forms") ||
             path.StartsWithSegments("/Workflow/Definitions");
     }
 

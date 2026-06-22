@@ -1,6 +1,6 @@
 # CMIForge Feature Walkthrough Test Plan
 
-Current version: `20260620.7`
+Current version: `20260621.1`
 
 This is a practical manual test plan for getting familiar with CMIForge while also smoke-testing the major product slices. It is written as a guided tour, not just a bug-hunt checklist.
 
@@ -31,7 +31,7 @@ By the end of this walkthrough, you should have personally exercised:
 ## Assumptions
 
 - You are running locally or in the live dev app.
-- Local examples below assume `http://localhost:5154`.
+- Local examples below assume `http://localhost:5153`.
 - The public demo app is available at `https://demo.cmiforge.com`.
 - The public demo fallback URL is `https://cmiforge-dev-web-06161223.azurewebsites.net`.
 - Customer 0 / the real app doorway is `https://app.cmiforge.com`.
@@ -92,25 +92,26 @@ Steps:
    - plan usage meters
 3. Open the `My Work` dashboard view and confirm it shows assigned work, team queue counts, recent submissions, personal time, and conflict escalations assigned to the signed-in user.
 4. Open the `Matter Partner` dashboard view and confirm it shows lead matters, submitted time waiting for approval, pending conflicts, and partner-related submissions.
-5. Confirm the top navigation now shows:
+5. If time is waiting for approval, confirm each waiting time row links to the time detail and exposes an `Approve` action.
+6. Confirm the top navigation now shows:
    - `Submissions`
    - `Entities`
    - `Conflicts`
    - `System`
    - `Help`
-6. Open the `System` dropdown and confirm it contains:
+7. Open the `System` dropdown and confirm it contains:
    - `Forms`
    - `Workflows`
    - `Imports`
    - `Security`
    - `Terms`
-5. If you are not in demo mode, confirm these also appear under `System`:
+8. If you are not in demo mode, confirm these also appear under `System`:
    - `Settings`
    - `Signup Requests`
    - `Onboarding`
    - `Archive`
-6. Open `/Help`.
-7. Skim each help section in the contents list.
+9. Open `/Help`.
+10. Skim each help section in the contents list.
 
 Expected results:
 
@@ -182,10 +183,11 @@ Expected results:
 - The client list shows an alias count and can be searched by alias.
 - The detail page loads without error.
 - Client aliases can be added, edited, and deleted by users with entity edit rights.
+- Adding a duplicate normalized client alias shows a validation error instead of silently doing nothing.
 - The detail page shows related matters, linked contacts, and related parties derived from the client's matters.
 - Direct-created clients default to `Compliance Review` and show a compliance-review warning.
 - Moving a client from `Compliance Review` to `Active` requires request notes and creates an `EntityComplianceReviewed` audit entry when approved.
-- The detail page shows a conversation-style notes area.
+- The detail page shows a compact conversation-style notes area with newest notes first, older notes expandable, and author deletion controls.
 - The detail page shows entity audit/history information when changes have been recorded.
 - Archive/unarchive controls hide the client from default lists without deleting it.
 - Archived clients can be restored from `/System/Archive` in non-demo admin environments.
@@ -213,7 +215,7 @@ Expected results:
 - The right-side related-record rail shows time entries, parties, and contacts when present.
 - Direct-created matters default to `Compliance Review` and show a compliance-review warning.
 - Moving a matter from `Compliance Review` to `Open` requires request notes and creates an `EntityComplianceReviewed` audit entry when approved.
-- The detail page shows a conversation-style notes area.
+- The detail page shows a compact conversation-style notes area with newest notes first, older notes expandable, and author deletion controls.
 - The detail page shows entity audit/history information when changes have been recorded.
 - Archive/unarchive controls hide the matter from default lists without deleting it.
 - Archived matters can be restored from `/System/Archive` in non-demo admin environments.
@@ -238,9 +240,10 @@ Expected results:
 - Parties feel distinct from clients and matters.
 - The seeded demo data looks intentionally designed for conflict-match richness.
 - Party aliases can be added, edited, and deleted by users with entity edit rights.
+- Adding a duplicate normalized party alias shows a validation error instead of silently doing nothing.
 - Party detail pages show matter roles, related contacts from linked matters, and party relationships.
 - Direct-created parties default to `Compliance Review` and show a compliance-review warning on details.
-- Party detail pages show notes and archive/unarchive behavior.
+- Party detail pages show compact newest-first notes, author deletion controls, impersonation attribution when applicable, and archive/unarchive behavior.
 - Party detail pages show entity audit/history information when changes have been recorded.
 
 ### 3D. Contacts
@@ -273,17 +276,19 @@ Steps:
 
 1. Open `/Entities/Approvals`.
 2. Confirm the page has `Pending Changes` and `Recent Decisions` sections.
-3. If pending client or matter edits exist, approve or reject one with a short review note.
-4. Open `/System/Archive` in a non-demo admin environment.
-5. Confirm archived Clients, Matters, Parties, Contacts, and Users are grouped separately.
-6. Restore one harmless archived test record if available.
-7. Open large lists such as `/Entities/Clients`, `/Entities/Matters`, `/Entities/Parties`, `/Entities/Users`, `/Submissions`, and `/Workflow/Queue`.
-8. Click several table headers on those lists and confirm the full result set sorts ascending, then descending, before pagination is applied.
-9. Use `Next` and `Previous` pagination where visible.
+3. If pending client or matter edits exist, confirm the changed fields show current and proposed values before approving.
+4. Approve or reject one with a short review note.
+5. Open `/System/Archive` in a non-demo admin environment.
+6. Confirm archived Clients, Matters, Parties, Contacts, and Users are grouped separately.
+7. Restore one harmless archived test record if available.
+8. Open large lists such as `/Entities/Clients`, `/Entities/Matters`, `/Entities/Parties`, `/Entities/Users`, `/Submissions`, and `/Workflow/Queue`.
+9. Click several table headers on those lists and confirm the full result set sorts ascending, then descending, before pagination is applied.
+10. Use `Next` and `Previous` pagination where visible.
 
 Expected results:
 
 - Entity approval requests show the entity type, record number, request time, summary, and notes.
+- Entity approval requests show before/after values for each changed field so the reviewer can see the actual data change.
 - Approve/reject actions apply only for authorized users.
 - Recent approval decisions remain visible for audit context.
 - System Archive restores records without creating duplicates.
@@ -315,12 +320,15 @@ Steps:
    - change description
    - attach or change workflow
 12. Save again to create a new version.
-13. Return to `/Forms` and confirm published forms expose a `Send` action plus open/completed client-link counts.
+13. Return to `/Forms` and click `Copy` on the form.
+14. Confirm the copied form opens in edit mode with a unique `-copy` style key and the same fields/workflow attachment.
+15. Return to `/Forms` and confirm published forms expose a `Send` action plus open/completed client-link counts.
 
 Expected results:
 
 - Create publishes the first version.
 - Edit publishes a new version instead of rewriting history.
+- Copy creates a new active form from the source form's latest published version without mutating the source form or its submissions.
 - Blank designer rows are ignored.
 - Select-style fields only require options when they actually use options.
 - Form sections survive publish/edit and become tabs on runtime forms.
@@ -346,7 +354,10 @@ Steps:
 11. Complete the required form fields and submit.
 12. Confirm the client-facing confirmation page shows a submission number.
 13. Return to `/Forms/Send/{id}` and confirm the recent invite shows as completed with a linked submission number.
-14. Re-open the same external link and confirm it is no longer usable after completion.
+14. Confirm the recent sends panel shows Queued, Sent, Opened, and Completed steps for the invite.
+15. Use `Resend` on an uncompleted invite and confirm CMIForge creates a fresh secure link, revokes the previous uncompleted invite, and queues a new email when tenant email is enabled.
+16. Open the related contact, client, and matter detail pages and confirm the same recent sends panel appears with the invite's delivery/open/completion status.
+17. Re-open the same external link and confirm it is no longer usable after completion.
 
 Expected results:
 
@@ -356,6 +367,8 @@ Expected results:
 - External form links expire and cannot be reused after completion.
 - External submissions become normal form submissions and start the attached workflow when the form version has one.
 - The audit history records that the external invite was created and completed.
+- Resent invites use a new token; CMIForge does not recover or expose the old raw token.
+- Email `Sent` means Microsoft Graph accepted the outbox send request, not that the recipient's mailbox provider guarantees human readership.
 
 ## 6. Submit a Form and Review the Submission
 
@@ -374,6 +387,7 @@ Steps:
 9. Confirm the new submission appears with:
    - a zero-padded submission number
    - a linked number in the first column
+   - compact one-line rows without duplicate helper captions under client or matter
    - submitter name
    - lead partner when selected
    - status
@@ -384,7 +398,7 @@ Expected results:
 - The submission stores and renders correctly.
 - The submission detail page shows a main Submission Workspace tab set for form sections, linked conflict searches, and attachments.
 - Older submissions whose saved form version only has the old `General` section still render with sensible display-only tabs inferred from field keys/labels.
-- The submission detail page keeps submitter context, workflow actions/tasks/history, recent audit events, and attachment summaries in the right-side activity rail.
+- The submission detail page keeps Open Actions at the top of the right-side activity rail, with workflow tasks/history shown newest-first in a compact layout.
 - The submission detail page shows the selected lead partner.
 - The initial status is sensible for a newly submitted intake.
 
@@ -444,27 +458,35 @@ Steps:
 1. Open `/Workflow/Definitions`.
 2. Review the seeded `Standard Intake Review` workflow.
 3. Confirm steps are ordered and can be typed as `Approval` or `Notification`.
-4. Confirm approval steps can contain outcomes.
-5. Confirm notification steps expose recipients, subject, and body fields.
-6. Review the outcome format and any routing conditions.
-7. Open `/Workflow/Queue`.
-8. Review:
+4. Use the step move buttons to move a workflow step up/down and confirm the order numbers update before save.
+5. Click `Copy` on a workflow and confirm the copy opens as `Saved draft / unpublished` with the copied steps.
+6. Create or edit a workflow and confirm it can be saved as `Saved draft / unpublished`.
+7. Publish a valid workflow and confirm it shows as `Published / live`.
+8. Confirm approval steps can contain outcomes.
+9. Confirm notification steps expose recipients, subject, and body fields.
+10. Review the outcome format and any routing conditions.
+11. Open `/Workflow/Queue`.
+12. Review:
    - `My Queue`
    - `Team Queue`
    - `All Open` if visible
-9. Return to your new submission detail page.
-10. Use the available workflow action buttons.
-11. If useful, test both:
+13. Return to your new submission detail page.
+14. Use the available workflow action buttons.
+15. If useful, test both:
    - a return-style action
    - an approve/final-approve path
-12. After a return-style action, open the returned submission detail page.
-13. Confirm the returned edit form keeps the form sections/tabs.
-14. Edit at least one answer allowed by the current workflow step.
-15. Confirm any field configured for a different workflow step is read-only.
-16. Click `Save and resubmit`.
+16. After a return-style action, open the returned submission detail page.
+17. Confirm the returned edit form keeps the form sections/tabs.
+18. Edit at least one answer allowed by the current workflow step.
+19. Confirm any field configured for a different workflow step is read-only.
+20. Click `Save and resubmit`.
 
 Expected results:
 
+- Draft workflows are saved but do not appear in form workflow pickers or start new submissions.
+- Copied workflows are saved as drafts so cloning an existing workflow never changes live routing until it is explicitly published.
+- Moving steps updates step numbers and the saved/published workflow runs in the new order.
+- Published, active workflows are available for form attachment and automatic workflow start.
 - Submitting a form with an attached workflow starts a workflow instance automatically.
 - Queue tasks appear in the right place.
 - Taking an outcome updates task and submission state.
@@ -555,20 +577,21 @@ Expected results:
 Steps:
 
 1. On the conflict detail page, review the overall search decision panel.
-2. On an individual result row, set a result clearance status.
-3. Add result-level clearance notes.
+2. Confirm the result filters sit directly above the results table.
+3. Expand `Row actions` on an individual result row, set a result clearance status, and add result-level clearance notes.
 4. Save the row.
 5. Select multiple result rows, apply `Clear` from the bulk action panel, and confirm the selected rows update.
 6. Use the select-all checkbox in the results table header and apply a bulk decision.
-7. Select one or more result rows, choose an active user in `Escalate to`, add notes, and submit the escalation.
+7. Select three or four result rows, choose an active user in `Escalate to`, add notes, and click `Escalate selected`.
 8. On an escalated row, approve the escalation as the assigned reviewer and add approval notes.
 9. Repeat for enough rows to confirm the overall search status rolls up appropriately.
 
 Expected results:
 
 - Each result can store its own status, notes, reviewer, and timestamp.
+- The result filters remain visually attached to the table, while row-level review/escalation controls stay collapsed until needed.
 - Multiple conflict result rows can be selected and updated together, including all rows via the header checkbox.
-- Multiple conflict result rows can be escalated together to another active user.
+- Multiple conflict result rows can be escalated together to another active user in one submit; users should not need to press each row's `Escalate row` button for a shared escalation.
 - Escalated rows show assigned reviewer, escalation notes, escalation timestamp, approval status, and approval notes.
 - Escalation and escalation approval appear in recent audit history for the conflict search.
 - The saved row-level clearance persists after reload.
@@ -734,17 +757,20 @@ Steps:
 5. Open or create a matter with `Requires time approval` on and a lead partner.
 6. Record time for that matter and submit it.
 7. Confirm the entry remains Submitted until the matter lead partner approves it.
-8. As the lead partner with time approval permission, approve the submitted entry.
-9. Export approved time from `/Time` and reopen the exported entry.
-10. Open `/Time/Create`, confirm the hours field displays and accepts two decimal places, and use the numeric stepper after selecting matters with actual-time, 6-minute, and 15-minute rules.
-11. Use the timer Start and Stop controls, assign the elapsed time to a matter, and save the entry.
-12. With a 6-minute matter selected, apply an elapsed timer value that rounds to `0.20` hours and submit without touching the numeric stepper.
+8. As the lead partner with time approval permission, open the Matter Partner dashboard and confirm the waiting time row has an `Approve` action.
+9. Open `/Time?status=Submitted` and confirm approvable rows also expose an `Approve` action.
+10. Approve the submitted entry from the dashboard, the time list, or the detail page.
+11. Export approved time from `/Time` and reopen the exported entry.
+12. Open `/Time/Create`, confirm the hours field displays and accepts two decimal places, and use the numeric stepper after selecting matters with actual-time, 6-minute, and 15-minute rules.
+13. Use the timer Start and Stop controls, assign the elapsed time to a matter, and save the entry.
+14. With a 6-minute matter selected, apply an elapsed timer value that rounds to `0.20` hours and submit without touching the numeric stepper.
 
 Expected results:
 
 - Matter increment rules control the time-entry step, minimum, rounded minutes, and two-decimal hours display.
 - Submitted time auto-approves only when the matter does not require approval.
 - Approval-required submitted time waits for the matter lead partner.
+- Lead partners with time approval rights can open submitted entries waiting on them even if another user recorded the time.
 - Approved and exported entries are read-only from the normal edit path.
 - Client narrative appears in export/reporting outputs while internal notes stay available in-app.
 - Phase and task options come from the selected matter's time code set.
@@ -805,13 +831,15 @@ Steps:
 4. Create a harmless client named `Reset Sentinel Demo Client`.
 5. Click `Reset demo now`.
 6. Confirm the sentinel client disappears and starter clients, matters, parties, forms, workflows, users, and time entries return.
-7. Try to create a client with obvious abusive language in the name.
-8. Try a blocked admin action, such as creating a team from `/Security/Teams`.
+7. Confirm the recent reset run history shows a successful manual or scheduled reset and that `Last reset` uses the latest successful run.
+8. Try to create a client with obvious abusive language in the name.
+9. Try a blocked admin action, such as creating a team from `/Security/Teams`.
 
 Expected results:
 
 - The demo app points at the separate `cmiforge-demo` database.
 - Demo reset clears visitor-created data and reseeds starter records.
+- Scheduled reset catches up when the app starts overdue instead of waiting a fresh interval after every cold start.
 - Bad content redirects to the demo-blocked page and creates no record.
 - Admin/destructive demo actions redirect to the demo-blocked page.
 - User `00000001` remains protected.
@@ -898,6 +926,9 @@ dotnet tool run dotnet-ef database update
    - legal agreement acceptances
    - conflict result escalations
    - enhancement request votes and client aliases
+   - external invite email tracking
+   - workflow draft/publish state
+   - entity note impersonation attribution
 
 Expected results:
 
@@ -949,6 +980,26 @@ Expected results:
 - Email DNS shows `cmiforge-com.mail.protection.outlook.com` as the MX target and `include:spf.protection.outlook.com` in SPF.
 - `gabe@cmiforge.com` should be licensed as needed, and `support@cmiforge.com` should exist as a shared mailbox delegated to Gabe when support mail is active.
 
+## 18A. Brand Asset Smoke
+
+Purpose: confirm business/profile assets are available from the current app logo source.
+
+Steps:
+
+1. Open `wwwroot/img/cmiforge-logo.png`.
+2. Confirm it is the current app/page logo source and visually matches the supplied square CMIForge product logo.
+3. Open the generated assets in `artifacts/brand/`:
+   - `cmiforge-linkedin-logo-400.png`
+   - `cmiforge-linkedin-logo-1200.png`
+   - `cmiforge-linkedin-logo-2400.png`
+   - `cmiforge-logo-source.png`
+4. Confirm the 1200px PNG is crisp, centered, square, and suitable for a LinkedIn business page logo.
+
+Expected results:
+
+- The raster product logo is the canonical current logo for app chrome, public-site chrome, favicons, touch icons, and social previews.
+- The PNG exports are square, high-resolution, and visually match the in-app/public-site mark.
+
 ## 19. Suggested Smoke Regression Pass
 
 Use this as the short “did we break anything obvious?” sweep after future changes:
@@ -967,12 +1018,16 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] System Archive loads in non-demo admin environments
 - [ ] Forms list loads
 - [ ] Forms list shows client-link counts and Send actions for published forms
+- [ ] Recent sends dashboard shows queued, sent, opened, and completed status
+- [ ] Resend creates a fresh tracked invite and revokes the previous uncompleted invite
+- [ ] Contact/client/matter detail pages show recent secure-link sends
 - [ ] Secure external form invite link loads anonymously and submits into the normal submission queue
 - [ ] Completed external form invite link cannot be reused
 - [ ] Create form works
 - [ ] Edit form publishes a new version
 - [ ] Submit form works
 - [ ] Lead partner picker appears on submission and conversion flows
+- [ ] Submissions list uses compact one-line rows
 - [ ] Floating conflict preview appears while typing client/matter names
 - [ ] Submission detail loads
 - [ ] Attachment upload works

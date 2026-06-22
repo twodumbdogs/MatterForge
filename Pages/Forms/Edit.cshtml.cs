@@ -260,7 +260,7 @@ public partial class EditModel(
         }
 
         WorkflowOptions = await db.WorkflowDefinitions
-            .Where(x => x.IsActive)
+            .Where(x => x.IsActive && x.IsPublished)
             .OrderBy(x => x.Name)
             .Select(x => new SelectListItem(x.Name, x.Id.ToString()))
             .ToListAsync();

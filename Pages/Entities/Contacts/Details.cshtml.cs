@@ -9,7 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CMIForge.Pages.Entities.Contacts;
 
-public class DetailsModel(CMIForgeDbContext db, PermissionService permissionService, AuditLogService auditLogService) : PageModel
+public class DetailsModel(
+    CMIForgeDbContext db,
+    PermissionService permissionService,
+    AuditLogService auditLogService,
+    ExternalFormInviteTrackingService inviteTrackingService) : PageModel
 {
     public Contact? Contact { get; private set; }
 
@@ -18,6 +22,8 @@ public class DetailsModel(CMIForgeDbContext db, PermissionService permissionServ
     public List<EntityChangeRequest> PendingChanges { get; private set; } = [];
 
     public List<ContactRelatedPartyRow> RelatedParties { get; private set; } = [];
+
+    public List<ExternalFormInviteTrackingRow> RecentInviteSends { get; private set; } = [];
 
     public List<SelectListItem> ClientOptions { get; private set; } = [];
 
@@ -205,6 +211,10 @@ public class DetailsModel(CMIForgeDbContext db, PermissionService permissionServ
                 x.Status == EntityChangeRequestStatuses.Pending)
             .OrderBy(x => x.RequestedAt)
             .ToListAsync();
+
+        RecentInviteSends = Contact is null
+            ? []
+            : await inviteTrackingService.ListForContactAsync(id);
     }
 }
 

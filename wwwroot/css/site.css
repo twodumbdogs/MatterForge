@@ -182,11 +182,11 @@ body {
 }
 
 .mf-brand-mark {
-  border-radius: 7px;
-  flex: 0 0 1.55rem;
-  height: 1.55rem;
+  border-radius: 8px;
+  flex: 0 0 1.85rem;
+  height: 1.85rem;
   object-fit: contain;
-  width: 1.55rem;
+  width: 1.85rem;
 }
 
 .btn-primary {
@@ -601,6 +601,25 @@ a {
   white-space: nowrap;
 }
 
+.mf-dashboard-row-action {
+  padding: 0.55rem 0.65rem 0.55rem 0.85rem;
+}
+
+.mf-dashboard-row-action > a {
+  align-items: center;
+  color: inherit;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 1rem;
+  justify-content: space-between;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.mf-dashboard-row-action > form {
+  flex: 0 0 auto;
+}
+
 .mf-mini-metrics {
   display: flex;
   flex-wrap: wrap;
@@ -910,17 +929,27 @@ a {
   top: 1rem;
 }
 
+.mf-workflow-rail .mf-page-heading {
+  margin-bottom: 0.5rem;
+}
+
 .mf-workflow-rail-section {
   border-top: 1px solid var(--mf-line);
-  margin-top: 1rem;
-  padding-top: 1rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.mf-workflow-rail-section-top {
+  border-top: 0;
+  margin-top: 0.45rem;
+  padding-top: 0;
 }
 
 .mf-workflow-rail-section h3 {
   color: var(--mf-muted);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 800;
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.45rem;
   text-transform: uppercase;
 }
 
@@ -929,9 +958,14 @@ a {
   border: 1px solid var(--mf-line);
   border-radius: 8px;
   display: grid;
+  gap: 0.32rem;
+  margin-bottom: 0.5rem;
+  padding: 0.55rem 0.6rem;
+}
+
+.mf-workflow-rail-card-action {
   gap: 0.45rem;
-  margin-bottom: 0.75rem;
-  padding: 0.75rem;
+  padding: 0.65rem;
 }
 
 .mf-workflow-rail-card small,
@@ -943,10 +977,10 @@ a {
 .mf-workflow-timeline {
   border-left: 2px solid var(--mf-line);
   display: grid;
-  gap: 0.8rem;
+  gap: 0.55rem;
   list-style: none;
   margin: 0;
-  padding-left: 1rem;
+  padding-left: 0.85rem;
 }
 
 .mf-workflow-timeline li {
@@ -958,11 +992,11 @@ a {
   border: 2px solid var(--mf-panel);
   border-radius: 999px;
   content: "";
-  height: 0.7rem;
-  left: -1.42rem;
+  height: 0.55rem;
+  left: -1.17rem;
   position: absolute;
   top: 0.25rem;
-  width: 0.7rem;
+  width: 0.55rem;
 }
 
 .mf-workflow-timeline span,
@@ -973,7 +1007,7 @@ a {
 
 .mf-rail-table {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.45rem;
 }
 
 .mf-rail-table > div {
@@ -981,8 +1015,8 @@ a {
   border: 1px solid var(--mf-line);
   border-radius: 8px;
   display: grid;
-  gap: 0.35rem;
-  padding: 0.65rem;
+  gap: 0.25rem;
+  padding: 0.5rem 0.6rem;
 }
 
 .mf-rail-table strong,
@@ -993,6 +1027,43 @@ a {
 
 .mf-rail-table small {
   color: var(--mf-muted);
+}
+
+.mf-approval-summary-cell {
+  min-width: 24rem;
+}
+
+.mf-change-diff-list {
+  border: 1px solid var(--mf-line);
+  border-radius: 8px;
+  display: grid;
+  overflow: hidden;
+}
+
+.mf-change-diff-row {
+  background: var(--mf-panel);
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(7rem, 0.8fr) minmax(8rem, 1fr) minmax(8rem, 1fr);
+  padding: 0.45rem 0.55rem;
+}
+
+.mf-change-diff-row + .mf-change-diff-row {
+  border-top: 1px solid var(--mf-line);
+}
+
+.mf-change-diff-row.is-header {
+  background: var(--mf-panel-soft);
+  color: var(--mf-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.mf-change-diff-row strong,
+.mf-change-diff-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .mf-form-tab-shell {
@@ -1544,9 +1615,16 @@ a {
   border: 1px solid var(--mf-line);
   border-radius: 8px;
   display: grid;
-  gap: 0.75rem;
+  gap: 0.55rem;
   grid-template-columns: repeat(3, minmax(10rem, 1fr)) auto;
-  padding: 0.85rem;
+  margin-bottom: 0;
+  padding: 0.65rem;
+}
+
+.mf-result-filters .form-label {
+  font-size: 0.78rem;
+  font-weight: 750;
+  margin-bottom: 0.2rem;
 }
 
 .mf-result-filter-actions {
@@ -1555,6 +1633,51 @@ a {
   flex-wrap: wrap;
   gap: 0.5rem;
   justify-content: flex-end;
+}
+
+.mf-conflict-bulk-panel {
+  background: color-mix(in srgb, var(--mf-blue) 4%, var(--mf-panel));
+  border: 1px solid color-mix(in srgb, var(--mf-blue) 18%, var(--mf-line));
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.mf-conflict-bulk-panel .form-label {
+  font-size: 0.78rem;
+  font-weight: 750;
+  margin-bottom: 0.2rem;
+}
+
+.mf-conflict-bulk-panel .form-control,
+.mf-conflict-bulk-panel .form-select {
+  min-height: 2.2rem;
+}
+
+.mf-conflict-results-table {
+  font-size: 0.92rem;
+}
+
+.mf-conflict-results-table > :not(caption) > * > * {
+  padding: 0.55rem 0.6rem;
+  vertical-align: top;
+}
+
+.mf-row-actions {
+  border-top: 1px solid var(--mf-line);
+  padding-top: 0.4rem;
+}
+
+.mf-row-actions summary {
+  color: var(--mf-blue);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.mf-row-action-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
 }
 
 .mf-help-grid {
@@ -1640,8 +1763,25 @@ a {
   align-items: end;
   display: grid;
   gap: 0.85rem;
-  grid-template-columns: 6.5rem minmax(16rem, 1fr) minmax(12rem, 16rem);
+  grid-template-columns: auto 6.5rem minmax(16rem, 1fr) minmax(12rem, 16rem);
   margin-bottom: 1rem;
+}
+
+.mf-workflow-step-controls {
+  align-items: center;
+  display: flex;
+  gap: 0.35rem;
+  padding-bottom: 0.05rem;
+}
+
+.mf-workflow-step-controls .btn {
+  align-items: center;
+  aspect-ratio: 1;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 2.35rem;
+  padding: 0;
+  width: 2.35rem;
 }
 
 .mf-workflow-step-number .form-control {
@@ -1706,6 +1846,9 @@ a {
 .mf-note-thread {
   display: grid;
   gap: 0.85rem;
+  max-height: 27rem;
+  overflow-y: auto;
+  padding-right: 0.15rem;
 }
 
 .mf-note-bubble {
@@ -1742,8 +1885,42 @@ a {
   white-space: pre-wrap;
 }
 
+.mf-note-older {
+  border-top: 1px solid var(--mf-line);
+  padding-top: 0.65rem;
+}
+
+.mf-note-older summary {
+  color: var(--mf-blue);
+  cursor: pointer;
+  font-weight: 750;
+}
+
 code {
   color: #7a3b0c;
+}
+
+.mf-invite-timeline {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mf-invite-step {
+  border: 1px solid #d8e0ea;
+  border-radius: 999px;
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  padding: 0.35rem 0.45rem;
+  text-align: center;
+}
+
+.mf-invite-step.is-done {
+  background: #e8f5ee;
+  border-color: #9ed7b5;
+  color: #17643a;
 }
 
 @media (max-width: 1100px) {
@@ -1813,6 +1990,14 @@ code {
 
   .mf-workflow-rail {
     position: static;
+  }
+
+  .mf-approval-summary-cell {
+    min-width: 0;
+  }
+
+  .mf-change-diff-row {
+    grid-template-columns: 1fr;
   }
 
   .mf-address-field-grid .col-span-2,

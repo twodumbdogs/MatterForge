@@ -1049,6 +1049,9 @@ namespace CMIForge.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("ExternalFormInviteId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("FormSubmissionId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1119,6 +1122,8 @@ namespace CMIForge.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ExternalFormInviteId");
 
                     b.HasIndex("FormSubmissionId");
 
@@ -1332,9 +1337,14 @@ namespace CMIForge.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
 
+                    b.Property<Guid?>("ImpersonatedUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ImpersonatedUserId");
 
                     b.HasIndex("EntityType", "EntityId", "CreatedAt");
 
@@ -2989,6 +2999,9 @@ namespace CMIForge.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -2999,6 +3012,9 @@ namespace CMIForge.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -3008,6 +3024,8 @@ namespace CMIForge.Migrations
 
                     b.HasIndex("Key")
                         .IsUnique();
+
+                    b.HasIndex("IsPublished", "IsActive", "FormDefinitionId");
 
                     b.ToTable("WorkflowDefinitions");
                 });
@@ -3378,6 +3396,11 @@ namespace CMIForge.Migrations
 
             modelBuilder.Entity("CMIForge.Models.EmailOutboxMessage", b =>
                 {
+                    b.HasOne("CMIForge.Models.ExternalFormInvite", "ExternalFormInvite")
+                        .WithMany("EmailOutboxMessages")
+                        .HasForeignKey("ExternalFormInviteId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("CMIForge.Models.FormSubmission", "FormSubmission")
                         .WithMany()
                         .HasForeignKey("FormSubmissionId")
@@ -3392,6 +3415,8 @@ namespace CMIForge.Migrations
                         .WithMany()
                         .HasForeignKey("WorkflowStepId")
                         .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("ExternalFormInvite");
 
                     b.Navigation("FormSubmission");
 
@@ -3460,7 +3485,14 @@ namespace CMIForge.Migrations
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.NoAction);
 
+                    b.HasOne("CMIForge.Models.CMIForgeUser", "ImpersonatedUser")
+                        .WithMany()
+                        .HasForeignKey("ImpersonatedUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("ImpersonatedUser");
                 });
 
             modelBuilder.Entity("CMIForge.Models.ExternalFormInvite", b =>
@@ -4112,6 +4144,11 @@ namespace CMIForge.Migrations
             modelBuilder.Entity("CMIForge.Models.EnhancementRequest", b =>
                 {
                     b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("CMIForge.Models.ExternalFormInvite", b =>
+                {
+                    b.Navigation("EmailOutboxMessages");
                 });
 
             modelBuilder.Entity("CMIForge.Models.FormDefinition", b =>

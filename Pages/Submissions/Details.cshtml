@@ -344,6 +344,50 @@ else
             <a class="btn btn-sm btn-outline-primary" asp-page="/Workflow/Queue">Queue</a>
         </div>
 
+        @{
+            var railOpenTasks = Model.WorkflowTasks
+                .Where(x => x.Status == CMIForge.Services.WorkflowStatuses.TaskOpen)
+                .OrderByDescending(x => x.CreatedAt)
+                .ToList();
+        }
+        <div class="mf-workflow-rail-section mf-workflow-rail-section-top">
+            <h3>Open actions</h3>
+            @if (railOpenTasks.Count > 0)
+            {
+                @foreach (var task in railOpenTasks)
+                {
+                    <div class="mf-workflow-rail-card mf-workflow-rail-card-action">
+                        <strong>@task.WorkflowStep?.Name</strong>
+                        <small>@(task.AssignedUser?.DisplayName ?? task.AssignedTeam?.Name ?? "Unassigned")</small>
+                        @if (!string.IsNullOrWhiteSpace(task.WorkflowStep?.Instructions))
+                        {
+                            <p>@task.WorkflowStep.Instructions</p>
+                        }
+                        <form method="post" class="d-flex flex-column gap-2">
+                            <input type="hidden" name="id" value="@Model.Submission.Id" />
+                            <input type="hidden" name="taskId" value="@task.Id" />
+                            <input name="Notes" class="form-control form-control-sm" placeholder="Optional note" />
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var outcome in CMIForge.Services.WorkflowOutcomeParser.GetOutcomes(task.WorkflowStep!))
+                                {
+                                    var buttonClass = outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Return
+                                        ? "btn-outline-warning"
+                                        : outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Complete
+                                            ? "btn-success"
+                                            : "btn-primary";
+                                    <button class="btn btn-sm @buttonClass" name="outcomeKey" value="@outcome.Key" asp-page-handler="OutcomeTask">@outcome.Label</button>
+                                }
+                            </div>
+                        </form>
+                    </div>
+                }
+            }
+            else
+            {
+                <p class="text-muted mb-0">No open workflow actions.</p>
+            }
+        </div>
+
         <div class="mf-workflow-rail-section">
             <h3>Submitted by</h3>
             <div class="mf-workflow-rail-card">
@@ -375,50 +419,6 @@ else
                     </div>
                 }
             </div>
-        }
-
-        @{
-            var railOpenTasks = Model.WorkflowTasks
-                .Where(x => x.Status == CMIForge.Services.WorkflowStatuses.TaskOpen)
-                .OrderBy(x => x.CreatedAt)
-                .ToList();
-        }
-        @if (railOpenTasks.Count > 0)
-        {
-            <div class="mf-workflow-rail-section">
-                <h3>Open actions</h3>
-                @foreach (var task in railOpenTasks)
-                {
-                    <div class="mf-workflow-rail-card">
-                        <strong>@task.WorkflowStep?.Name</strong>
-                        <small>@(task.AssignedUser?.DisplayName ?? task.AssignedTeam?.Name ?? "Unassigned")</small>
-                        @if (!string.IsNullOrWhiteSpace(task.WorkflowStep?.Instructions))
-                        {
-                            <p>@task.WorkflowStep.Instructions</p>
-                        }
-                        <form method="post" class="d-flex flex-column gap-2">
-                            <input type="hidden" name="id" value="@Model.Submission.Id" />
-                            <input type="hidden" name="taskId" value="@task.Id" />
-                            <input name="Notes" class="form-control form-control-sm" placeholder="Optional note" />
-                            <div class="d-flex flex-wrap gap-2">
-                                @foreach (var outcome in CMIForge.Services.WorkflowOutcomeParser.GetOutcomes(task.WorkflowStep!))
-                                {
-                                    var buttonClass = outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Return
-                                        ? "btn-outline-warning"
-                                        : outcome.Action == CMIForge.Services.WorkflowOutcomeActions.Complete
-                                            ? "btn-success"
-                                            : "btn-primary";
-                                    <button class="btn btn-sm @buttonClass" name="outcomeKey" value="@outcome.Key" asp-page-handler="OutcomeTask">@outcome.Label</button>
-                                }
-                            </div>
-                        </form>
-                    </div>
-                }
-            </div>
-        }
-        else
-        {
-            <p class="text-muted mt-3 mb-0">No open workflow actions.</p>
         }
 
         @if (Model.WorkflowTasks.Count > 0)

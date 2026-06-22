@@ -68,6 +68,30 @@ EntraProvisioning__Domain=cmiforge.com
 
 When provisioning is enabled, **Entities > Users > Create** exposes the Entra login option, creates the Entra user through Microsoft Graph, stores the Entra object ID on the CMIForge user, and displays the temporary password once.
 
+## Optional Graph Mail Access
+
+CMIForge also has an outbound notification and inbound email intake direction that should use Microsoft Graph rather than tenant-supplied SMTP.
+
+Before turning on live workflow notifications or inbound email intake for Customer 0:
+
+1. Confirm the shared mailbox or mailbox anchor exists, such as `intake@cmiforge.com` or `notifications@cmiforge.com`.
+2. Confirm the tenant alias exists, such as `customer0@cmiforge.com`.
+3. Enable Exchange send-from-alias behavior if aliases need to appear as real outbound sender identities.
+4. Grant the Customer 0 app identity the minimum Graph mail permissions needed for the configured mailbox.
+5. Scope Graph mail access to the shared mailbox with an Exchange application access policy where possible.
+6. Configure CMIForge email settings for outbound from/reply-to and inbound allowed sender domains.
+7. Keep inbound processing disabled until allowed sender domains and mailbox permissions are verified.
+
+The V1 inbound subject format is:
+
+```text
+Client: Acme Corp
+Client: Acme Corp; Matter:
+Client: Acme Corp; Matter: Lease Review
+```
+
+`Client:` is required. `Matter:` can be omitted or blank, in which case the app creates a reviewable client-only intake.
+
 ## Redirect URIs
 
 Start with the Azure-generated hostname:

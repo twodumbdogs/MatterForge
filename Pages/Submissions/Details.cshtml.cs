@@ -564,7 +564,7 @@ public class DetailsModel(
             .Include(x => x.AssignedTeam)
             .Include(x => x.CompletedByUser)
             .Where(x => x.FormSubmissionId == id)
-            .OrderBy(x => x.CreatedAt)
+            .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
         EditableStepNames = WorkflowTasks
             .Where(x => x.Status == WorkflowStatuses.TaskOpen && x.WorkflowStep is not null)

@@ -81,23 +81,21 @@ public class DetailsModel(
             return null;
         }
 
-        if (!canViewAll)
-        {
-            var currentUser = await currentUserService.GetCurrentUserAsync();
-            if (currentUser?.Id != Entry.UserId)
-            {
-                return Forbid();
-            }
-        }
-
         var user = await currentUserService.GetCurrentUserAsync();
-        CanEdit = canEdit && !Entry.IsLocked;
-        CanApproveEntry = canApprove &&
+        var canApproveThisEntry = canApprove &&
             Entry.Status == TimeEntryStatuses.Submitted &&
             !Entry.ExportedAt.HasValue &&
             Entry.Matter?.RequiresTimeApproval == true &&
             Entry.Matter.LeadPartnerId.HasValue &&
             user?.Id == Entry.Matter.LeadPartnerId.Value;
+
+        if (!canViewAll && user?.Id != Entry.UserId && !canApproveThisEntry)
+        {
+            return Forbid();
+        }
+
+        CanEdit = canEdit && !Entry.IsLocked;
+        CanApproveEntry = canApproveThisEntry;
 
         return null;
     }

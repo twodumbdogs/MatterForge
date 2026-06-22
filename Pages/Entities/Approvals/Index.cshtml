@@ -65,7 +65,30 @@
                                 <div>@request.RequestedAt.ToString("MMM d, yyyy h:mm tt")</div>
                                 <div class="text-muted small">@request.RequestedByUser?.DisplayName</div>
                             </td>
-                            <td>@request.Summary</td>
+                            <td class="mf-approval-summary-cell">
+                                <div>@request.Summary</div>
+                                @{
+                                    var diffs = Model.ChangeDiffs.GetValueOrDefault(request.Id) ?? [];
+                                }
+                                @if (diffs.Count > 0)
+                                {
+                                    <div class="mf-change-diff-list mt-2">
+                                        <div class="mf-change-diff-row is-header">
+                                            <strong>Field</strong>
+                                            <span>Current</span>
+                                            <span>Proposed</span>
+                                        </div>
+                                        @foreach (var diff in diffs)
+                                        {
+                                            <div class="mf-change-diff-row">
+                                                <strong>@diff.Field</strong>
+                                                <span>@diff.CurrentValue</span>
+                                                <span>@diff.ProposedValue</span>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </td>
                             <td>@request.RequestNotes</td>
                             <td class="text-end">
                                 @if (Model.CanApprove)
@@ -120,7 +143,30 @@
                                 <div>@request.ReviewedAt?.ToString("MMM d, yyyy h:mm tt")</div>
                                 <div class="text-muted small">@request.ReviewedByUser?.DisplayName</div>
                             </td>
-                            <td>@request.Summary</td>
+                            <td class="mf-approval-summary-cell">
+                                <div>@request.Summary</div>
+                                @{
+                                    var diffs = Model.ChangeDiffs.GetValueOrDefault(request.Id) ?? [];
+                                }
+                                @if (diffs.Count > 0)
+                                {
+                                    <div class="mf-change-diff-list mt-2">
+                                        <div class="mf-change-diff-row is-header">
+                                            <strong>Field</strong>
+                                            <span>Current</span>
+                                            <span>Proposed</span>
+                                        </div>
+                                        @foreach (var diff in diffs)
+                                        {
+                                            <div class="mf-change-diff-row">
+                                                <strong>@diff.Field</strong>
+                                                <span>@diff.CurrentValue</span>
+                                                <span>@diff.ProposedValue</span>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </td>
                             <td>@request.ReviewNotes</td>
                         </tr>
                     }

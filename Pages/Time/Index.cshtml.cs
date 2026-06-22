@@ -41,6 +41,10 @@ public class IndexModel(
 
     public bool CanCreate { get; private set; }
 
+    public bool CanApprove { get; private set; }
+
+    public Guid? CurrentUserId { get; private set; }
+
     public decimal TotalHours { get; private set; }
 
     public decimal BillableHours { get; private set; }
@@ -107,11 +111,49 @@ public class IndexModel(
         return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "cmiforge-time-entries.csv");
     }
 
+    public async Task<IActionResult> OnPostApproveAsync(Guid id)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.TimeApprove))
+        {
+            return Forbid();
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        var entry = await db.TimeEntries
+            .Include(x => x.Matter)
+            .FirstOrDefaultAsync(x => x.Id == id);
+        if (entry is null)
+        {
+            return NotFound();
+        }
+
+        if (!CanApproveEntry(entry, currentUser?.Id))
+        {
+            return Forbid();
+        }
+
+        entry.Status = TimeEntryStatuses.Approved;
+        entry.ApprovedAt = DateTimeOffset.UtcNow;
+        entry.ApprovedByUserId = currentUser?.Id;
+        entry.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        return RedirectToPage(new
+        {
+            from = From?.ToString("yyyy-MM-dd"),
+            to = To?.ToString("yyyy-MM-dd"),
+            userId = UserId,
+            matterId = MatterId,
+            status = Status
+        });
+    }
+
     private async Task<bool> CanViewTimeAsync()
     {
         CanViewAll = await permissionService.HasAsync(PermissionKeys.TimeViewAll);
         CanCreate = await permissionService.HasAsync(PermissionKeys.TimeCreate);
-        return CanViewAll || await permissionService.HasAsync(PermissionKeys.TimeViewOwn);
+        CanApprove = await permissionService.HasAsync(PermissionKeys.TimeApprove);
+        CurrentUserId = (await currentUserService.GetCurrentUserAsync())?.Id;
+        return CanViewAll || CanApprove || await permissionService.HasAsync(PermissionKeys.TimeViewOwn);
     }
 
     private async Task LoadAsync()
@@ -153,13 +195,21 @@ public class IndexModel(
 
         if (!CanViewAll)
         {
-            var currentUser = await currentUserService.GetCurrentUserAsync();
-            if (currentUser is null)
+            CurrentUserId ??= (await currentUserService.GetCurrentUserAsync())?.Id;
+            if (!CurrentUserId.HasValue)
             {
                 return [];
             }
 
-            query = query.Where(x => x.UserId == currentUser.Id);
+            var canViewOwn = await permissionService.HasAsync(PermissionKeys.TimeViewOwn);
+            var currentUserId = CurrentUserId.Value;
+            query = query.Where(x =>
+                (canViewOwn && x.UserId == currentUserId) ||
+                (CanApprove &&
+                    x.Status == TimeEntryStatuses.Submitted &&
+                    x.Matter != null &&
+                    x.Matter.RequiresTimeApproval &&
+                    x.Matter.LeadPartnerId == currentUserId));
         }
         else if (UserId.HasValue)
         {
@@ -191,6 +241,20 @@ public class IndexModel(
             .ThenByDescending(x => x.CreatedAt)
             .Take(250)
             .ToListAsync();
+    }
+
+    public bool CanApproveEntry(TimeEntry entry)
+    {
+        return CanApproveEntry(entry, CurrentUserId);
+    }
+
+    private static bool CanApproveEntry(TimeEntry entry, Guid? currentUserId)
+    {
+        return currentUserId.HasValue &&
+            entry.Status == TimeEntryStatuses.Submitted &&
+            !entry.ExportedAt.HasValue &&
+            entry.Matter?.RequiresTimeApproval == true &&
+            entry.Matter.LeadPartnerId == currentUserId.Value;
     }
 
     private static string Csv(string? value)

@@ -2,7 +2,7 @@
 
 CMIForge is a C# / ASP.NET Core prototype for configurable legal intake, workflow approvals, operational entity management, and conflict searches.
 
-Current version: `20260620.7`.
+Current version: `20260621.1`.
 
 The product currently has three public-facing surfaces:
 
@@ -67,18 +67,44 @@ This wrap-up records the current live-app working agreement and the latest polis
 - Conflict search now treats `and` like an ampersand connector for names such as `Elm & Vine` vs. `Elm and Vine Capital`, while keeping acronym matching conservative.
 - Conflict search create and re-run screens now show a staged progress bar so users get immediate feedback while the server scans entities, history, scores candidates, and opens the results.
 - Conflict search matching was tuned so acronym-style names such as `A.A.W.` normalize sensibly and do not get overconfident one-letter matches against unrelated words.
-- Clients, parties, and conflicts lists were tightened into compact one-line rows to match the cleaner Users list style.
+- Clients, parties, conflicts, and submissions lists were tightened into compact one-line rows to match the cleaner Users list style.
 - Enhancement requests now behave as a tenant-local firm queue: all signed-in users in the same firm can see the active firm requests and add/remove a support vote, while admins can still triage status and internal notes.
 - Client aliases are now first-class records on client create/detail screens, editable after creation, shown on the client list, and included in conflict matching. Party aliases are also editable/removable from party details.
 - Entity detail screens are better aligned: client, matter, party, and contact pages now surface related children/relationships in consistent side panels, including matter time entries, related parties, related contacts, client/matter links, and matter roles.
 - Direct-created clients, matters, and parties now default to `Compliance Review` and show guidance/warnings until reviewed. Moving a client to `Active` or a matter to `Open` requires change-request notes and writes a separate compliance-reviewed audit event when approved.
-- Published forms can now be sent to saved contacts as secure, expiring external intake links. The raw invite token is never stored, the external page uses a minimal client-safe layout, completed links become normal form submissions, and email-enabled tenants can queue the invite through the Email Outbox while non-email tenants get a copyable link.
+- Published forms can now be sent to saved contacts as secure, expiring external intake links. The raw invite token is never stored, the external page uses a minimal client-safe layout, completed links become normal form submissions, and email-enabled tenants can queue the invite through the Email Outbox while non-email tenants get a copyable link. Recent send panels now show queued/sent/opened/completed tracking on the form, contact, client, and matter pages, and resend creates a fresh tracked link while revoking the old uncompleted invite.
 - Inbound email intake now has the first real app lane: tenant settings define the Graph mailbox, tenant inbound address, allowed sender domains, and default form key; unread trusted messages with `Client: Acme Corp` or `Client: Acme Corp; Matter: Lease Review` create normal reviewable submissions and copy supported attachments into the private submission attachment store. Blank or omitted `Matter:` is allowed so the reviewer can create/link only a client.
 - Form definitions now support named sections that render as tabs on internal and external intake pages. Fields can also have a basic "show if field equals value" condition and an optional workflow-step edit rule so returned submissions can be locked down by step.
 - Submission detail pages now use a left-side Submission Workspace tab set for form sections, linked conflict searches, and attachments, while keeping a sticky right-side activity/audit rail for submitter context, workflow actions, tasks, history, recent audit events, and attachment summaries.
 - Older submissions whose saved form-version JSON predates explicit sections get display-only inferred tabs on the detail page, so historical records can still read as Client Details, Matter Details, Related Parties, Conflicts Search, Compliance Review, or Review without mutating stored submission history.
 - Customer 0 startup seeding now keeps demo/sample conflict reference parties behind `CMIForge:SeedSampleData=true`, so core production-style tenants do not try to seed demo data by accident.
 - The security hardening direction is to keep moving toward managed identity, Key Vault-backed secrets, private storage, least-privilege SQL/Graph access, Defender alerts, private networking where cost-appropriate, and explicit audit/retention controls.
+
+## 2026-06-21 Late-Night Closeout
+
+This closeout captures the final polish and operator notes from the latest build session:
+
+- Submission lists now match the compact one-line entity-list style. Client and matter values no longer show the extra `Submitted value` helper row, and long values truncate cleanly in the table.
+- Entity-style list polish now covers clients, parties, conflicts, and submissions, with users already in the simpler one-line table pattern.
+- Submission detail pages keep the sticky activity/audit rail while the main workspace uses tabs for form sections, conflict searches, attachments, and older inferred sections.
+- Conflict searches now show progress feedback while the app moves through search setup, entity scanning, history checks, scoring, and results.
+- The product logo now uses Gabe's supplied square CMIForge raster mark across app navigation, external form pages, favicons, public-site navigation, and public-site link previews. The web/app logo source is `wwwroot/img/cmiforge-logo.png`, with touch/favicon variants alongside it. High-resolution square exports for LinkedIn/company-profile use were regenerated under `artifacts/brand/`:
+  - `cmiforge-linkedin-logo-400.png`
+  - `cmiforge-linkedin-logo-1200.png`
+  - `cmiforge-linkedin-logo-2400.png`
+  - `cmiforge-logo-source.png`
+- Recent UI-only releases were built and deployed to both `https://demo.cmiforge.com` and `https://app.cmiforge.com` with database migrations skipped where no schema changed.
+- Workflow definitions now support an explicit saved-draft vs published-live state. Drafts can be saved before they are publish-ready, while only active published workflows appear in form workflow pickers or start new submissions.
+- Forms can now be copied from their latest published version into a new active form, and workflows can be copied into unpublished drafts for safe revision before going live. Workflow steps can be moved up/down in the designer before saving or publishing.
+- Submission activity rails now keep Open Actions at the top, show workflow task/history detail newest-first, and use a tighter compact layout.
+- Entity change approvals now show before/after values for each changed field, including resolved matter references where possible, so reviewers can see the actual data they are approving.
+- Conflict result filters now sit directly above the results table, and row-level review/escalation controls are collapsed behind compact row actions to keep high-volume result screens easier to scan.
+- Demo reset now clears the newer approval, request, alias, notes, archive, signup, and time-code tables before reseeding. The scheduler checks the last successful reset and catches up when the app starts overdue instead of waiting a fresh 12 hours after each cold start.
+- Conflict result review now makes bulk escalation explicit: select rows, pick `Escalate to`, then use `Escalate selected` to escalate all checked results in one action.
+- Client, matter, and party discussion notes now show newest-first in a compact scrollable thread, tuck older notes behind an expander, show the actual author when a note is added during impersonation, and let the author delete their own note.
+- Client and party alias forms now report duplicate aliases as validation errors instead of silently ignoring the add.
+- Matter partner time approvals now expose approval actions from the dashboard/time list, and lead partners with approval rights can open submitted time entries waiting on them even when they did not create the time.
+- This batch was deployed to both demo and Customer 0 with migrations applied through the dedicated migrator lane.
 
 ## 2026-06-20 Private Networking Hardening
 
@@ -272,7 +298,7 @@ Submission attachments in the dev App Service use private Azure Blob Storage thr
 4. Rules-based routing + workflow notifications
 5. Matter/client record creation
 6. Reporting, permissions, integrations
-6. Fancy admin designer UX
+7. Fancy admin designer UX
 
 ## Current Hardcoded Plan
 

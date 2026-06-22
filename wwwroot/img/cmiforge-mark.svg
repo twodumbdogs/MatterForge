@@ -1,17 +1,3 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="CMIForge mark">
-  <defs>
-    <linearGradient id="forgeSteel" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#f7c66b"/>
-      <stop offset="0.42" stop-color="#2d67be"/>
-      <stop offset="1" stop-color="#1d8a86"/>
-    </linearGradient>
-    <linearGradient id="forgeCut" x1="18" y1="16" x2="46" y2="48" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#dce8f5"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="#172338"/>
-  <path fill="url(#forgeSteel)" d="M16 15h19.5c3.5 0 6.7 1.9 8.4 4.9l2.2 3.9h-9.4l-1.4-2.1a4.7 4.7 0 0 0-3.9-2.1H21.8v23h9.6c1.6 0 3.1-.8 3.9-2.1l1.4-2.1h9.4l-2.2 3.9a9.7 9.7 0 0 1-8.4 4.9H16V15Z"/>
-  <path fill="url(#forgeCut)" d="M27.3 26.1h22.5a2.8 2.8 0 0 1 2.8 2.8v6.2a2.8 2.8 0 0 1-2.8 2.8H27.3v-4.7h19.2v-2.4H27.3v-4.7Z"/>
-  <path fill="#f7c66b" d="M13 49.5h38v4.7H13z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CMIForge logo">
+  <image href="cmiforge-logo.png" width="512" height="512" preserveAspectRatio="xMidYMid meet"/>
 </svg>

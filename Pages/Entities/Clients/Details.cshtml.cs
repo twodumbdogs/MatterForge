@@ -13,7 +13,8 @@ public class DetailsModel(
     PermissionService permissionService,
     EntityNoteService entityNoteService,
     CurrentUserService currentUserService,
-    AuditLogService auditLogService) : PageModel
+    AuditLogService auditLogService,
+    ExternalFormInviteTrackingService inviteTrackingService) : PageModel
 {
     public Client? Client { get; private set; }
 
@@ -24,6 +25,8 @@ public class DetailsModel(
     public List<EntityChangeRequest> PendingChanges { get; private set; } = [];
 
     public List<ClientRelatedPartyRow> RelatedParties { get; private set; } = [];
+
+    public List<ExternalFormInviteTrackingRow> RecentInviteSends { get; private set; } = [];
 
     public bool CanEditEntities { get; private set; }
 
@@ -62,23 +65,26 @@ public class DetailsModel(
 
         var normalizedAlias = ConflictSearchService.NormalizeName(AliasInput.Alias);
         var exists = await db.ClientAliases.AnyAsync(x => x.ClientId == id && x.NormalizedAlias == normalizedAlias);
-        if (!exists)
+        if (exists)
         {
-            db.ClientAliases.Add(new ClientAlias
-            {
-                ClientId = id,
-                Alias = AliasInput.Alias.Trim(),
-                NormalizedAlias = normalizedAlias,
-                Notes = AliasInput.Notes?.Trim() ?? string.Empty
-            });
-            await db.SaveChangesAsync();
-            await auditLogService.LogAsync(
-                "Client.AliasAdded",
-                "Client",
-                id,
-                Client.ClientNumber.ToString("D8"),
-                $"Added alias {AliasInput.Alias.Trim()} to {Client.Name}.");
+            ModelState.AddModelError("AliasInput.Alias", "That alias already exists for this client.");
+            return Page();
         }
+
+        db.ClientAliases.Add(new ClientAlias
+        {
+            ClientId = id,
+            Alias = AliasInput.Alias.Trim(),
+            NormalizedAlias = normalizedAlias,
+            Notes = AliasInput.Notes?.Trim() ?? string.Empty
+        });
+        await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "Client.AliasAdded",
+            "Client",
+            id,
+            Client.ClientNumber.ToString("D8"),
+            $"Added alias {AliasInput.Alias.Trim()} to {Client.Name}.");
 
         return RedirectToPage(new { id });
     }
@@ -175,9 +181,30 @@ public class DetailsModel(
             return NotFound();
         }
 
-        var currentUser = await currentUserService.GetCurrentUserAsync();
-        await entityNoteService.AddAsync(EntityNoteService.ClientEntityType, id, NewNote, currentUser?.Id);
+        var impersonation = await currentUserService.GetImpersonationContextAsync();
+        var actualUser = impersonation?.ActualUser ?? await currentUserService.GetActualCurrentUserAsync();
+        await entityNoteService.AddAsync(EntityNoteService.ClientEntityType, id, NewNote, actualUser?.Id, impersonation?.ImpersonatedUser.Id);
         await auditLogService.LogAsync("Client.NoteAdded", "Client", id, null, "Added client discussion note.");
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostDeleteNoteAsync(Guid id, Guid noteId)
+    {
+        var clientExists = await db.Clients.AnyAsync(x => x.Id == id);
+        if (!clientExists)
+        {
+            return NotFound();
+        }
+
+        var actualUser = await currentUserService.GetActualCurrentUserAsync();
+        var canManageNotes = await permissionService.HasAsync(PermissionKeys.EntitiesEdit);
+        var deleted = await entityNoteService.DeleteAsync(EntityNoteService.ClientEntityType, id, noteId, actualUser?.Id, canManageNotes);
+        if (!deleted)
+        {
+            return Forbid();
+        }
+
+        await auditLogService.LogAsync("Client.NoteDeleted", "Client", id, null, "Deleted client discussion note.");
         return RedirectToPage(new { id });
     }
 
@@ -250,6 +277,10 @@ public class DetailsModel(
         AuditHistory = Client is null
             ? []
             : await auditLogService.ListForEntityAsync("Client", id);
+
+        RecentInviteSends = Client is null
+            ? []
+            : await inviteTrackingService.ListForClientAsync(id);
     }
 }
 

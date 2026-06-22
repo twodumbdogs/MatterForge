@@ -106,6 +106,10 @@
                         <th>Billable</th>
                         <th>Status</th>
                         <th>Exported</th>
+                        @if (Model.CanApprove)
+                        {
+                            <th></th>
+                        }
                     </tr>
                 </thead>
                 <tbody>
@@ -141,6 +145,22 @@
                             <td>@(entry.IsBillable ? "Yes" : "No")</td>
                             <td>@entry.Status</td>
                             <td>@(entry.ExportedAt.HasValue ? "Yes" : "No")</td>
+                            @if (Model.CanApprove)
+                            {
+                                <td class="text-end">
+                                    @if (Model.CanApproveEntry(entry))
+                                    {
+                                        <form method="post" asp-page-handler="Approve" asp-route-id="@entry.Id" class="d-inline">
+                                            <input type="hidden" asp-for="From" />
+                                            <input type="hidden" asp-for="To" />
+                                            <input type="hidden" asp-for="UserId" />
+                                            <input type="hidden" asp-for="MatterId" />
+                                            <input type="hidden" asp-for="Status" />
+                                            <button class="btn btn-sm btn-success" type="submit">Approve</button>
+                                        </form>
+                                    }
+                                </td>
+                            }
                         </tr>
                     }
                 </tbody>

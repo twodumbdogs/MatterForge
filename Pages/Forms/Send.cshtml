@@ -70,68 +70,11 @@ else
             </form>
         </div>
         <div class="col-lg-5">
-            <div class="mf-panel">
-                <p class="mf-eyebrow">Recent sends</p>
-                <h2>External invites</h2>
-                @if (Model.RecentInvites.Count == 0)
-                {
-                    <p class="text-muted mb-0">No external invites have been created for this form yet.</p>
-                }
-                else
-                {
-                    <div class="list-group list-group-flush">
-                        @foreach (var invite in Model.RecentInvites)
-                        {
-                            <div class="list-group-item px-0">
-                                <div class="d-flex justify-content-between gap-3">
-                                    <strong>@invite.RecipientName</strong>
-                                    <span class="badge @InviteStatusClass(invite)">@InviteStatus(invite)</span>
-                                </div>
-                                <small class="d-block text-muted">@invite.RecipientEmail</small>
-                                <small class="d-block text-muted">
-                                    Created @UserDates.Format(invite.CreatedAt)
-                                    @if (invite.FormSubmission is not null)
-                                    {
-                                        <span>
-                                            · Submission
-                                            <a asp-page="/Submissions/Details" asp-route-id="@invite.FormSubmission.Id">
-                                                <code>@CMIForge.Services.RecordNumbers.Submission(invite.FormSubmission.SubmissionNumber)</code>
-                                            </a>
-                                        </span>
-                                    }
-                                </small>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
+            <partial name="/Pages/Shared/_RecentInviteSends.cshtml" model="Model.RecentInviteSends" />
         </div>
     </div>
 }
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
-}
-
-@functions {
-    private static string InviteStatus(CMIForge.Models.ExternalFormInvite invite)
-    {
-        if (invite.Status == CMIForge.Models.ExternalFormInviteStatuses.Open && invite.ExpiresAt <= DateTimeOffset.UtcNow)
-        {
-            return CMIForge.Models.ExternalFormInviteStatuses.Expired;
-        }
-
-        return invite.Status;
-    }
-
-    private static string InviteStatusClass(CMIForge.Models.ExternalFormInvite invite)
-    {
-        return InviteStatus(invite) switch
-        {
-            CMIForge.Models.ExternalFormInviteStatuses.Completed => "text-bg-success",
-            CMIForge.Models.ExternalFormInviteStatuses.Expired => "text-bg-warning",
-            CMIForge.Models.ExternalFormInviteStatuses.Revoked => "text-bg-danger",
-            _ => "text-bg-primary"
-        };
-    }
 }

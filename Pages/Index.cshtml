@@ -247,13 +247,19 @@ else if (Model.View == CMIForge.Pages.DashboardViews.Partner)
                     <div class="mf-dashboard-list">
                         @foreach (var entry in Model.PartnerTimeApprovals)
                         {
-                            <a class="mf-dashboard-row" asp-page="/Time/Details" asp-route-id="@entry.Id">
-                                <span>
-                                    <strong>@entry.Hours.ToString("0.0") hrs · @entry.WorkDate.ToString("MMM d")</strong>
-                                    <small>@entry.MatterName</small>
-                                </span>
-                                <em>@CMIForge.Services.RecordNumbers.TimeEntry(entry.TimeEntryNumber)</em>
-                            </a>
+                            <div class="mf-dashboard-row mf-dashboard-row-action">
+                                <a asp-page="/Time/Details" asp-route-id="@entry.Id">
+                                    <span>
+                                        <strong>@entry.Hours.ToString("0.0") hrs · @entry.WorkDate.ToString("MMM d")</strong>
+                                        <small>@entry.MatterName</small>
+                                    </span>
+                                    <em>@CMIForge.Services.RecordNumbers.TimeEntry(entry.TimeEntryNumber)</em>
+                                </a>
+                                <form method="post" asp-page="/Time/Index" asp-page-handler="Approve" asp-route-id="@entry.Id">
+                                    <input type="hidden" name="Status" value="@CMIForge.Services.TimeEntryStatuses.Submitted" />
+                                    <button class="btn btn-sm btn-success" type="submit">Approve</button>
+                                </form>
+                            </div>
                         }
                     </div>
                 }

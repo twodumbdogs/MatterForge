@@ -15,7 +15,7 @@ public class DemoModel(
     public List<DemoResetRun> RecentRuns { get; private set; } = [];
 
     public DemoResetRun? LastCompletedRun => RecentRuns
-        .Where(x => x.CompletedAt.HasValue)
+        .Where(x => x.Status == DemoResetRunStatuses.Succeeded && x.CompletedAt.HasValue)
         .OrderByDescending(x => x.CompletedAt)
         .FirstOrDefault();
 
@@ -24,6 +24,9 @@ public class DemoModel(
 
     [TempData]
     public string? ResetMessage { get; set; }
+
+    [TempData]
+    public bool ResetSucceeded { get; set; }
 
     public bool IsDemoMode => demoModeService.IsEnabled;
 
@@ -48,6 +51,7 @@ public class DemoModel(
         }
 
         var result = await demoResetService.ResetAsync("Manual reset", HttpContext.RequestAborted);
+        ResetSucceeded = result.Succeeded;
         ResetMessage = result.Succeeded
             ? $"{result.Message} Removed {result.DeletedRows:N0} demo row(s) before reseeding."
             : result.Message;

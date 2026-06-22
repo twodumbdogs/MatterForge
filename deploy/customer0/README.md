@@ -216,7 +216,9 @@ az webapp restart --resource-group gw-rg --name cmiforge-customer0-web
 8. Upload a small attachment to a submission.
 9. Confirm the dashboard charts render with the Customer 0 volume dataset.
 10. Confirm workflow notification step fields are visible in the workflow designer.
-11. Confirm the data persists after app restart.
+11. Confirm the submissions list uses compact one-line rows and the detail page keeps conflict searches/attachments in tabs with the activity rail on the side.
+12. Confirm the inbound email settings/log page is visible to admins, but inbound processing remains disabled until mailbox aliases, allowed domains, and Graph permissions are ready.
+13. Confirm the data persists after app restart.
 
 ## Important App Settings
 

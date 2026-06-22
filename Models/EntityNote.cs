@@ -14,5 +14,9 @@ public class EntityNote
 
     public CMIForgeUser? CreatedByUser { get; set; }
 
+    public Guid? ImpersonatedUserId { get; set; }
+
+    public CMIForgeUser? ImpersonatedUser { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

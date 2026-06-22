@@ -1378,6 +1378,8 @@ public static class SeedData
         workflow.Description = "Starter workflow for reviewing and approving new matter intake submissions.";
         workflow.FormDefinitionId = form.Id;
         workflow.IsActive = true;
+        workflow.IsPublished = true;
+        workflow.PublishedAt ??= DateTimeOffset.UtcNow;
 
         EnsureWorkflowStep(
             workflow,

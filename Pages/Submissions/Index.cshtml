@@ -57,7 +57,7 @@
     else
     {
         <div class="table-responsive">
-            <table class="table align-middle" data-no-sort>
+            <table class="table align-middle mf-compact-table" data-no-sort>
                 <thead>
                     <tr>
                         <th class="@CMIForge.Models.ListSort.HeaderClass(Model.SortColumn, "number")"><a asp-route-pageNumber="1" asp-route-view="@Model.View" asp-route-search="@Model.Search" asp-route-sortColumn="number" asp-route-sortDirection="@Model.NextSortDirection("number")">Number</a></th>
@@ -73,30 +73,28 @@
                     {
                         <tr>
                             <td><a asp-page="./Details" asp-route-id="@submission.Id"><code>@CMIForge.Services.RecordNumbers.Submission(submission.SubmissionNumber)</code></a></td>
-                            <td>
+                            <td class="mf-truncate-cell">
                                 @if (submission.ClientId.HasValue)
                                 {
-                                    <a asp-page="/Entities/Clients/Details" asp-route-id="@submission.ClientId">@submission.ClientName</a>
+                                    <a asp-page="/Entities/Clients/Details" asp-route-id="@submission.ClientId"><strong>@submission.ClientName</strong></a>
                                 }
                                 else if (!string.IsNullOrWhiteSpace(submission.SubmittedClientName))
                                 {
                                     <span class="mf-submitted-value">@submission.SubmittedClientName</span>
-                                    <small class="d-block text-muted">Submitted value</small>
                                 }
                                 else
                                 {
                                     <span class="text-muted">Not linked</span>
                                 }
                             </td>
-                            <td>
+                            <td class="mf-truncate-cell">
                                 @if (submission.MatterId.HasValue)
                                 {
-                                    <a asp-page="/Entities/Matters/Details" asp-route-id="@submission.MatterId">@submission.MatterName</a>
+                                    <a asp-page="/Entities/Matters/Details" asp-route-id="@submission.MatterId"><strong>@submission.MatterName</strong></a>
                                 }
                                 else if (!string.IsNullOrWhiteSpace(submission.SubmittedMatterName))
                                 {
                                     <span class="mf-submitted-value">@submission.SubmittedMatterName</span>
-                                    <small class="d-block text-muted">Submitted value</small>
                                 }
                                 else
                                 {

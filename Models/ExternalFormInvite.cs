@@ -46,6 +46,8 @@ public class ExternalFormInvite
 
     public FormSubmission? FormSubmission { get; set; }
 
+    public List<EmailOutboxMessage> EmailOutboxMessages { get; set; } = [];
+
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;

@@ -382,6 +382,7 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
             entity.Property(x => x.LastError).HasMaxLength(4000);
             entity.HasIndex(x => new { x.Status, x.NextAttemptAt, x.CreatedAt });
             entity.HasIndex(x => x.FormSubmissionId);
+            entity.HasIndex(x => x.ExternalFormInviteId);
             entity
                 .HasOne(x => x.FormSubmission)
                 .WithMany()
@@ -396,6 +397,11 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .HasOne(x => x.WorkflowStep)
                 .WithMany()
                 .HasForeignKey(x => x.WorkflowStepId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.ExternalFormInvite)
+                .WithMany(x => x.EmailOutboxMessages)
+                .HasForeignKey(x => x.ExternalFormInviteId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
@@ -657,6 +663,11 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .HasOne(x => x.CreatedByUser)
                 .WithMany()
                 .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.ImpersonatedUser)
+                .WithMany()
+                .HasForeignKey(x => x.ImpersonatedUserId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
@@ -1125,6 +1136,7 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
             entity.Property(x => x.Key).HasMaxLength(80);
             entity.Property(x => x.Description).HasMaxLength(1000);
             entity.HasIndex(x => x.Key).IsUnique();
+            entity.HasIndex(x => new { x.IsPublished, x.IsActive, x.FormDefinitionId });
             entity
                 .HasOne(x => x.FormDefinition)
                 .WithMany()

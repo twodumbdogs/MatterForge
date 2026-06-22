@@ -13,7 +13,9 @@ public class SendModel(
     CMIForgeDbContext db,
     CurrentUserService currentUserService,
     PermissionService permissionService,
-    AuditLogService auditLogService) : PageModel
+    AuditLogService auditLogService,
+    ExternalFormInviteEmailService inviteEmailService,
+    ExternalFormInviteTrackingService inviteTrackingService) : PageModel
 {
     [BindProperty(SupportsGet = true)]
     public Guid Id { get; set; }
@@ -29,11 +31,17 @@ public class SendModel(
 
     public List<SelectListItem> PartnerOptions { get; private set; } = [];
 
-    public List<ExternalFormInvite> RecentInvites { get; private set; } = [];
+    public List<ExternalFormInviteTrackingRow> RecentInviteSends { get; private set; } = [];
 
     public string? GeneratedLink { get; private set; }
 
     public string? ResultMessage { get; private set; }
+
+    [TempData]
+    public string? FlashMessage { get; set; }
+
+    [TempData]
+    public string? FlashGeneratedLink { get; set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -117,7 +125,7 @@ public class SendModel(
             return Page();
         }
 
-        var emailQueued = await TryQueueEmailAsync(invite, GeneratedLink);
+        var emailQueued = await inviteEmailService.QueueEmailAsync(invite, Form.Name, GeneratedLink, HttpContext.RequestAborted);
         await auditLogService.LogAsync(
             "ExternalFormInvite.Created",
             "ExternalFormInvite",
@@ -145,6 +153,65 @@ public class SendModel(
         };
         await LoadRecentInvitesAsync();
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostResendAsync(Guid inviteId, string? returnUrl = null)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.FormsSubmit))
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var currentUser = await currentUserService.GetCurrentUserAsync();
+            var resend = await inviteEmailService.CreateReplacementInviteAsync(inviteId, currentUser?.Id, HttpContext.RequestAborted);
+            var link = Url.Page(
+                "/External/Forms/Submit",
+                null,
+                new { token = resend.Token },
+                Request.Scheme);
+            if (string.IsNullOrWhiteSpace(link))
+            {
+                throw new InvalidOperationException("The secure link could not be generated.");
+            }
+
+            var emailQueued = await inviteEmailService.QueueEmailAsync(resend.Invite, resend.FormName, link, HttpContext.RequestAborted);
+            await auditLogService.LogAsync(
+                "ExternalFormInvite.Resent",
+                "ExternalFormInvite",
+                resend.Invite.Id,
+                null,
+                $"Resent external form invite for {resend.Invite.RecipientName}.",
+                new
+                {
+                    OriginalInviteId = inviteId,
+                    resend.Invite.FormDefinitionId,
+                    resend.Invite.FormVersionId,
+                    resend.Invite.RecipientContactId,
+                    resend.Invite.RecipientEmail,
+                    EmailQueued = emailQueued
+                });
+
+            FlashMessage = emailQueued
+                ? "Invite resent and queued for email delivery."
+                : "Invite resent. Email is not enabled/configured, so copy the secure link below.";
+            FlashGeneratedLink = emailQueued ? null : link;
+
+            if (emailQueued && Url.IsLocalUrl(returnUrl))
+            {
+                return LocalRedirect(returnUrl);
+            }
+
+            return RedirectToPage(new { id = resend.Invite.FormDefinitionId });
+        }
+        catch (InvalidOperationException ex)
+        {
+            FlashMessage = ex.Message;
+            return Url.IsLocalUrl(returnUrl)
+                ? LocalRedirect(returnUrl!)
+                : RedirectToPage(new { id = Id });
+        }
     }
 
     private async Task LoadAsync()
@@ -182,19 +249,14 @@ public class SendModel(
             Input.ExpiresInDays = 7;
         }
 
+        ResultMessage = FlashMessage;
+        GeneratedLink = FlashGeneratedLink;
         await LoadRecentInvitesAsync();
     }
 
     private async Task LoadRecentInvitesAsync()
     {
-        RecentInvites = await db.ExternalFormInvites
-            .AsNoTracking()
-            .Include(x => x.RecipientContact)
-            .Include(x => x.FormSubmission)
-            .Where(x => x.FormDefinitionId == Id)
-            .OrderByDescending(x => x.CreatedAt)
-            .Take(10)
-            .ToListAsync();
+        RecentInviteSends = await inviteTrackingService.ListForFormAsync(Id);
     }
 
     private Task<bool> IsPartnerAsync(Guid userId)
@@ -204,74 +266,6 @@ public class SendModel(
             x.IsActive &&
             !x.IsArchived &&
             x.Roles.Any(role => role.SecurityRole != null && role.SecurityRole.Key == SecurityRoleKeys.Partner && role.SecurityRole.IsActive));
-    }
-
-    private async Task<bool> TryQueueEmailAsync(ExternalFormInvite invite, string link)
-    {
-        var settings = await db.SystemSettings
-            .AsNoTracking()
-            .Where(x => x.Category == "Email" || x.Key.StartsWith("Email."))
-            .ToDictionaryAsync(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
-
-        if (!ParseBool(Setting(settings, "Email.NotificationsEnabled"), false))
-        {
-            return false;
-        }
-
-        var fromEmail = Setting(settings, "Email.FromEmail");
-        var mailboxAddress = Setting(settings, "Email.MailboxAddress", fromEmail);
-        if (string.IsNullOrWhiteSpace(fromEmail) || string.IsNullOrWhiteSpace(mailboxAddress))
-        {
-            return false;
-        }
-
-        db.EmailOutboxMessages.Add(new EmailOutboxMessage
-        {
-            MailboxAddress = mailboxAddress,
-            FromEmail = fromEmail,
-            FromName = Setting(settings, "Email.FromName", ProductInfo.Name),
-            ReplyToEmail = Setting(settings, "Email.ReplyToEmail", fromEmail),
-            ToRecipients = invite.RecipientEmail,
-            Subject = $"Please complete {Form?.Name ?? "your CMIForge form"}",
-            Body = BuildEmailBody(invite, link),
-            IsBodyHtml = false
-        });
-
-        invite.EmailQueuedAt = DateTimeOffset.UtcNow;
-        invite.UpdatedAt = invite.EmailQueuedAt.Value;
-        await db.SaveChangesAsync();
-        return true;
-    }
-
-    private string BuildEmailBody(ExternalFormInvite invite, string link)
-    {
-        var message = string.IsNullOrWhiteSpace(invite.Message)
-            ? "Please complete this secure intake form so we can gather the information needed for review."
-            : invite.Message;
-
-        return $"""
-            Hello {invite.RecipientName},
-
-            {message}
-
-            Secure form link:
-            {link}
-
-            This link expires on {invite.ExpiresAt:MMMM d, yyyy 'at' h:mm tt} UTC.
-
-            Thank you,
-            {ProductInfo.Name}
-            """;
-    }
-
-    private static string Setting(Dictionary<string, string> settings, string key, string fallback = "")
-    {
-        return settings.TryGetValue(key, out var value) ? value.Trim() : fallback;
-    }
-
-    private static bool ParseBool(string value, bool fallback)
-    {
-        return bool.TryParse(value, out var parsed) ? parsed : fallback;
     }
 }
 

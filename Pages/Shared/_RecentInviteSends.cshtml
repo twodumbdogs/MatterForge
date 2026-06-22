@@ -1,0 +1,98 @@
+@model IReadOnlyList<CMIForge.Services.ExternalFormInviteTrackingRow>
+@{
+    var returnUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
+}
+
+<div class="mf-panel">
+    <p class="mf-eyebrow">Client email tracking</p>
+    <h2>Recent sends</h2>
+    @if (Model.Count == 0)
+    {
+        <p class="text-muted mb-0">No secure client links have been sent yet.</p>
+    }
+    else
+    {
+        <div class="list-group list-group-flush">
+            @foreach (var send in Model)
+            {
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between gap-3 align-items-start">
+                        <div>
+                            <strong>@send.RecipientName</strong>
+                            <small class="d-block text-muted">@send.RecipientEmail</small>
+                            <small class="d-block text-muted">@send.FormName</small>
+                        </div>
+                        <span class="badge @InviteStatusClass(send.InviteStatus)">@send.InviteStatus</span>
+                    </div>
+
+                    <div class="mf-invite-timeline mt-2">
+                        <span class="@StepClass(send.EmailQueuedAt.HasValue)">Queued</span>
+                        <span class="@StepClass(send.EmailSentAt.HasValue)">Sent</span>
+                        <span class="@StepClass(send.OpenedAt.HasValue)">Opened</span>
+                        <span class="@StepClass(send.CompletedAt.HasValue)">Completed</span>
+                    </div>
+
+                    <small class="d-block text-muted mt-2">
+                        Created @UserDates.Format(send.CreatedAt)
+                        @if (send.EmailQueuedAt.HasValue)
+                        {
+                            <span> · Queued @UserDates.Format(send.EmailQueuedAt.Value)</span>
+                        }
+                        @if (send.EmailSentAt.HasValue)
+                        {
+                            <span> · Graph accepted @UserDates.Format(send.EmailSentAt.Value)</span>
+                        }
+                        @if (send.OpenedAt.HasValue)
+                        {
+                            <span> · Opened @UserDates.Format(send.OpenedAt.Value)</span>
+                        }
+                        @if (send.CompletedAt.HasValue)
+                        {
+                            <span> · Completed @UserDates.Format(send.CompletedAt.Value)</span>
+                        }
+                    </small>
+
+                    @if (!string.IsNullOrWhiteSpace(send.EmailLastError))
+                    {
+                        <small class="d-block text-danger mt-1">@send.EmailLastError</small>
+                    }
+
+                    <div class="d-flex justify-content-between align-items-center gap-2 mt-2">
+                        <small class="text-muted">Delivery: @send.EmailStatus</small>
+                        <div class="d-flex gap-2">
+                            @if (send.FormSubmissionId.HasValue && send.SubmissionNumber.HasValue)
+                            {
+                                <a class="btn btn-sm btn-outline-secondary" asp-page="/Submissions/Details" asp-route-id="@send.FormSubmissionId.Value">
+                                    @CMIForge.Services.RecordNumbers.Submission(send.SubmissionNumber.Value)
+                                </a>
+                            }
+                            <form method="post" asp-page="/Forms/Send" asp-route-id="@send.FormDefinitionId" asp-page-handler="Resend">
+                                <input type="hidden" name="inviteId" value="@send.InviteId" />
+                                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                <button class="btn btn-sm btn-outline-primary" type="submit" disabled="@(!send.CanResend)">Resend</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@functions {
+    private static string StepClass(bool isDone)
+    {
+        return isDone ? "mf-invite-step is-done" : "mf-invite-step";
+    }
+
+    private static string InviteStatusClass(string status)
+    {
+        return status switch
+        {
+            CMIForge.Models.ExternalFormInviteStatuses.Completed => "text-bg-success",
+            CMIForge.Models.ExternalFormInviteStatuses.Expired => "text-bg-warning",
+            CMIForge.Models.ExternalFormInviteStatuses.Revoked => "text-bg-danger",
+            _ => "text-bg-primary"
+        };
+    }
+}

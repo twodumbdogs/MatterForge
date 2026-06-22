@@ -2,7 +2,7 @@
 
 CMIForge is a homegrown ASP.NET Core Razor Pages prototype for configurable legal intake, entity management, workflow automation, and conflict searches. The long-term idea is a law-firm intake/workflow platform in the spirit of tools like Intapp Open, but built in focused slices so the data model and user experience can grow together.
 
-Current version: `20260620.7`.
+Current version: `20260621.1`.
 
 ## Original Direction
 
@@ -49,15 +49,21 @@ Latest product/docs state:
 - Conflict matching was tuned so acronym-style values such as `A.A.W.` normalize to useful initials without creating strong matches against unrelated single-letter containment.
 - Conflict normalization now treats `and` like the ampersand connector, and phrase containment is token-boundary based so names like `Elm & Vine` can match `Elm and Vine Capital` without reopening loose substring matches.
 - Clients, parties, and conflicts lists have been compacted into cleaner one-line rows.
+- Submissions now use the same compact one-line list treatment: client and matter values render in one row without the extra `Submitted value` caption, and long names truncate cleanly.
 - Enhancement requests now act as a tenant-local firm queue. All signed-in users in a firm can see active requests and add/remove one support vote per request; admins still own status triage and internal notes.
 - Client aliases are now first-class records. They can be captured on client creation, edited/deleted from client details, shown on the client list, and searched by conflict checks. Party aliases are now editable/deletable from party details.
 - Entity detail screens are now more consistent. Clients show matters, contacts, and related parties; matters show time entries, parties, and contacts in the side rail; contacts show client links, matter links, and related parties; parties show matter roles, related contacts, and party relationships.
 - Direct-created clients, matters, and parties now default to `Compliance Review` instead of looking fully reviewed on creation. Create/detail/edit screens explain the direct-create path, and approving a client move to `Active` or matter move to `Open` writes a dedicated `EntityComplianceReviewed` audit entry.
-- Published forms can now be sent to saved contacts through secure, expiring external intake links. The invite token is generated once and only its hash is stored, the external page uses a minimal client-safe layout, completed links create normal `FormSubmissions`, and the invite queues through `EmailOutboxMessages` when tenant mail is configured or falls back to a copyable link when it is not.
+- Published forms can now be sent to saved contacts through secure, expiring external intake links. The invite token is generated once and only its hash is stored, the external page uses a minimal client-safe layout, completed links create normal `FormSubmissions`, and the invite queues through `EmailOutboxMessages` when tenant mail is configured or falls back to a copyable link when it is not. Invite email tracking now links outbox messages back to external invites so the app can show queued, Graph-accepted/sent, opened, and completed states on form, contact, client, and matter detail pages, with resend creating a fresh tracked link and revoking the previous uncompleted invite.
 - Inbound email intake now has a V1 processing lane. Tenant settings control the Graph mailbox anchor, tenant inbound address, allowed sender domains, and default intake form. Trusted unread mailbox messages with `Client:` and optional `Matter:` subject segments create normal reviewable submissions, copy supported attachments into the private submission attachment store, record the source email, and write audit history. Blank or omitted `Matter:` is intentionally allowed so conversion can create/link only the client.
+- Conflict result bulk work now supports the expected multi-row escalation flow from the details page: checked result rows can all be escalated to one reviewer with shared notes using `Escalate selected`.
+- Entity discussion notes now preserve impersonation attribution by storing the real author and the impersonated user separately. The notes thread shows newest-first, hides older notes behind an expander, scrolls instead of taking over the page, and allows the author to delete their own note.
+- Client/party alias adds now surface duplicate-alias validation instead of silently no-oping, so users get feedback when a normalized alias is already present.
+- Matter partner time approval is reachable from the dashboard/time list, and the Time detail permission path now allows lead partners with approval rights to open submitted entries waiting on them.
 - Customer 0 startup recovered after demo conflict reference parties were kept behind the sample-data seed switch. `CMIForge:SeedSampleData=false` should seed core production structure without public-demo filler data.
 - Production schema changes now run through the dedicated migrator lane: `cmiforge-migrator-mi` plus the stopped-when-idle `cmiforge-db-migrator` triggered WebJob host, using `CMIForge.Migrator` and `deploy/migrations/run-tenant-migrations.ps1`.
 - The near-term security direction is a "Fort Knox but practical" posture: managed identity first, Key Vault for secrets, private blob containers, least-privilege SQL and Graph grants, audit logging, Defender/alerting, backup/retention policy, and private networking as the customer risk profile justifies the spend.
+- Brand assets now use Gabe's supplied square CMIForge raster logo across app/public-site chrome, favicons, and social previews. The repo keeps the web/app logo in `wwwroot/img/cmiforge-logo.png` and business/social exports in `artifacts/brand/`, including 400px, 1200px, and 2400px PNGs plus the source PNG.
 
 Private-networking hardening was implemented after that planning note:
 
@@ -91,7 +97,8 @@ Implemented product changes now reflected in the app:
 - Live conflict preview can be turned on/off from System Settings.
 - Form editing caps forms at 50 fields and supports friendlier reorder controls.
 - Form-builder reorder controls use icon/handle-style affordances instead of wordy buttons.
-- Forms list rows show open/completed client invite counts, and each published form has a `Send` action for creating a saved-contact external intake link.
+- Forms can be copied from the latest published version into a new active form with a unique key, so teams can branch a similar intake definition without rebuilding it by hand.
+- Forms list rows show open/completed client invite counts, and each published form has a `Send` action for creating a saved-contact external intake link. The send page also acts as the recent-sends dashboard for that form, including resend, Graph send state, secure-link open time, and completion/submission links.
 - Cancelled submissions behave more like archived records: hidden from daily lists, visible from System Archive, and restorable.
 - Submission list/detail work now shows linked client and matter context earlier and more visibly.
 - Address autocomplete is wired through Geoapify-backed address lookup where static address fields exist.
@@ -288,8 +295,8 @@ The live demo now has dedicated guardrails for public visitors:
 - `CMIForge:DemoResetIntervalHours=12` configures the reset interval.
 - A visible banner appears at the top of every page explaining public demo behavior.
 - `/System/Demo` shows demo behavior and exposes a manual `Reset demo now` button.
-- Manual reset clears demo-created records and reruns starter seed data.
-- Scheduled reset runs every 12 hours while the App Service process is awake.
+- Manual reset clears demo-created records, including newer approvals, enhancement requests/votes, notes, aliases, signup/legal records, conflict archives, invites, inbound email records, workflow notification templates, and time-code tables, then reruns starter seed data.
+- Scheduled reset checks the last successful reset and catches up shortly after app startup if the demo is overdue instead of waiting a fresh 12 hours after every cold start.
 - `DemoResetRuns` records manual and scheduled reset attempts with trigger, status, deleted row count, message, error, start time, and completion time.
 - `/System/Demo` now shows last reset, next estimated reset, and recent reset run history.
 - Demo mode blocks administrative/designer POST actions such as Security, System Settings, Imports, Form designer, and Workflow designer changes.
@@ -543,7 +550,7 @@ Matter detail pages link back to the client record.
 
 Matter detail pages use the same detail/child layout as other entity screens. Core matter facts stay on the left, while time entries, linked parties, and linked contacts appear in the right-side related-record rail.
 
-Direct-created matters default to `Compliance Review`. Moving a matter from `Compliance Review` to `Open` requires change-request notes and, when approved, logs both the normal change approval and a dedicated compliance-reviewed audit entry.
+Direct-created matters default to `Compliance Review`. Moving a matter from `Compliance Review` to `Open` requires change-request notes and, when approved, logs both the normal change approval and a dedicated compliance-reviewed audit entry. The entity approval queue shows actual current and proposed values for changed fields so reviewers can approve the data change, not just the field names.
 
 ### Contacts
 
@@ -911,9 +918,13 @@ CMIForge now has the first native workflow, notification, and approval queue sli
 Current workflow capabilities:
 
 - Workflow definitions can be created and edited in the app.
+- Workflow definitions can be saved as unpublished drafts before they are ready to go live.
+- Workflow definitions can be copied into unpublished drafts and then renamed, adjusted, reordered, and published when ready.
+- Only active published workflow definitions are available for new form attachments and automatic submission starts.
 - Workflow definitions can be used as a global fallback or scoped to a form definition.
 - Workflow definitions can be attached directly to published form versions.
 - Workflow definitions have ordered workflow steps.
+- Workflow steps can be moved up or down in the designer before saving or publishing.
 - Workflow steps can be created and edited in the app.
 - Workflow steps can be typed as `Approval` or `Notification`.
 - Workflow steps can be assigned to a CMIForge user.
@@ -937,7 +948,7 @@ Current workflow capabilities:
 - Notification steps continue automatically to the next matching step after sending or logging the notification event.
 - If SMTP is disabled or incomplete, the notification step records a skipped/failed workflow event instead of blocking workflow progress.
 - Workflow events preserve history on the submission.
-- Submission detail pages expose a workflow rail so reviewers can see open actions and recent workflow history next to the intake data.
+- Submission detail pages expose a compact workflow rail with Open Actions pinned at the top and task/history detail ordered newest-first next to the intake data.
 - Returned-submission editing respects field-level workflow-step edit rules; fields outside the active step stay read-only and are preserved server-side even if a browser posts a changed value.
 - New submissions for the starter intake form automatically start the seeded workflow.
 - Older unconverted submissions can still start workflow from the submission detail page when no instance exists.
@@ -1193,7 +1204,7 @@ Recommended next sequence:
 3. Add a real LLM-backed conflict narrative provider behind the current AI assist seam.
 4. Add in-app notification badges and notification history views on top of the workflow notification events.
 5. Add workflow versioning once workflows are used by enough historical submissions.
-6. Add a richer designer UX with add/remove/reorder rows instead of fixed blank rows.
+6. Continue improving designer UX beyond the current form copy/versioning and workflow draft/copy/reorder controls, especially richer inline validation and less table-like editing for complex workflows.
 7. Add field-level permissions and better admin guardrails for non-admin users.
 
 Good first workflow tables might be:
@@ -1211,11 +1222,13 @@ The key design choice is that submissions should move through workflow before co
 CMIForge is now in a local prototype shape with the important spine:
 
 - Configurable intake forms
+- Secure external form invites with recent-send tracking, secure-link open/completion visibility, and one-click resend
 - Versioned submissions
 - Operational clients/matters/users
 - Conversion from intake to records
 - Early workflow status handling
 - Personal and team workflow queues
+- Saved workflow drafts, published workflow versions, copy-to-new workflows, and step move controls
 - Workflow notification steps with email/event logging behavior
 - Granular role/permission foundation
 - Optional Entra-backed login
@@ -1236,9 +1249,11 @@ CMIForge is now in a local prototype shape with the important spine:
 - Seeded conflict-test parties, aliases, relationships, and matter roles
 - Hardcoded Community/Professional/Enterprise product-plan limiter
 - Archive/unarchive support for clients, matters, parties, and users
-- Conversation-style notes for clients, matters, and parties
+- Compact conversation-style notes for clients, matters, and parties, including impersonation attribution and author deletion
 - My/all submission views
 - Approval-gated conversion
+- Matter partner time approval actions from dashboards and time lists
+- Demo reset controls with scheduled catch-up behavior
 - Configurable workflow outcomes
 - Answer-based workflow routing
 - Azure SQL persistence

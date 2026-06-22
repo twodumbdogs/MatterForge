@@ -1,5 +1,11 @@
 @using CMIForge.Models
+@inject CMIForge.Services.CurrentUserService CurrentUserService
 @model IReadOnlyList<EntityNote>
+@{
+    var actualUser = await CurrentUserService.GetActualCurrentUserAsync();
+    var latestNotes = Model.Take(5).ToList();
+    var olderNotes = Model.Skip(5).ToList();
+}
 
 <div class="mf-panel mt-3">
     <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
@@ -17,18 +23,79 @@
         }
         else
         {
-            @foreach (var note in Model)
+            @foreach (var note in latestNotes)
             {
+                var authorName = note.CreatedByUser?.DisplayName ?? "System";
+                var impersonatedName = note.ImpersonatedUser?.DisplayName;
+                var canDelete = actualUser?.Id == note.CreatedByUserId;
+
                 <article class="mf-note-bubble">
-                    <div class="mf-note-avatar">@Initials(note.CreatedByUser?.DisplayName)</div>
+                    <div class="mf-note-avatar">@Initials(authorName)</div>
                     <div class="mf-note-body">
-                        <div class="d-flex flex-wrap gap-2 justify-content-between">
-                            <strong>@(note.CreatedByUser?.DisplayName ?? "System")</strong>
-                            <small class="text-muted">@UserDates.Format(note.CreatedAt, "g")</small>
+                        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-start">
+                            <span>
+                                <strong>@authorName</strong>
+                                @if (!string.IsNullOrWhiteSpace(impersonatedName) &&
+                                    !impersonatedName.Equals(authorName, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <small class="text-muted d-block">while impersonating @impersonatedName</small>
+                                }
+                            </span>
+                            <span class="d-flex flex-wrap gap-2 align-items-center justify-content-end">
+                                <small class="text-muted">@UserDates.Format(note.CreatedAt, "g")</small>
+                                @if (canDelete)
+                                {
+                                    <form method="post" asp-page-handler="DeleteNote" class="d-inline">
+                                        <input type="hidden" name="noteId" value="@note.Id" />
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                    </form>
+                                }
+                            </span>
                         </div>
                         <p>@note.Body</p>
                     </div>
                 </article>
+            }
+            @if (olderNotes.Count > 0)
+            {
+                <details class="mf-note-older">
+                    <summary>Show @olderNotes.Count older note@(olderNotes.Count == 1 ? string.Empty : "s")</summary>
+                    <div class="mf-note-thread mt-3">
+                        @foreach (var note in olderNotes)
+                        {
+                            var authorName = note.CreatedByUser?.DisplayName ?? "System";
+                            var impersonatedName = note.ImpersonatedUser?.DisplayName;
+                            var canDelete = actualUser?.Id == note.CreatedByUserId;
+
+                            <article class="mf-note-bubble">
+                                <div class="mf-note-avatar">@Initials(authorName)</div>
+                                <div class="mf-note-body">
+                                    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-start">
+                                        <span>
+                                            <strong>@authorName</strong>
+                                            @if (!string.IsNullOrWhiteSpace(impersonatedName) &&
+                                                !impersonatedName.Equals(authorName, StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <small class="text-muted d-block">while impersonating @impersonatedName</small>
+                                            }
+                                        </span>
+                                        <span class="d-flex flex-wrap gap-2 align-items-center justify-content-end">
+                                            <small class="text-muted">@UserDates.Format(note.CreatedAt, "g")</small>
+                                            @if (canDelete)
+                                            {
+                                                <form method="post" asp-page-handler="DeleteNote" class="d-inline">
+                                                    <input type="hidden" name="noteId" value="@note.Id" />
+                                                    <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                                </form>
+                                            }
+                                        </span>
+                                    </div>
+                                    <p>@note.Body</p>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                </details>
             }
         }
     </div>

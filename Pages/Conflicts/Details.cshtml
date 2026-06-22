@@ -135,46 +135,9 @@ else
                 .OrderBy(x => RiskFilterOrder(x))
                 .ThenBy(x => x)
                 .ToList();
-
-            <div class="mf-result-filters mt-3" data-conflict-result-filters>
-                <div>
-                    <label class="form-label" for="conflict-clearance-filter">Clearance status</label>
-                    <select id="conflict-clearance-filter" class="form-select form-select-sm" data-conflict-filter="clearance">
-                        <option value="">All statuses</option>
-                        @foreach (var option in clearanceFilterOptions)
-                        {
-                            <option value="@option">@option</option>
-                        }
-                    </select>
-                </div>
-                <div>
-                    <label class="form-label" for="conflict-role-filter">Role / source</label>
-                    <select id="conflict-role-filter" class="form-select form-select-sm" data-conflict-filter="role">
-                        <option value="">All roles</option>
-                        @foreach (var option in roleFilterOptions)
-                        {
-                            <option value="@option">@option</option>
-                        }
-                    </select>
-                </div>
-                <div>
-                    <label class="form-label" for="conflict-risk-filter">Risk</label>
-                    <select id="conflict-risk-filter" class="form-select form-select-sm" data-conflict-filter="risk">
-                        <option value="">All risks</option>
-                        @foreach (var option in riskFilterOptions)
-                        {
-                            <option value="@option">@option</option>
-                        }
-                    </select>
-                </div>
-                <div class="mf-result-filter-actions">
-                    <span class="badge text-bg-light" data-conflict-filter-count>@Model.Results.Count result(s)</span>
-                    <button class="btn btn-outline-secondary btn-sm" type="button" data-conflict-filter-clear>Clear filters</button>
-                </div>
-            </div>
             @if (Model.CanReview)
             {
-                <form method="post" id="bulk-clearance-form" asp-page-handler="BulkResultReview" asp-route-id="@Model.Search.Id" class="border rounded p-3 mt-3">
+                <form method="post" id="bulk-clearance-form" asp-page-handler="BulkResultReview" asp-route-id="@Model.Search.Id" class="mf-conflict-bulk-panel mt-3">
                     <div class="row g-2 align-items-end">
                         <div class="col-md-3">
                             <label class="form-label" for="bulkResultStatus">Selected rows</label>
@@ -206,15 +169,53 @@ else
                             <input asp-for="EscalationNotes" class="form-control" placeholder="Why this result needs approval" />
                         </div>
                         <div class="col-md-2">
-                            <button class="btn btn-outline-primary w-100" type="submit" asp-page-handler="BulkEscalate">Escalate</button>
+                            <button class="btn btn-outline-primary w-100" type="submit" asp-page-handler="BulkEscalate">Escalate selected</button>
                         </div>
                     </div>
-                    <small class="text-muted d-block mt-2">Select one or more result rows below, then apply a clearance decision or escalate them to another reviewer.</small>
+                    <small class="text-muted d-block mt-2">
+                        <span data-conflict-selected-count>0 selected</span>. Select one or more result rows below, then apply a clearance decision or escalate them to another reviewer.
+                    </small>
                 </form>
             }
+            <div class="mf-result-filters mt-3" data-conflict-result-filters>
+                <div>
+                    <label class="form-label" for="conflict-clearance-filter">Clearance</label>
+                    <select id="conflict-clearance-filter" class="form-select form-select-sm" data-conflict-filter="clearance">
+                        <option value="">All statuses</option>
+                        @foreach (var option in clearanceFilterOptions)
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="conflict-role-filter">Role / source</label>
+                    <select id="conflict-role-filter" class="form-select form-select-sm" data-conflict-filter="role">
+                        <option value="">All roles</option>
+                        @foreach (var option in roleFilterOptions)
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="conflict-risk-filter">Risk</label>
+                    <select id="conflict-risk-filter" class="form-select form-select-sm" data-conflict-filter="risk">
+                        <option value="">All risks</option>
+                        @foreach (var option in riskFilterOptions)
+                        {
+                            <option value="@option">@option</option>
+                        }
+                    </select>
+                </div>
+                <div class="mf-result-filter-actions">
+                    <span class="badge text-bg-light" data-conflict-filter-count>@Model.Results.Count result(s)</span>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" data-conflict-filter-clear>Clear</button>
+                </div>
+            </div>
             <p class="text-muted mt-3 mb-0 d-none" data-conflict-filter-empty>No results match the selected filters.</p>
-            <div class="table-responsive mt-3">
-                <table class="table align-middle">
+            <div class="table-responsive">
+                <table class="table align-middle mf-conflict-results-table">
                     <thead>
                         <tr>
                             @if (Model.CanReview)
@@ -322,37 +323,50 @@ else
                                     }
                                     @if (Model.CanReview)
                                     {
-                                        <form method="post" class="mt-2" asp-page-handler="ResultReview" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id">
-                                            <select name="resultStatus" class="form-select form-select-sm mb-2" aria-label="Result clearance status">
-                                                @foreach (var option in Model.ResultStatusOptions)
+                                        var hasPendingEscalation = !string.IsNullOrWhiteSpace(result.EscalatedToDisplayName) && !result.EscalationApprovedAt.HasValue;
+                                        <details class="mf-row-actions mt-2">
+                                            <summary>@(hasPendingEscalation ? "Row actions / approve" : "Row actions")</summary>
+                                            <div class="mf-row-action-grid mt-2">
+                                                <form method="post" asp-page-handler="ResultReview" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id">
+                                                    <label class="form-label small text-muted mb-1" for="ResultStatus_@result.Id">Clearance</label>
+                                                    <select name="resultStatus" id="ResultStatus_@result.Id" class="form-select form-select-sm mb-2" aria-label="Result clearance status">
+                                                        @foreach (var option in Model.ResultStatusOptions)
+                                                        {
+                                                            if (option == result.ClearanceStatus)
+                                                            {
+                                                                <option value="@option" selected>@option</option>
+                                                            }
+                                                            else
+                                                            {
+                                                                <option value="@option">@option</option>
+                                                            }
+                                                        }
+                                                    </select>
+                                                    <textarea name="resultNotes" class="form-control form-control-sm" rows="2" placeholder="Clearance notes">@result.ClearanceNotes</textarea>
+                                                    <button class="btn btn-sm btn-primary mt-2">Save row</button>
+                                                </form>
+                                                <form method="post" asp-page-handler="ResultEscalate" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id">
+                                                    <label class="form-label small text-muted mb-1" for="EscalatedToUserId_@result.Id">Escalate</label>
+                                                    <select name="EscalatedToUserId" id="EscalatedToUserId_@result.Id" class="form-select form-select-sm mb-2" aria-label="Escalate result to user">
+                                                        <option value="">Choose user...</option>
+                                                        @foreach (var userOption in Model.UserOptions)
+                                                        {
+                                                            <option value="@userOption.Value">@userOption.Text</option>
+                                                        }
+                                                    </select>
+                                                    <textarea name="EscalationNotes" id="EscalationNotes_@result.Id" class="form-control form-control-sm" rows="2" placeholder="Escalation notes"></textarea>
+                                                    <button class="btn btn-sm btn-outline-primary mt-2">Escalate row</button>
+                                                </form>
+                                                @if (hasPendingEscalation)
                                                 {
-                                                    if (option == result.ClearanceStatus)
-                                                    {
-                                                        <option value="@option" selected>@option</option>
-                                                    }
-                                                    else
-                                                    {
-                                                        <option value="@option">@option</option>
-                                                    }
+                                                    <form method="post" asp-page-handler="ApproveEscalation" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id">
+                                                        <label class="form-label small text-muted mb-1" for="EscalationApprovalNotes_@result.Id">Approval</label>
+                                                        <textarea name="EscalationApprovalNotes" id="EscalationApprovalNotes_@result.Id" class="form-control form-control-sm" rows="2" placeholder="Approval notes"></textarea>
+                                                        <button class="btn btn-sm btn-success mt-2">Approve escalation</button>
+                                                    </form>
                                                 }
-                                            </select>
-                                            <textarea name="resultNotes" class="form-control form-control-sm" rows="2" placeholder="Result-level clearance notes">@result.ClearanceNotes</textarea>
-                                            <button class="btn btn-sm btn-primary mt-2">Save row</button>
-                                        </form>
-                                        <form method="post" class="mt-2" asp-page-handler="ResultEscalate" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id">
-                                            <select asp-for="EscalatedToUserId" asp-items="Model.UserOptions" class="form-select form-select-sm mb-2" aria-label="Escalate result to user">
-                                                <option value="">Escalate to...</option>
-                                            </select>
-                                            <textarea asp-for="EscalationNotes" class="form-control form-control-sm" rows="2" placeholder="Escalation notes"></textarea>
-                                            <button class="btn btn-sm btn-outline-primary mt-2">Escalate row</button>
-                                        </form>
-                                        @if (!string.IsNullOrWhiteSpace(result.EscalatedToDisplayName) && !result.EscalationApprovedAt.HasValue)
-                                        {
-                                            <form method="post" class="mt-2" asp-page-handler="ApproveEscalation" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id">
-                                                <textarea asp-for="EscalationApprovalNotes" class="form-control form-control-sm" rows="2" placeholder="Approval notes"></textarea>
-                                                <button class="btn btn-sm btn-success mt-2">Approve escalation</button>
-                                            </form>
-                                        }
+                                            </div>
+                                        </details>
                                     }
                                 </td>
                                 <td>
@@ -380,6 +394,7 @@ else
             const clearFilters = document.querySelector('[data-conflict-filter-clear]');
             const count = document.querySelector('[data-conflict-filter-count]');
             const empty = document.querySelector('[data-conflict-filter-empty]');
+            const selectedCount = document.querySelector('[data-conflict-selected-count]');
 
             if (rows.length === 0) {
                 return;
@@ -398,9 +413,14 @@ else
 
                 const visible = visibleCheckboxes();
                 const checkedCount = visible.filter((checkbox) => checkbox.checked).length;
+                const totalCheckedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
                 selectAll.checked = visible.length > 0 && checkedCount === visible.length;
                 selectAll.indeterminate = checkedCount > 0 && checkedCount < visible.length;
                 selectAll.disabled = visible.length === 0;
+
+                if (selectedCount) {
+                    selectedCount.textContent = `${totalCheckedCount} selected`;
+                }
             };
 
             const applyFilters = () => {

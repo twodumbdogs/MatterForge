@@ -191,7 +191,18 @@ Both `demo.cmiforge.com` and `app.cmiforge.com` are bound in Azure App Service w
 
 ## Current App Feature Smoke
 
-The current app build includes dashboard charts, workflow notification step fields, client photo OCR import drafting, floating live conflict previews, configurable conflict preview settings, conflict filters, searchable/sortable lists, entity notes, archive/unarchive behavior, enhancement requests, address autocomplete, and signup legal-agreement acceptance. After manual deploys, smoke these in the demo app before relying on the public demo for walkthroughs.
+The current app build includes dashboard charts, role-oriented dashboard views, workflow notification step fields, workflow copy/draft and step move controls, form copy/versioning controls, secure external form invites with recent-send tracking, inbound email intake settings/logging, client photo OCR import drafting, floating live conflict previews, conflict-search progress feedback, configurable conflict preview settings, conflict filters directly above the results table, bulk conflict escalation, compact/collapsible row actions, searchable/sortable/compact lists, compact attributed entity notes, archive/unarchive behavior, enhancement requests, address autocomplete, time approval actions, demo reset catch-up, and signup legal-agreement acceptance. After manual deploys, smoke these in the demo app before relying on the public demo for walkthroughs.
+
+Recent UI-only polish, including compact submission rows and brand/logo exports, can deploy with `-SkipDatabaseUpdate` after a successful build because no EF schema change is involved.
+
+## Brand Assets
+
+The app/public-site logo source is `wwwroot/img/cmiforge-logo.png`, generated from Gabe's supplied square CMIForge raster mark. Favicon, touch-icon, and social-preview sizes are kept alongside the app/public-site assets. High-resolution business/profile exports are kept under `artifacts/brand/`:
+
+- `cmiforge-linkedin-logo-400.png`
+- `cmiforge-linkedin-logo-1200.png`
+- `cmiforge-linkedin-logo-2400.png`
+- `cmiforge-logo-source.png`
 
 ## Notes
 

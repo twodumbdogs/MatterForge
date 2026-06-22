@@ -8,6 +8,13 @@
     <div>
         <p class="mf-eyebrow">Workflow builder</p>
         <h1>Edit Workflow</h1>
+        <p class="text-muted mb-0">
+            <span class="badge @(Model.IsPublished ? "text-bg-success" : "text-bg-warning")">@(Model.IsPublished ? "Published / live" : "Saved draft / unpublished")</span>
+            @if (Model.PublishedAt.HasValue)
+            {
+                <span>Published @UserDates.Format(Model.PublishedAt.Value, "g")</span>
+            }
+        </p>
     </div>
 </div>
 
@@ -39,7 +46,7 @@
         <div class="col-md-6 d-flex align-items-end">
             <div class="form-check">
                 <input asp-for="Input.IsActive" class="form-check-input" />
-                <label asp-for="Input.IsActive" class="form-check-label"></label>
+                <label asp-for="Input.IsActive" class="form-check-label">Enabled when published</label>
             </div>
         </div>
     </div>
@@ -53,12 +60,16 @@
         </div>
     </div>
 
-    <div class="mf-workflow-step-list">
+    <div class="mf-workflow-step-list" data-workflow-step-list>
         @for (var i = 0; i < Model.Input.Steps.Count; i++)
         {
             <section class="mf-workflow-step-card" data-workflow-step-card>
                 <input type="hidden" asp-for="Input.Steps[i].Id" />
                 <div class="mf-workflow-step-header">
+                    <div class="mf-workflow-step-controls">
+                        <button class="btn btn-outline-secondary btn-sm" type="button" data-move-workflow-step="up" aria-label="Move step up" title="Move step up">&uarr;</button>
+                        <button class="btn btn-outline-secondary btn-sm" type="button" data-move-workflow-step="down" aria-label="Move step down" title="Move step down">&darr;</button>
+                    </div>
                     <div class="mf-workflow-step-number">
                         <label asp-for="Input.Steps[i].StepNumber" class="form-label">Order</label>
                         <input class="form-control" asp-for="Input.Steps[i].StepNumber" />
@@ -155,11 +166,13 @@
     </div>
 
     <div class="d-flex gap-2">
-        <button class="btn btn-primary" type="submit">Save workflow</button>
+        <button class="btn btn-outline-primary" type="submit" name="WorkflowAction" value="draft">Save draft</button>
+        <button class="btn btn-primary" type="submit" name="WorkflowAction" value="publish">Publish workflow</button>
         <a class="btn btn-outline-secondary" asp-page="./Index">Cancel</a>
     </div>
 </form>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/workflow-designer.js" asp-append-version="true"></script>
 }

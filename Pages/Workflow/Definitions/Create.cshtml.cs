@@ -19,6 +19,9 @@ public partial class CreateModel(
     [BindProperty]
     public WorkflowDefinitionInput Input { get; set; } = WorkflowDefinitionInput.Default();
 
+    [BindProperty]
+    public string WorkflowAction { get; set; } = "draft";
+
     public List<SelectListItem> FormOptions { get; private set; } = [];
 
     public List<SelectListItem> UserOptions { get; private set; } = [];
@@ -72,7 +75,8 @@ public partial class CreateModel(
         }
 
         await LoadOptionsAsync();
-        await ValidateInputAsync(null);
+        var publishRequested = IsPublishRequested();
+        await ValidateInputAsync(null, publishRequested);
 
         if (!ModelState.IsValid)
         {
@@ -85,7 +89,9 @@ public partial class CreateModel(
             Key = Input.Key.Trim(),
             Description = Input.Description?.Trim() ?? string.Empty,
             FormDefinitionId = Input.FormDefinitionId,
-            IsActive = Input.IsActive
+            IsActive = Input.IsActive,
+            IsPublished = publishRequested,
+            PublishedAt = publishRequested ? DateTimeOffset.UtcNow : null
         };
 
         foreach (var step in UsedSteps())
@@ -127,13 +133,13 @@ public partial class CreateModel(
             "WorkflowDefinition",
             workflow.Id,
             workflow.Key,
-            $"Created workflow {workflow.Name}.",
-            new { StepCount = workflow.Steps.Count, workflow.IsActive });
+            publishRequested ? $"Created and published workflow {workflow.Name}." : $"Saved draft workflow {workflow.Name}.",
+            new { StepCount = workflow.Steps.Count, workflow.IsActive, workflow.IsPublished });
 
         return RedirectToPage("./Index");
     }
 
-    private async Task ValidateInputAsync(Guid? existingWorkflowId)
+    private async Task ValidateInputAsync(Guid? existingWorkflowId, bool requirePublishReady)
     {
         if (!string.IsNullOrWhiteSpace(Input.Key) && !SlugRegex().IsMatch(Input.Key))
         {
@@ -150,9 +156,9 @@ public partial class CreateModel(
         }
 
         var steps = UsedSteps().ToList();
-        if (steps.Count == 0)
+        if (requirePublishReady && steps.Count == 0)
         {
-            ModelState.AddModelError(string.Empty, "Add at least one workflow step.");
+            ModelState.AddModelError(string.Empty, "Add at least one workflow step before publishing.");
         }
 
         foreach (var step in steps)
@@ -184,12 +190,12 @@ public partial class CreateModel(
 
             if (IsNotificationStep(step))
             {
-                ValidateNotificationRecipients(step);
+                ValidateNotificationRecipients(step, requirePublishReady);
             }
             else
             {
                 var outcomes = WorkflowOutcomeParser.FromDesignerText(step.Outcomes, step.ApprovalLabel, step.CompletionSubmissionStatus);
-                if (outcomes.Count == 0)
+                if (requirePublishReady && outcomes.Count == 0)
                 {
                     ModelState.AddModelError(string.Empty, $"Add at least one outcome for step {step.StepNumber}.");
                 }
@@ -216,6 +222,11 @@ public partial class CreateModel(
     private static bool IsNotificationStep(WorkflowStepInput step)
     {
         return NormalizeStepType(step.StepType).Equals(WorkflowStepTypes.Notification, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsPublishRequested()
+    {
+        return WorkflowAction.Equals("publish", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeStepType(string? stepType)
@@ -253,14 +264,18 @@ public partial class CreateModel(
             .ToListAsync();
     }
 
-    private void ValidateNotificationRecipients(WorkflowStepInput step)
+    private void ValidateNotificationRecipients(WorkflowStepInput step, bool requireRecipients)
     {
         var selected = step.NotificationRecipientTokens
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .ToList();
         if (selected.Count == 0)
         {
-            ModelState.AddModelError(string.Empty, $"Select at least one notification recipient for step {step.StepNumber}.");
+            if (requireRecipients)
+            {
+                ModelState.AddModelError(string.Empty, $"Select at least one notification recipient for step {step.StepNumber} before publishing.");
+            }
+
             return;
         }
 

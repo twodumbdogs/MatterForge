@@ -76,23 +76,26 @@ public class DetailsModel(
 
         var normalizedAlias = ConflictSearchService.NormalizeName(AliasInput.Alias);
         var exists = await db.PartyAliases.AnyAsync(x => x.PartyId == id && x.NormalizedAlias == normalizedAlias);
-        if (!exists)
+        if (exists)
         {
-            db.PartyAliases.Add(new PartyAlias
-            {
-                PartyId = id,
-                Alias = AliasInput.Alias.Trim(),
-                NormalizedAlias = normalizedAlias,
-                Notes = AliasInput.Notes?.Trim() ?? string.Empty
-            });
-            await db.SaveChangesAsync();
-            await auditLogService.LogAsync(
-                "Party.AliasAdded",
-                "Party",
-                id,
-                Party.PartyNumber.ToString("D8"),
-                $"Added alias {AliasInput.Alias.Trim()} to {Party.Name}.");
+            ModelState.AddModelError("AliasInput.Alias", "That alias already exists for this party.");
+            return Page();
         }
+
+        db.PartyAliases.Add(new PartyAlias
+        {
+            PartyId = id,
+            Alias = AliasInput.Alias.Trim(),
+            NormalizedAlias = normalizedAlias,
+            Notes = AliasInput.Notes?.Trim() ?? string.Empty
+        });
+        await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "Party.AliasAdded",
+            "Party",
+            id,
+            Party.PartyNumber.ToString("D8"),
+            $"Added alias {AliasInput.Alias.Trim()} to {Party.Name}.");
 
         return RedirectToPage(new { id });
     }
@@ -279,9 +282,30 @@ public class DetailsModel(
             return NotFound();
         }
 
-        var currentUser = await currentUserService.GetCurrentUserAsync();
-        await entityNoteService.AddAsync(EntityNoteService.PartyEntityType, id, NewNote, currentUser?.Id);
+        var impersonation = await currentUserService.GetImpersonationContextAsync();
+        var actualUser = impersonation?.ActualUser ?? await currentUserService.GetActualCurrentUserAsync();
+        await entityNoteService.AddAsync(EntityNoteService.PartyEntityType, id, NewNote, actualUser?.Id, impersonation?.ImpersonatedUser.Id);
         await auditLogService.LogAsync("Party.NoteAdded", "Party", id, null, "Added party discussion note.");
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostDeleteNoteAsync(Guid id, Guid noteId)
+    {
+        var partyExists = await db.Parties.AnyAsync(x => x.Id == id);
+        if (!partyExists)
+        {
+            return NotFound();
+        }
+
+        var actualUser = await currentUserService.GetActualCurrentUserAsync();
+        var canManageNotes = await permissionService.HasAsync(PermissionKeys.EntitiesEdit);
+        var deleted = await entityNoteService.DeleteAsync(EntityNoteService.PartyEntityType, id, noteId, actualUser?.Id, canManageNotes);
+        if (!deleted)
+        {
+            return Forbid();
+        }
+
+        await auditLogService.LogAsync("Party.NoteDeleted", "Party", id, null, "Deleted party discussion note.");
         return RedirectToPage(new { id });
     }
 

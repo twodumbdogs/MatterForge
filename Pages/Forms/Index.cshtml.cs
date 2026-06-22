@@ -1,12 +1,16 @@
 using CMIForge.Data;
 using CMIForge.Models;
 using CMIForge.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
 namespace CMIForge.Pages.Forms;
 
-public class IndexModel(CMIForgeDbContext db, PermissionService permissionService) : PageModel
+public class IndexModel(
+    CMIForgeDbContext db,
+    PermissionService permissionService,
+    AuditLogService auditLogService) : PageModel
 {
     public List<FormDefinition> Forms { get; private set; } = [];
 
@@ -42,6 +46,93 @@ public class IndexModel(CMIForgeDbContext db, PermissionService permissionServic
                 Completed = x.Count(invite => invite.Status == ExternalFormInviteStatuses.Completed)
             })
             .ToDictionaryAsync(x => x.FormDefinitionId, x => new InviteCountSummary(x.Open, x.Completed));
+    }
+
+    public async Task<IActionResult> OnPostCopyAsync(Guid id)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.FormsDesign))
+        {
+            return Forbid();
+        }
+
+        var source = await db.FormDefinitions
+            .Include(x => x.Versions)
+            .FirstOrDefaultAsync(x => x.Id == id && x.IsActive);
+
+        if (source is null)
+        {
+            return NotFound();
+        }
+
+        var sourceVersion = source.Versions
+            .Where(x => x.IsPublished)
+            .OrderByDescending(x => x.VersionNumber)
+            .FirstOrDefault()
+            ?? source.Versions.OrderByDescending(x => x.VersionNumber).FirstOrDefault();
+
+        if (sourceVersion is null)
+        {
+            return RedirectToPage("./Index");
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var copy = new FormDefinition
+        {
+            Name = CopyName(source.Name),
+            Key = await CopyKeyAsync(source.Key),
+            Description = source.Description,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now,
+            Versions =
+            [
+                new FormVersion
+                {
+                    VersionNumber = 1,
+                    SchemaJson = sourceVersion.SchemaJson,
+                    WorkflowDefinitionId = sourceVersion.WorkflowDefinitionId,
+                    IsPublished = true,
+                    CreatedAt = now,
+                    PublishedAt = now
+                }
+            ]
+        };
+
+        db.FormDefinitions.Add(copy);
+        await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "Form.Copied",
+            "FormDefinition",
+            copy.Id,
+            copy.Key,
+            $"Copied form {source.Name} to {copy.Name}.",
+            new { SourceFormDefinitionId = source.Id, SourceVersionNumber = sourceVersion.VersionNumber });
+
+        return RedirectToPage("./Edit", new { id = copy.Id });
+    }
+
+    private static string CopyName(string sourceName)
+    {
+        var name = $"Copy of {sourceName}".Trim();
+        return name.Length <= 160 ? name : name[..160];
+    }
+
+    private async Task<string> CopyKeyAsync(string sourceKey)
+    {
+        var root = string.IsNullOrWhiteSpace(sourceKey) ? "form" : sourceKey.Trim();
+        root = root.Length > 68 ? root[..68].TrimEnd('-') : root;
+        var candidate = $"{root}-copy";
+        var index = 2;
+
+        while (await db.FormDefinitions.AnyAsync(x => x.Key == candidate))
+        {
+            var suffix = $"-copy-{index++}";
+            var maxRootLength = 80 - suffix.Length;
+            var trimmedRoot = root.Length > maxRootLength ? root[..maxRootLength].TrimEnd('-') : root;
+            candidate = $"{trimmedRoot}{suffix}";
+        }
+
+        return candidate;
     }
 }
 

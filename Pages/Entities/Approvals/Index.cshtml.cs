@@ -4,6 +4,7 @@ using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace CMIForge.Pages.Entities.Approvals;
 
@@ -25,6 +26,8 @@ public class IndexModel(
     public List<EntityChangeRequest> PendingRequests { get; private set; } = [];
 
     public List<EntityChangeRequest> RecentReviewedRequests { get; private set; } = [];
+
+    public Dictionary<Guid, List<EntityChangeDiffRow>> ChangeDiffs { get; private set; } = [];
 
     public RecordPage PendingPagination { get; private set; } = RecordPage.Empty;
 
@@ -216,5 +219,174 @@ public class IndexModel(
             .OrderByDescending(x => x.ReviewedAt)
             .Take(20)
             .ToListAsync();
+
+        await BuildChangeDiffsAsync(PendingRequests.Concat(RecentReviewedRequests));
+    }
+
+    private async Task BuildChangeDiffsAsync(IEnumerable<EntityChangeRequest> requests)
+    {
+        var requestList = requests.ToList();
+        var ids = requestList
+            .Where(x => x.EntityType == EntityChangeService.MatterEntityType)
+            .SelectMany(GetMatterReferenceIds)
+            .ToHashSet();
+
+        var clientNames = await db.Clients
+            .Where(x => ids.Contains(x.Id))
+            .Select(x => new { x.Id, x.Name })
+            .ToDictionaryAsync(x => x.Id, x => x.Name);
+        var userNames = await db.Users
+            .Where(x => ids.Contains(x.Id))
+            .Select(x => new { x.Id, x.DisplayName })
+            .ToDictionaryAsync(x => x.Id, x => x.DisplayName);
+        var timeCodeSetNames = await db.TimeCodeSets
+            .Where(x => ids.Contains(x.Id))
+            .Select(x => new { x.Id, x.Name })
+            .ToDictionaryAsync(x => x.Id, x => x.Name);
+
+        ChangeDiffs = requestList.ToDictionary(
+            x => x.Id,
+            x => BuildDiffRows(x, clientNames, userNames, timeCodeSetNames));
+    }
+
+    private static IEnumerable<Guid> GetMatterReferenceIds(EntityChangeRequest request)
+    {
+        foreach (var values in new[] { ReadSnapshot(request.CurrentValuesJson), ReadSnapshot(request.ProposedValuesJson) })
+        {
+            foreach (var field in new[] { "clientId", "responsibleUserId", "leadPartnerId", "timeCodeSetId" })
+            {
+                if (values.TryGetValue(field, out var value) && value.ValueKind == JsonValueKind.String && Guid.TryParse(value.GetString(), out var id))
+                {
+                    yield return id;
+                }
+            }
+        }
+    }
+
+    private static List<EntityChangeDiffRow> BuildDiffRows(
+        EntityChangeRequest request,
+        Dictionary<Guid, string> clientNames,
+        Dictionary<Guid, string> userNames,
+        Dictionary<Guid, string> timeCodeSetNames)
+    {
+        var currentValues = ReadSnapshot(request.CurrentValuesJson);
+        var proposedValues = ReadSnapshot(request.ProposedValuesJson);
+        return currentValues.Keys
+            .Union(proposedValues.Keys, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(FieldSort)
+            .Select(field =>
+            {
+                currentValues.TryGetValue(field, out var currentValue);
+                proposedValues.TryGetValue(field, out var proposedValue);
+                return new EntityChangeDiffRow(
+                    LabelForField(field),
+                    FormatSnapshotValue(field, currentValue, clientNames, userNames, timeCodeSetNames),
+                    FormatSnapshotValue(field, proposedValue, clientNames, userNames, timeCodeSetNames));
+            })
+            .Where(x => !string.Equals(x.CurrentValue, x.ProposedValue, StringComparison.Ordinal))
+            .ToList();
+    }
+
+    private static Dictionary<string, JsonElement> ReadSnapshot(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, FormJson.Options) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private static string FormatSnapshotValue(
+        string field,
+        JsonElement value,
+        Dictionary<Guid, string> clientNames,
+        Dictionary<Guid, string> userNames,
+        Dictionary<Guid, string> timeCodeSetNames)
+    {
+        if (value.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+        {
+            return "(blank)";
+        }
+
+        if (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False)
+        {
+            return value.GetBoolean() ? "Yes" : "No";
+        }
+
+        var text = value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : value.ToString();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return "(blank)";
+        }
+
+        if (Guid.TryParse(text, out var id))
+        {
+            return field switch
+            {
+                "clientId" when clientNames.TryGetValue(id, out var name) => name,
+                "responsibleUserId" or "leadPartnerId" when userNames.TryGetValue(id, out var name) => name,
+                "timeCodeSetId" when timeCodeSetNames.TryGetValue(id, out var name) => name,
+                _ => text
+            };
+        }
+
+        return text;
+    }
+
+    private static int FieldSort(string field)
+    {
+        return field switch
+        {
+            "name" or "firstName" or "lastName" => 0,
+            "clientId" => 1,
+            "status" => 2,
+            _ => 10
+        };
+    }
+
+    private static string LabelForField(string field)
+    {
+        var labels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["clientId"] = "Client",
+            ["responsibleUserId"] = "Responsible user",
+            ["leadPartnerId"] = "Lead partner",
+            ["requiresTimeApproval"] = "Requires time approval",
+            ["timeIncrementMinutes"] = "Time increment",
+            ["timeCodeSetId"] = "Time code set",
+            ["addressLine1"] = "Address line 1",
+            ["addressLine2"] = "Address line 2",
+            ["postalCode"] = "Postal code",
+            ["mobilePhone"] = "Mobile phone",
+            ["primaryContact"] = "Primary contact",
+            ["practiceArea"] = "Practice area",
+            ["openedDate"] = "Opened date"
+        };
+
+        if (labels.TryGetValue(field, out var label))
+        {
+            return label;
+        }
+
+        var title = field.Length == 0 ? field : char.ToUpperInvariant(field[0]) + field[1..];
+        var words = new List<char>();
+        foreach (var character in title)
+        {
+            if (char.IsUpper(character) && words.Count > 0)
+            {
+                words.Add(' ');
+            }
+
+            words.Add(character);
+        }
+
+        return new string(words.ToArray());
     }
 }
+
+public sealed record EntityChangeDiffRow(string Field, string CurrentValue, string ProposedValue);

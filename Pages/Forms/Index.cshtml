@@ -61,6 +61,9 @@
                             </td>
                             <td class="text-end">
                                 <a class="btn btn-sm btn-outline-secondary" asp-page="./Edit" asp-route-id="@form.Id">Edit</a>
+                                <form method="post" asp-page-handler="Copy" asp-route-id="@form.Id" class="d-inline">
+                                    <button class="btn btn-sm btn-outline-secondary" type="submit">Copy</button>
+                                </form>
                                 @if (Model.CanSubmitForms)
                                 {
                                     <a class="btn btn-sm btn-outline-primary" asp-page="./Submit" asp-route-id="@form.Id">Fill</a>

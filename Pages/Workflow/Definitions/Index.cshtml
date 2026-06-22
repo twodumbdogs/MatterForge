@@ -31,6 +31,7 @@
                         <th>Default form scope</th>
                         <th>Steps</th>
                         <th>Status</th>
+                        <th>Publish state</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -48,8 +49,18 @@
                             <td>
                                 <span class="badge @(workflow.IsActive ? "text-bg-success" : "text-bg-secondary")">@(workflow.IsActive ? "Active" : "Inactive")</span>
                             </td>
+                            <td>
+                                <span class="badge @(workflow.IsPublished ? "text-bg-success" : "text-bg-warning")">@(workflow.IsPublished ? "Published / live" : "Saved draft")</span>
+                                @if (workflow.PublishedAt.HasValue)
+                                {
+                                    <small class="d-block text-muted">@UserDates.Format(workflow.PublishedAt.Value, "g")</small>
+                                }
+                            </td>
                             <td class="text-end">
                                 <a class="btn btn-sm btn-outline-primary" asp-page="./Edit" asp-route-id="@workflow.Id">Edit</a>
+                                <form method="post" asp-page-handler="Copy" asp-route-id="@workflow.Id" class="d-inline">
+                                    <button class="btn btn-sm btn-outline-secondary" type="submit">Copy</button>
+                                </form>
                             </td>
                         </tr>
                     }

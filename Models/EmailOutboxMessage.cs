@@ -36,6 +36,10 @@ public class EmailOutboxMessage
 
     public WorkflowStep? WorkflowStep { get; set; }
 
+    public Guid? ExternalFormInviteId { get; set; }
+
+    public ExternalFormInvite? ExternalFormInvite { get; set; }
+
     public int AttemptCount { get; set; }
 
     public DateTimeOffset? NextAttemptAt { get; set; }

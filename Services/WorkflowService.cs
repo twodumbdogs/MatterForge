@@ -235,12 +235,12 @@ public class WorkflowService(CMIForgeDbContext db, WorkflowNotificationService? 
         {
             return await db.WorkflowDefinitions
                 .Include(x => x.Steps)
-                .FirstOrDefaultAsync(x => x.Id == versionWorkflowId.Value && x.IsActive);
+                .FirstOrDefaultAsync(x => x.Id == versionWorkflowId.Value && x.IsActive && x.IsPublished);
         }
 
         return await db.WorkflowDefinitions
             .Include(x => x.Steps)
-            .Where(x => x.IsActive && (x.FormDefinitionId == formDefinitionId || x.FormDefinitionId == null))
+            .Where(x => x.IsActive && x.IsPublished && (x.FormDefinitionId == formDefinitionId || x.FormDefinitionId == null))
             .OrderByDescending(x => x.FormDefinitionId == formDefinitionId)
             .ThenBy(x => x.CreatedAt)
             .FirstOrDefaultAsync();

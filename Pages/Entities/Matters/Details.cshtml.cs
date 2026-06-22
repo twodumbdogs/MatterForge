@@ -12,7 +12,8 @@ public class DetailsModel(
     PermissionService permissionService,
     CurrentUserService currentUserService,
     EntityNoteService entityNoteService,
-    AuditLogService auditLogService) : PageModel
+    AuditLogService auditLogService,
+    ExternalFormInviteTrackingService inviteTrackingService) : PageModel
 {
     public Matter? Matter { get; private set; }
 
@@ -21,6 +22,8 @@ public class DetailsModel(
     public List<AuditLog> AuditHistory { get; private set; } = [];
 
     public List<EntityChangeRequest> PendingChanges { get; private set; } = [];
+
+    public List<ExternalFormInviteTrackingRow> RecentInviteSends { get; private set; } = [];
 
     public bool CanEditEntities { get; private set; }
 
@@ -50,9 +53,30 @@ public class DetailsModel(
             return NotFound();
         }
 
-        var currentUser = await currentUserService.GetCurrentUserAsync();
-        await entityNoteService.AddAsync(EntityNoteService.MatterEntityType, id, NewNote, currentUser?.Id);
+        var impersonation = await currentUserService.GetImpersonationContextAsync();
+        var actualUser = impersonation?.ActualUser ?? await currentUserService.GetActualCurrentUserAsync();
+        await entityNoteService.AddAsync(EntityNoteService.MatterEntityType, id, NewNote, actualUser?.Id, impersonation?.ImpersonatedUser.Id);
         await auditLogService.LogAsync("Matter.NoteAdded", "Matter", id, null, "Added matter discussion note.");
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostDeleteNoteAsync(Guid id, Guid noteId)
+    {
+        var matterExists = await db.Matters.AnyAsync(x => x.Id == id);
+        if (!matterExists)
+        {
+            return NotFound();
+        }
+
+        var actualUser = await currentUserService.GetActualCurrentUserAsync();
+        var canManageNotes = await permissionService.HasAsync(PermissionKeys.EntitiesEdit);
+        var deleted = await entityNoteService.DeleteAsync(EntityNoteService.MatterEntityType, id, noteId, actualUser?.Id, canManageNotes);
+        if (!deleted)
+        {
+            return Forbid();
+        }
+
+        await auditLogService.LogAsync("Matter.NoteDeleted", "Matter", id, null, "Deleted matter discussion note.");
         return RedirectToPage(new { id });
     }
 
@@ -134,5 +158,9 @@ public class DetailsModel(
         AuditHistory = Matter is null
             ? []
             : await auditLogService.ListForEntityAsync("Matter", id);
+
+        RecentInviteSends = Matter is null
+            ? []
+            : await inviteTrackingService.ListForMatterAsync(id);
     }
 }

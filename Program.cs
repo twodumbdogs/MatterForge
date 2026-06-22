@@ -49,6 +49,8 @@ builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<WorkflowNotificationService>();
 builder.Services.AddScoped<WorkflowService>();
 builder.Services.AddScoped<EmailOutboxDispatcher>();
+builder.Services.AddScoped<ExternalFormInviteEmailService>();
+builder.Services.AddScoped<ExternalFormInviteTrackingService>();
 builder.Services.AddScoped<IEmailSender, GraphEmailSender>();
 builder.Services.AddHostedService<EmailOutboxHostedService>();
 builder.Services.AddScoped<InboundEmailIntakeService>();
