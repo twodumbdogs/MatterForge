@@ -337,7 +337,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             priorSearchCount);
     }
 
-    public async Task ApplyReviewDecisionAsync(Guid searchId, string decision, string notes, Guid? reviewedByUserId)
+    public async Task ApplyReviewDecisionAsync(Guid searchId, string decision, string notes, Guid? reviewedByUserId, Guid? reviewedAsUserId = null)
     {
         var search = await db.ConflictSearches
             .Include(x => x.Results)
@@ -360,16 +360,18 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             {
                 result.ClearanceStatus = ConflictSearchDecisions.Clear;
                 result.ClearedByUserId = reviewedByUserId;
+                result.ClearedAsUserId = reviewedAsUserId;
                 result.ClearedAt = DateTimeOffset.UtcNow;
             }
 
+            await db.SaveChangesAsync();
             await archiveService.ArchiveIfClearedAsync(search.Id);
         }
 
         await db.SaveChangesAsync();
     }
 
-    public async Task ApplyResultClearanceAsync(Guid resultId, string status, string notes, Guid? reviewedByUserId)
+    public async Task ApplyResultClearanceAsync(Guid resultId, string status, string notes, Guid? reviewedByUserId, Guid? reviewedAsUserId = null)
     {
         var result = await db.ConflictSearchResults.FirstOrDefaultAsync(x => x.Id == resultId);
         if (result is null)
@@ -381,6 +383,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         result.ClearanceStatus = clearanceStatus;
         result.ClearanceNotes = notes?.Trim() ?? string.Empty;
         result.ClearedByUserId = reviewedByUserId;
+        result.ClearedAsUserId = reviewedAsUserId;
         result.ClearedAt = clearanceStatus == ConflictSearchDecisions.Pending && string.IsNullOrWhiteSpace(result.ClearanceNotes)
             ? null
             : DateTimeOffset.UtcNow;
@@ -389,7 +392,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         await db.SaveChangesAsync();
     }
 
-    public async Task ApplyResultClearanceAsync(IEnumerable<Guid> resultIds, string status, string notes, Guid? reviewedByUserId)
+    public async Task ApplyResultClearanceAsync(IEnumerable<Guid> resultIds, string status, string notes, Guid? reviewedByUserId, Guid? reviewedAsUserId = null)
     {
         var ids = resultIds.Distinct().ToList();
         if (ids.Count == 0)
@@ -411,6 +414,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             result.ClearanceStatus = clearanceStatus;
             result.ClearanceNotes = notes?.Trim() ?? string.Empty;
             result.ClearedByUserId = reviewedByUserId;
+            result.ClearedAsUserId = reviewedAsUserId;
             result.ClearedAt = clearanceStatus == ConflictSearchDecisions.Pending && string.IsNullOrWhiteSpace(result.ClearanceNotes)
                 ? null
                 : DateTimeOffset.UtcNow;
@@ -424,7 +428,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         await db.SaveChangesAsync();
     }
 
-    public async Task<List<ConflictSearchResult>> EscalateResultsAsync(IEnumerable<Guid> resultIds, Guid escalatedToUserId, string notes, Guid? escalatedByUserId)
+    public async Task<List<ConflictSearchResult>> EscalateResultsAsync(IEnumerable<Guid> resultIds, Guid escalatedToUserId, string notes, Guid? escalatedByUserId, Guid? escalatedAsUserId = null)
     {
         var ids = resultIds.Distinct().ToList();
         if (ids.Count == 0)
@@ -448,10 +452,12 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         {
             result.EscalatedToUserId = escalatedToUserId;
             result.EscalatedByUserId = escalatedByUserId;
+            result.EscalatedAsUserId = escalatedAsUserId;
             result.EscalatedAt = now;
             result.EscalationNotes = trimmedNotes;
             result.EscalationApprovedAt = null;
             result.EscalationApprovedByUserId = null;
+            result.EscalationApprovedAsUserId = null;
             result.EscalationApprovalNotes = string.Empty;
         }
 
@@ -468,18 +474,20 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         return results;
     }
 
-    public async Task<ConflictSearchResult?> ApproveEscalationAsync(Guid resultId, string notes, Guid approvedByUserId)
+    public async Task<ConflictSearchResult?> ApproveEscalationAsync(Guid resultId, string notes, Guid approvedByUserId, Guid? approvedAsUserId = null)
     {
+        var authorizedReviewerId = approvedAsUserId ?? approvedByUserId;
         var result = await db.ConflictSearchResults
             .Include(x => x.ConflictSearch)
             .Include(x => x.EscalatedToUser)
             .FirstOrDefaultAsync(x => x.Id == resultId);
-        if (result is null || result.EscalatedToUserId != approvedByUserId)
+        if (result is null || result.EscalatedToUserId != authorizedReviewerId)
         {
             return null;
         }
 
         result.EscalationApprovedByUserId = approvedByUserId;
+        result.EscalationApprovedAsUserId = approvedAsUserId;
         result.EscalationApprovedAt = DateTimeOffset.UtcNow;
         result.EscalationApprovalNotes = notes?.Trim() ?? string.Empty;
         if (result.ConflictSearch is not null)
@@ -552,6 +560,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
 
         if (aggregateDecision == ConflictSearchDecisions.Clear)
         {
+            await db.SaveChangesAsync();
             await archiveService.ArchiveIfClearedAsync(search.Id);
         }
     }

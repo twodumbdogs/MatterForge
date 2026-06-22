@@ -4,6 +4,7 @@ using CMIForge.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CMIForge.Migrations
 {
     [DbContext(typeof(CMIForgeDbContext))]
-    partial class CMIForgeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260622142409_AddUserFontScalePreference")]
+    partial class AddUserFontScalePreference
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -629,14 +632,6 @@ namespace CMIForge.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
 
-                    b.Property<string>("ClearedAsDisplayName")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
-
-                    b.Property<Guid?>("ClearedAsUserId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<DateTimeOffset?>("ClearedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -741,8 +736,6 @@ namespace CMIForge.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClearedAsUserId");
-
                     b.HasIndex("ClearedByUserId");
 
                     b.HasIndex("ClientId", "SearchNumber");
@@ -783,9 +776,6 @@ namespace CMIForge.Migrations
                         .HasColumnType("nvarchar(80)")
                         .HasDefaultValue("Pending");
 
-                    b.Property<Guid?>("ClearedAsUserId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<DateTimeOffset?>("ClearedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -801,9 +791,6 @@ namespace CMIForge.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<Guid?>("EscalatedAsUserId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<DateTimeOffset?>("EscalatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -817,9 +804,6 @@ namespace CMIForge.Migrations
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
-
-                    b.Property<Guid?>("EscalationApprovedAsUserId")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTimeOffset?>("EscalationApprovedAt")
                         .HasColumnType("datetimeoffset");
@@ -878,15 +862,9 @@ namespace CMIForge.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClearedAsUserId");
-
                     b.HasIndex("ClientId");
 
-                    b.HasIndex("EscalatedAsUserId");
-
                     b.HasIndex("EscalatedByUserId");
-
-                    b.HasIndex("EscalationApprovedAsUserId");
 
                     b.HasIndex("MatterId");
 
@@ -3375,11 +3353,6 @@ namespace CMIForge.Migrations
 
             modelBuilder.Entity("CMIForge.Models.ConflictSearchHitArchive", b =>
                 {
-                    b.HasOne("CMIForge.Models.CMIForgeUser", "ClearedAsUser")
-                        .WithMany()
-                        .HasForeignKey("ClearedAsUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("CMIForge.Models.CMIForgeUser", "ClearedByUser")
                         .WithMany()
                         .HasForeignKey("ClearedByUserId")
@@ -3406,8 +3379,6 @@ namespace CMIForge.Migrations
                         .HasForeignKey("PartyId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.Navigation("ClearedAsUser");
-
                     b.Navigation("ClearedByUser");
 
                     b.Navigation("Client");
@@ -3421,11 +3392,6 @@ namespace CMIForge.Migrations
 
             modelBuilder.Entity("CMIForge.Models.ConflictSearchResult", b =>
                 {
-                    b.HasOne("CMIForge.Models.CMIForgeUser", "ClearedAsUser")
-                        .WithMany()
-                        .HasForeignKey("ClearedAsUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("CMIForge.Models.CMIForgeUser", "ClearedByUser")
                         .WithMany()
                         .HasForeignKey("ClearedByUserId")
@@ -3442,11 +3408,6 @@ namespace CMIForge.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("CMIForge.Models.CMIForgeUser", "EscalatedAsUser")
-                        .WithMany()
-                        .HasForeignKey("EscalatedAsUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("CMIForge.Models.CMIForgeUser", "EscalatedByUser")
                         .WithMany()
                         .HasForeignKey("EscalatedByUserId")
@@ -3455,11 +3416,6 @@ namespace CMIForge.Migrations
                     b.HasOne("CMIForge.Models.CMIForgeUser", "EscalatedToUser")
                         .WithMany()
                         .HasForeignKey("EscalatedToUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("CMIForge.Models.CMIForgeUser", "EscalationApprovedAsUser")
-                        .WithMany()
-                        .HasForeignKey("EscalationApprovedAsUserId")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("CMIForge.Models.CMIForgeUser", "EscalationApprovedByUser")
@@ -3477,21 +3433,15 @@ namespace CMIForge.Migrations
                         .HasForeignKey("PartyId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.Navigation("ClearedAsUser");
-
                     b.Navigation("ClearedByUser");
 
                     b.Navigation("Client");
 
                     b.Navigation("ConflictSearch");
 
-                    b.Navigation("EscalatedAsUser");
-
                     b.Navigation("EscalatedByUser");
 
                     b.Navigation("EscalatedToUser");
-
-                    b.Navigation("EscalationApprovedAsUser");
 
                     b.Navigation("EscalationApprovedByUser");
 

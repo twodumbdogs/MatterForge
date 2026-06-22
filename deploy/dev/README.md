@@ -177,7 +177,7 @@ The most recent public-site deploy was verified at:
 - `https://cmiforge.com`
 - `https://happy-smoke-052d7f610.7.azurestaticapps.net`
 
-The live site currently includes the pain-focused intake messaging, Community/Professional/Enterprise pricing, `support@cmiforge.com`, and prominent links for request access, customer login, and the live demo.
+The live site currently includes the pain-focused intake messaging, Community/Professional/Enterprise pricing including the `$599/month` Enterprise SQL-access tier, `support@cmiforge.com`, and prominent links for request access, customer login, and the live demo.
 
 ## Current App Domains
 
@@ -191,7 +191,7 @@ Both `demo.cmiforge.com` and `app.cmiforge.com` are bound in Azure App Service w
 
 ## Current App Feature Smoke
 
-The current app build includes dashboard charts, role-oriented dashboard views, workflow notification step fields, workflow copy/draft and step move controls, form copy/versioning controls, secure external form invites with recent-send tracking, inbound email intake settings/logging, client photo OCR import drafting, floating live conflict previews, conflict-search progress feedback, configurable conflict preview settings, conflict filters directly above the results table, bulk conflict escalation, compact/collapsible row actions, searchable/sortable/compact lists, compact attributed entity notes, archive/unarchive behavior, enhancement requests, address autocomplete, time approval actions, demo reset catch-up, and signup legal-agreement acceptance. After manual deploys, smoke these in the demo app before relying on the public demo for walkthroughs.
+The current app build includes dashboard charts, role-oriented dashboard views, user profile font-size preferences, workflow notification step fields, workflow copy/draft and step move controls, form copy/versioning controls, secure external form invites with recent-send tracking, inbound email intake settings/logging, client photo OCR import drafting, floating live conflict previews, conflict-search progress feedback, configurable conflict preview settings, conflict filters directly above the results table, bulk conflict escalation, compact/collapsible row actions, searchable/sortable/compact lists, compact attributed entity notes, archive/unarchive behavior, enhancement requests, address autocomplete, time approval actions, demo reset catch-up, and signup legal-agreement acceptance. After manual deploys, smoke these in the demo app before relying on the public demo for walkthroughs.
 
 Recent UI-only polish, including compact submission rows and brand/logo exports, can deploy with `-SkipDatabaseUpdate` after a successful build because no EF schema change is involved.
 

@@ -81,30 +81,6 @@ else
                 </dl>
             </div>
 
-            <div class="mf-panel mt-3">
-                <h2>Add Alias</h2>
-                @if (Model.CanEditEntities)
-                {
-                    <form method="post" asp-page-handler="Alias" asp-route-id="@Model.Client.Id" class="row g-2 mt-2">
-                        <div class="col-12">
-                            <input asp-for="AliasInput.Alias" class="form-control" placeholder="DBA, prior name, or alternate spelling" />
-                            <span asp-validation-for="AliasInput.Alias" class="text-danger"></span>
-                        </div>
-                        <div class="col-12">
-                            <input asp-for="AliasInput.Notes" class="form-control" placeholder="Notes" />
-                            <span asp-validation-for="AliasInput.Notes" class="text-danger"></span>
-                        </div>
-                        <div class="col-12">
-                            <button class="btn btn-sm btn-primary" type="submit">Add alias</button>
-                        </div>
-                    </form>
-                }
-                else
-                {
-                    <p class="text-muted mt-2 mb-0">Alias maintenance requires entity edit access.</p>
-                }
-            </div>
-
             <div class="mt-3">
                 <partial name="/Pages/Shared/_RecentInviteSends.cshtml" model="Model.RecentInviteSends" />
             </div>
@@ -112,6 +88,26 @@ else
         <div class="col-lg-7">
             <div class="mf-panel mb-3">
                 <h2>Aliases</h2>
+                @if (Model.CanEditEntities)
+                {
+                    <form method="post" asp-page-handler="Alias" asp-route-id="@Model.Client.Id" class="row g-2 mt-2 mb-3">
+                        <div class="col-md-5">
+                            <input asp-for="AliasInput.Alias" class="form-control" placeholder="DBA, prior name, or alternate spelling" />
+                            <span asp-validation-for="AliasInput.Alias" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-5">
+                            <input asp-for="AliasInput.Notes" class="form-control" placeholder="Notes" />
+                            <span asp-validation-for="AliasInput.Notes" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100" type="submit">Add</button>
+                        </div>
+                    </form>
+                }
+                else
+                {
+                    <p class="text-muted mt-2 mb-0">Alias maintenance requires entity edit access.</p>
+                }
                 @if (Model.Client.Aliases.Count == 0)
                 {
                     <p class="text-muted mt-3 mb-0">No aliases yet.</p>

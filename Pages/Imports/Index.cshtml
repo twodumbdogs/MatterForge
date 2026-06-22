@@ -1,14 +1,14 @@
 @page
 @model CMIForge.Pages.Imports.IndexModel
 @{
-    ViewData["Title"] = "Import Center";
+    ViewData["Title"] = "Imports/Exports";
 }
 
 <div class="mf-page-heading">
     <div>
-        <p class="mf-eyebrow">Import Center</p>
-        <h1>Import Data</h1>
-        <p class="text-muted">Bring in clients, matters, and matter parties from CSV files with stable number-based upserts.</p>
+        <p class="mf-eyebrow">Imports/Exports</p>
+        <h1>Move Your Data</h1>
+        <p class="text-muted">Bring data in from CSV files and download customer-owned data in fixed @CMIForge.Pages.Imports.IndexModel.ExportBatchSize.ToString("N0") row batches.</p>
     </div>
 </div>
 
@@ -31,6 +31,46 @@
         @Model.OcrImportMessage
     </section>
 }
+
+<section class="mf-panel mb-4" data-export-root>
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+        <div>
+            <h2>Export Data</h2>
+            <p class="text-muted mt-2 mb-0">Download operational records as CSV. Each file is capped at @CMIForge.Pages.Imports.IndexModel.ExportBatchSize.ToString("N0") rows so larger firms can pull data in predictable batches.</p>
+        </div>
+        <span class="badge text-bg-secondary align-self-start">Batch size @CMIForge.Pages.Imports.IndexModel.ExportBatchSize.ToString("N0")</span>
+    </div>
+    <div class="progress mt-3" role="progressbar" aria-label="Export progress" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" data-export-progress style="width: 0%"></div>
+    </div>
+    <div class="row g-3 mt-1">
+        @foreach (var export in Model.ExportBatches)
+        {
+            <div class="col-xl-4 col-md-6">
+                <form method="get" class="border rounded p-3 h-100" data-export-form data-export-batch-count="@export.BatchCount">
+                    <input type="hidden" name="handler" value="Export" />
+                    <input type="hidden" name="dataSet" value="@export.Key" />
+                    <div class="d-flex justify-content-between gap-3">
+                        <div>
+                            <h3 class="h6 mb-1">@export.Name</h3>
+                            <p class="text-muted small mb-0">@export.RowCount.ToString("N0") rows · @export.BatchCount.ToString("N0") batch@(export.BatchCount == 1 ? string.Empty : "es")</p>
+                        </div>
+                    </div>
+                    <label class="form-label small mt-3" for="export-@export.Key">Batch</label>
+                    <select id="export-@export.Key" name="batch" class="form-select form-select-sm" data-export-batch>
+                        @for (var batch = 1; batch <= export.BatchCount; batch++)
+                        {
+                            var start = ((batch - 1) * CMIForge.Pages.Imports.IndexModel.ExportBatchSize) + 1;
+                            var end = Math.Min(batch * CMIForge.Pages.Imports.IndexModel.ExportBatchSize, Math.Max(export.RowCount, 1));
+                            <option value="@batch">Batch @batch (@start.ToString("N0")-@end.ToString("N0"))</option>
+                        }
+                    </select>
+                    <button class="btn btn-outline-primary btn-sm w-100 mt-3" type="submit" @(export.RowCount == 0 ? "disabled" : null)>Download CSV</button>
+                </form>
+            </div>
+        }
+    </div>
+</section>
 
 <section class="row g-4">
     <div class="col-lg-4">
@@ -314,6 +354,32 @@
 @section Scripts {
     <script src="/lib/tesseract/tesseract.min.js"></script>
     <script>
+        (() => {
+            const root = document.querySelector('[data-export-root]');
+            if (!root) {
+                return;
+            }
+
+            const progress = root.querySelector('[data-export-progress]');
+            const setProgress = (percent) => {
+                progress.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+            };
+
+            root.querySelectorAll('[data-export-form]').forEach((form) => {
+                const batchSelect = form.querySelector('[data-export-batch]');
+                const batchCount = Number(form.dataset.exportBatchCount || '1');
+                const updateProgress = () => {
+                    const batch = Number(batchSelect.value || '1');
+                    setProgress(batchCount <= 1 ? 100 : (batch / batchCount) * 100);
+                };
+
+                batchSelect.addEventListener('change', updateProgress);
+                form.addEventListener('submit', () => {
+                    setProgress(100);
+                });
+            });
+        })();
+
         document.querySelectorAll('.mf-upload-drop').forEach((dropZone) => {
             const input = dropZone.querySelector('input[type="file"]');
             const label = dropZone.querySelector('small');

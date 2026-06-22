@@ -34,6 +34,8 @@ public class CMIForgeUser
 
     public DateTimeOffset? LastLoginAt { get; set; }
 
+    public int FontScalePercent { get; set; } = 100;
+
     public List<Matter> ResponsibleMatters { get; set; } = [];
 
     public List<Matter> LeadPartnerMatters { get; set; } = [];

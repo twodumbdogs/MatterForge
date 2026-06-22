@@ -57,8 +57,7 @@ public class DetailsModel(
             return NotFound();
         }
 
-        ModelState.ClearValidationState(nameof(AliasEditInput));
-        if (!TryValidateModel(AliasInput, nameof(AliasInput)))
+        if (!ValidateAliasInput(AliasInput, nameof(AliasInput)))
         {
             return Page();
         }
@@ -102,8 +101,7 @@ public class DetailsModel(
             return NotFound();
         }
 
-        ModelState.ClearValidationState(nameof(AliasInput));
-        if (!TryValidateModel(AliasEditInput, nameof(AliasEditInput)))
+        if (!ValidateAliasInput(AliasEditInput, nameof(AliasEditInput)))
         {
             return Page();
         }
@@ -281,6 +279,29 @@ public class DetailsModel(
         RecentInviteSends = Client is null
             ? []
             : await inviteTrackingService.ListForClientAsync(id);
+    }
+
+    private bool ValidateAliasInput(ClientAliasInput input, string modelPrefix)
+    {
+        var isValid = true;
+        if (string.IsNullOrWhiteSpace(input.Alias))
+        {
+            ModelState.AddModelError($"{modelPrefix}.Alias", "Enter an alias.");
+            isValid = false;
+        }
+        else if (input.Alias.Trim().Length > 240)
+        {
+            ModelState.AddModelError($"{modelPrefix}.Alias", "Alias must be 240 characters or fewer.");
+            isValid = false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.Notes) && input.Notes.Length > 1000)
+        {
+            ModelState.AddModelError($"{modelPrefix}.Notes", "Notes must be 1000 characters or fewer.");
+            isValid = false;
+        }
+
+        return isValid;
     }
 }
 

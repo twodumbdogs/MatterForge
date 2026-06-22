@@ -23,7 +23,7 @@
             <a class="nav-link" href="#workflows">Workflows</a>
             <a class="nav-link" href="#entities">Entities</a>
             <a class="nav-link" href="#conflicts">Conflicts</a>
-            <a class="nav-link" href="#imports">Imports</a>
+            <a class="nav-link" href="#imports">Imports/Exports</a>
             <a class="nav-link" href="#time">Time</a>
             <a class="nav-link" href="#reports">Reports</a>
             <a class="nav-link" href="#security">Security</a>
@@ -211,11 +211,12 @@
         </section>
 
         <section id="imports" class="mf-panel">
-            <h2>Imports</h2>
-            <p>The Import Center loads CSV files for clients, matters, and parties. Each import card includes a downloadable template, validation mode, and import mode.</p>
+            <h2>Imports/Exports</h2>
+            <p>The Imports/Exports center loads CSV files for clients, matters, and parties, and downloads operational data in fixed CSV batches.</p>
             <ul>
                 <li><strong>Validate CSV</strong> checks the file and stores row-level messages without creating or updating records.</li>
                 <li><strong>Import CSV</strong> runs the same checks and writes the accepted rows.</li>
+                <li><strong>Download CSV</strong> exports customer-owned data in 1,000-row batches.</li>
                 <li>Each import type includes a downloadable CSV template.</li>
                 <li>Clients upsert by <code>ClientNumber</code>.</li>
                 <li>Matters upsert by <code>MatterNumber</code> and require an existing <code>ClientNumber</code>.</li>
@@ -281,9 +282,11 @@
 
         <section id="settings" class="mf-panel">
             <h2>Settings & Terms</h2>
-            <p>System settings hold operational configuration such as support contact details, default timezone fallback, and email notification settings.</p>
+            <p>System settings hold operational configuration such as support contact details, default timezone fallback, email notification settings, and CMIForge-controlled data access details.</p>
             <ul>
-                <li>Settings are grouped by category, starting with General and Email.</li>
+                <li>Settings are grouped by category, including email, inbound email, address lookup, conflicts, and data access.</li>
+                <li>Data access settings show the fixed 1,000-row CSV export batch size.</li>
+                <li>Enterprise SQL access settings are read-only and provisioned by CMIForge.</li>
                 <li>SMTP password configuration is represented as a secret reference so the actual secret can live outside the settings table.</li>
                 <li>Settings updates are audit logged.</li>
                 <li>Settings are hidden from the System menu and read-only in demo mode.</li>
@@ -315,7 +318,7 @@
             <ul>
                 <li><strong>Community</strong>: free, 3 users, 50 matters, 50 clients, all features, and community support.</li>
                 <li><strong>Professional</strong>: $149/month, includes 10 users, 500 matters, 500 clients, all features, and email support.</li>
-                <li><strong>Enterprise</strong>: coming soon.</li>
+                <li><strong>Enterprise</strong>: $599/month for 1,000 users, unlimited clients and matters, and customer SQL data access.</li>
             </ul>
             <p class="mb-0">The development and live demo build is currently hardcoded to Professional so development work and evaluation are not blocked by feature gates.</p>
         </section>

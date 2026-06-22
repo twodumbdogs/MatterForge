@@ -11,10 +11,13 @@ namespace CMIForge.Pages.Imports;
 public class IndexModel(
     CMIForgeDbContext db,
     CsvImportService csvImportService,
+    CsvExportService csvExportService,
     CurrentUserService currentUserService,
     ProductPlanService productPlanService,
     PermissionService permissionService) : PageModel
 {
+    public const int ExportBatchSize = 1000;
+
     [BindProperty]
     public IFormFile? ClientFile { get; set; }
 
@@ -28,6 +31,8 @@ public class IndexModel(
     public OcrClientInput OcrInput { get; set; } = new();
 
     public List<ImportBatch> RecentBatches { get; private set; } = [];
+
+    public List<ExportBatchSummary> ExportBatches { get; private set; } = [];
 
     public ImportBatch? LatestBatch { get; private set; }
 
@@ -79,6 +84,29 @@ public class IndexModel(
             Stark & Stone Holdings LLC,Adverse Party,00000001
             Stark Stone LLP,Opposing Counsel,00000001
             """);
+    }
+
+    public async Task<IActionResult> OnGetExportAsync(string dataSet, int batch = 1)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.ImportsView))
+        {
+            return Forbid();
+        }
+
+        if (!ExportDataSets.All.Any(x => string.Equals(x.Key, dataSet, StringComparison.OrdinalIgnoreCase)))
+        {
+            return BadRequest("Unsupported export data set.");
+        }
+
+        var rowCount = await csvExportService.CountAsync(dataSet);
+        var batchCount = Math.Max(1, (int)Math.Ceiling(rowCount / (decimal)ExportBatchSize));
+        if (batch < 1 || batch > batchCount)
+        {
+            return BadRequest("Export batch is outside the available range.");
+        }
+
+        var export = await csvExportService.ExportAsync(dataSet, batch, ExportBatchSize);
+        return File(export.Content, "text/csv", export.FileName);
     }
 
     public async Task<IActionResult> OnPostValidateClientsAsync()
@@ -218,6 +246,7 @@ public class IndexModel(
     private async Task LoadAsync()
     {
         CanRunImports = await permissionService.HasAsync(PermissionKeys.ImportsRun);
+        ExportBatches = await LoadExportBatchesAsync();
 
         RecentBatches = await db.ImportBatches
             .Include(x => x.ImportedByUser)
@@ -234,6 +263,22 @@ public class IndexModel(
                 .Include(x => x.Rows)
                     .FirstOrDefaultAsync(x => x.Id == LatestBatchId.Value);
         }
+    }
+
+    private async Task<List<ExportBatchSummary>> LoadExportBatchesAsync()
+    {
+        var summaries = new List<ExportBatchSummary>();
+        foreach (var dataSet in ExportDataSets.All)
+        {
+            var rowCount = await csvExportService.CountAsync(dataSet.Key);
+            summaries.Add(new ExportBatchSummary(
+                dataSet.Key,
+                dataSet.Name,
+                rowCount,
+                Math.Max(1, (int)Math.Ceiling(rowCount / (decimal)ExportBatchSize))));
+        }
+
+        return summaries;
     }
 
     private void ApplyServerSideOcrFallback()
@@ -272,6 +317,12 @@ public class IndexModel(
         return string.IsNullOrWhiteSpace(currentValue) ? suggestedValue : currentValue.Trim();
     }
 }
+
+public sealed record ExportBatchSummary(
+    string Key,
+    string Name,
+    int RowCount,
+    int BatchCount);
 
 public class OcrClientInput
 {

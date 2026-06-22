@@ -46,6 +46,10 @@ public class ConflictSearchResult
 
     public CMIForgeUser? ClearedByUser { get; set; }
 
+    public Guid? ClearedAsUserId { get; set; }
+
+    public CMIForgeUser? ClearedAsUser { get; set; }
+
     public DateTimeOffset? ClearedAt { get; set; }
 
     public Guid? EscalatedToUserId { get; set; }
@@ -56,6 +60,10 @@ public class ConflictSearchResult
 
     public CMIForgeUser? EscalatedByUser { get; set; }
 
+    public Guid? EscalatedAsUserId { get; set; }
+
+    public CMIForgeUser? EscalatedAsUser { get; set; }
+
     public DateTimeOffset? EscalatedAt { get; set; }
 
     public string EscalationNotes { get; set; } = string.Empty;
@@ -65,6 +73,10 @@ public class ConflictSearchResult
     public Guid? EscalationApprovedByUserId { get; set; }
 
     public CMIForgeUser? EscalationApprovedByUser { get; set; }
+
+    public Guid? EscalationApprovedAsUserId { get; set; }
+
+    public CMIForgeUser? EscalationApprovedAsUser { get; set; }
 
     public string EscalationApprovalNotes { get; set; } = string.Empty;
 

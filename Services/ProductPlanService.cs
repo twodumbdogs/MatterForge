@@ -22,6 +22,7 @@ public static class ProductFeatureKeys
     public const string Reporting = "reporting";
     public const string TimeRecording = "time-recording";
     public const string EntraSso = "entra-sso";
+    public const string SqlDataAccess = "sql-data-access";
     public const string FutureFancy = "future-fancy";
 
     private static readonly Dictionary<string, string> Labels = new(StringComparer.OrdinalIgnoreCase)
@@ -35,6 +36,7 @@ public static class ProductFeatureKeys
         [Reporting] = "Reporting",
         [TimeRecording] = "Time recording",
         [EntraSso] = "Azure AD / SSO",
+        [SqlDataAccess] = "Customer SQL data access",
         [FutureFancy] = "Future fancy stuff"
     };
 
@@ -87,6 +89,11 @@ public class ProductPlanService(CMIForgeDbContext db)
         ProductFeatureKeys.FutureFancy
     };
 
+    private static readonly HashSet<string> EnterpriseFeatureKeys = new(AllFeatureKeys, StringComparer.OrdinalIgnoreCase)
+    {
+        ProductFeatureKeys.SqlDataAccess
+    };
+
     private static readonly ProductPlan Community = new(
         "community",
         "Community",
@@ -110,12 +117,12 @@ public class ProductPlanService(CMIForgeDbContext db)
     private static readonly ProductPlan Enterprise = new(
         "enterprise",
         "Enterprise",
-        "Coming soon",
-        UserLimit: null,
+        "$599/month",
+        UserLimit: 1000,
         MatterLimit: null,
         ClientLimit: null,
-        FeatureKeys: AllFeatureKeys,
-        Note: "Enterprise packaging is coming soon.");
+        FeatureKeys: EnterpriseFeatureKeys,
+        Note: "Includes 1,000 users, unlimited clients and matters, and customer SQL data access.");
 
     public IReadOnlyList<ProductPlan> Plans { get; } = [Community, Professional, Enterprise];
 

@@ -31,6 +31,7 @@ The repo also now includes a Customer 0 deployment slice for a real, non-demo te
 - Secure external form invites for saved contacts to complete client-facing intake links
 - Submission queue and detail view
 - Role-oriented dashboard views for firm admins, individual users, and matter partners
+- Dashboard visibility grants by user, team, or role from Security
 - Clients, matters, contacts, users, parties, aliases, and relationships
 - Native conflicts search with deterministic AI-style explanations
 - In-app conflict search-term help with examples for names, aliases, punctuation, history, and match strength
@@ -40,12 +41,13 @@ The repo also now includes a Customer 0 deployment slice for a real, non-demo te
 - Submission details with a right-side workflow rail for open actions and recent workflow history
 - Workflow notification steps with recipient/template configuration
 - Inbound email intake groundwork for trusted firm mailboxes to create reviewed submissions from `Client:` / optional `Matter:` subjects
-- CSV import center for clients, matters, and parties
+- CSV imports/exports for clients, matters, parties, contacts, users, and time entries
 - Client photo OCR import drafting
 - Private submission attachments
 - Time recording, approval, locking, phase/task codes, timer capture, built-in operational reports, and a basic report builder
 - Team, role, permission, and audit-log foundation
 - Admin-only user impersonation for support, workflow-routing, and approval testing
+- Personal user profile settings, including app-wide font size
 - Conversation-style notes on clients, matters, and parties
 - Archive/unarchive support for clients, matters, parties, and users
 - Admin-editable system settings for operational configuration
@@ -101,10 +103,32 @@ This closeout captures the final polish and operator notes from the latest build
 - Conflict result filters now sit directly above the results table, and row-level review/escalation controls are collapsed behind compact row actions to keep high-volume result screens easier to scan.
 - Demo reset now clears the newer approval, request, alias, notes, archive, signup, and time-code tables before reseeding. The scheduler checks the last successful reset and catches up when the app starts overdue instead of waiting a fresh 12 hours after each cold start.
 - Conflict result review now makes bulk escalation explicit: select rows, pick `Escalate to`, then use `Escalate selected` to escalate all checked results in one action.
+- Conflict clearance and escalation attribution now keeps the actual signed-in actor separate from the impersonated/effective user, so audit-facing conflict rows can show values such as `Rowena Bekker impersonating Owen Bennett` instead of falling back to `System`.
 - Client, matter, and party discussion notes now show newest-first in a compact scrollable thread, tuck older notes behind an expander, show the actual author when a note is added during impersonation, and let the author delete their own note.
-- Client and party alias forms now report duplicate aliases as validation errors instead of silently ignoring the add.
+- Client and party alias add/edit controls now live together in the main Aliases panel, and alias adds use action-specific validation so valid new aliases save while duplicate aliases show a clear validation error.
 - Matter partner time approvals now expose approval actions from the dashboard/time list, and lead partners with approval rights can open submitted time entries waiting on them even when they did not create the time.
 - This batch was deployed to both demo and Customer 0 with migrations applied through the dedicated migrator lane.
+
+## 2026-06-22 Data Access
+
+- The former Imports area is now `Imports/Exports`.
+- Customers can download core operational data to CSV in fixed 1,000-row batches.
+- The export batch size is shown under Settings as a CMIForge-controlled read-only value.
+- Settings also shows Enterprise-only SQL data access fields for the CMIForge-controlled Entra principal and customer SQL connection string. Those fields are read-only and are intended to be provisioned by CMIForge, with database read/write scope only and no Azure control-plane permissions.
+- Enterprise is now modeled at `$599/month` for 1,000 users, unlimited clients, unlimited matters, and SQL data access.
+
+## 2026-06-22 Dashboard Access
+
+- Dashboard visibility is now configurable from `Security -> Dashboard access`.
+- Visibility grants can target an individual user, a team, or a security role.
+- If a dashboard has no grants, it remains visible to everyone who can reach the dashboard. Once grants exist, only matching users, team members, role holders, and system admins can choose that dashboard.
+- Seeded defaults restrict `Firm Admin` to the Administrator role and `Matter Partner` to the Partner role. `My Work` remains broadly available.
+
+## 2026-06-22 User Profiles
+
+- Signed-in users now have a `My Profile` page reachable from the top navigation user control.
+- The first personal preference is app-wide font size, stored on the user's `Users.FontScalePercent` value.
+- Available sizes are Small, Standard, Large, and Extra Large, and the selected size is applied by the shared layout before the page styles render.
 
 ## 2026-06-20 Private Networking Hardening
 
@@ -311,7 +335,7 @@ The app currently runs as `Professional`:
 - Email support
 - Price: `$149/month`
 
-Community and Enterprise tiers are visible in the app on `/Billing`, but payment handling is intentionally deferred.
+Community and Enterprise tiers are visible in the app on `/Billing`, but payment handling is intentionally deferred. Enterprise is modeled at `$599/month` for 1,000 users, unlimited clients, unlimited matters, and customer SQL data access.
 
 ## Customer 0 Volume Test Data
 

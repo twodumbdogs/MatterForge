@@ -51,7 +51,7 @@
 }
 
 html {
-  font-size: 15px;
+  font-size: var(--mf-root-font-size, 15px);
   min-height: 100%;
   position: relative;
 }
@@ -217,6 +217,16 @@ body {
   white-space: nowrap;
 }
 
+.mf-nav-profile-link {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.95rem;
+  height: 1.95rem;
+  justify-content: center;
+  padding: 0;
+  width: 1.95rem;
+}
+
 .mf-theme-switch {
   align-items: center;
   color: rgba(255, 255, 255, 0.86);
@@ -260,6 +270,51 @@ body {
 .mf-theme-switch:hover .mf-theme-switch-track {
   background: rgba(255, 255, 255, 0.26);
   border-color: rgba(255, 255, 255, 0.48);
+}
+
+.mf-font-size-options {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  max-width: 42rem;
+}
+
+.mf-font-size-option {
+  align-items: flex-start;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-height: 4.2rem;
+  padding: 0.8rem 0.9rem;
+  text-align: left;
+  white-space: normal;
+}
+
+.mf-font-size-option span {
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.mf-font-size-option small {
+  color: var(--mf-muted);
+  font-weight: 650;
+}
+
+.mf-font-size-option-small span {
+  font-size: 0.9rem;
+}
+
+.mf-font-size-option-standard span {
+  font-size: 1rem;
+}
+
+.mf-font-size-option-large span {
+  font-size: 1.12rem;
+}
+
+.mf-font-size-option-extra-large span {
+  font-size: 1.25rem;
 }
 
 .mf-theme-switch-input:checked + .mf-theme-switch-track {

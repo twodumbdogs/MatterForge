@@ -1,0 +1,68 @@
+@page
+@model CMIForge.Pages.Security.Dashboards.IndexModel
+@{
+    ViewData["Title"] = "Dashboard Access";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Security</p>
+        <h1>Dashboard Access</h1>
+        <p class="text-muted">Control which users, teams, and roles can choose each dashboard view.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="/Security/Index">Security</a>
+</div>
+
+<div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+@foreach (var dashboard in Model.Dashboards)
+{
+    <div class="mf-panel mb-3">
+        <div class="row g-3 align-items-start">
+            <div class="col-lg-4">
+                <h2>@dashboard.Definition.Name</h2>
+                <code>@dashboard.Definition.Key</code>
+                <p class="text-muted mt-2 mb-0">@dashboard.Definition.Description</p>
+            </div>
+            <div class="col-lg-5">
+                <h3 class="h5">Visible To</h3>
+                @if (dashboard.Assignments.Count == 0)
+                {
+                    <p class="text-muted mb-0">Everyone can choose this dashboard until a visibility grant is added.</p>
+                }
+                else
+                {
+                    <ul class="list-group">
+                        @foreach (var assignment in dashboard.Assignments)
+                        {
+                            <li class="list-group-item d-flex justify-content-between gap-3 align-items-start">
+                                <span>
+                                    <strong>@assignment.TargetName</strong>
+                                    <small class="d-block text-muted">@assignment.TargetType @(!string.IsNullOrWhiteSpace(assignment.TargetDetail) ? $"- {assignment.TargetDetail}" : "")</small>
+                                </span>
+                                <form method="post" asp-page-handler="RemoveAssignment" asp-route-assignmentId="@assignment.Id">
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
+                                </form>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+            <div class="col-lg-3">
+                <h3 class="h5">Add Grant</h3>
+                <form method="post" class="d-grid gap-2" asp-page-handler="AddAssignment">
+                    <input type="hidden" name="DashboardKey" value="@dashboard.Definition.Key" />
+                    <select class="form-select" name="TargetReference" asp-items="Model.TargetOptions">
+                        <option value="">Choose user, team, or role...</option>
+                    </select>
+                    <span asp-validation-for="TargetReference" class="text-danger"></span>
+                    <button class="btn btn-outline-primary" type="submit">Add visibility</button>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

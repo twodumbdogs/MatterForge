@@ -57,8 +57,12 @@ Latest product/docs state:
 - Published forms can now be sent to saved contacts through secure, expiring external intake links. The invite token is generated once and only its hash is stored, the external page uses a minimal client-safe layout, completed links create normal `FormSubmissions`, and the invite queues through `EmailOutboxMessages` when tenant mail is configured or falls back to a copyable link when it is not. Invite email tracking now links outbox messages back to external invites so the app can show queued, Graph-accepted/sent, opened, and completed states on form, contact, client, and matter detail pages, with resend creating a fresh tracked link and revoking the previous uncompleted invite.
 - Inbound email intake now has a V1 processing lane. Tenant settings control the Graph mailbox anchor, tenant inbound address, allowed sender domains, and default intake form. Trusted unread mailbox messages with `Client:` and optional `Matter:` subject segments create normal reviewable submissions, copy supported attachments into the private submission attachment store, record the source email, and write audit history. Blank or omitted `Matter:` is intentionally allowed so conversion can create/link only the client.
 - Conflict result bulk work now supports the expected multi-row escalation flow from the details page: checked result rows can all be escalated to one reviewer with shared notes using `Escalate selected`.
+- Conflict clearance, escalation, and escalation approval now preserve impersonation attribution by storing the real actor and the effective impersonated user separately. Conflict result history can display `actual user impersonating effective user` instead of incorrectly saying `System`.
+- Dashboard access can now be assigned by user, team, or role from `Security -> Dashboard access`. Seeded defaults restrict Firm Admin to Administrators and Matter Partner to Partners, while My Work remains broadly visible.
+- Imports is now Imports/Exports. Customers can download core operational data to CSV in fixed 1,000-row batches, with the batch size shown as a read-only setting and Enterprise-only SQL data access surfaced as CMIForge-controlled read-only settings.
+- User profiles now have a first personal setting surface. The top navigation links to `My Profile`, where each signed-in user can choose Small, Standard, Large, or Extra Large app text; the setting is stored on `Users.FontScalePercent` and applied app-wide.
 - Entity discussion notes now preserve impersonation attribution by storing the real author and the impersonated user separately. The notes thread shows newest-first, hides older notes behind an expander, scrolls instead of taking over the page, and allows the author to delete their own note.
-- Client/party alias adds now surface duplicate-alias validation instead of silently no-oping, so users get feedback when a normalized alias is already present.
+- Client/party alias add/edit controls now live together in the main Aliases panel. Alias adds use action-specific validation so valid new aliases save from detail pages, while duplicate normalized aliases show a clear validation error instead of silently no-oping.
 - Matter partner time approval is reachable from the dashboard/time list, and the Time detail permission path now allows lead partners with approval rights to open submitted entries waiting on them.
 - Customer 0 startup recovered after demo conflict reference parties were kept behind the sample-data seed switch. `CMIForge:SeedSampleData=false` should seed core production structure without public-demo filler data.
 - Production schema changes now run through the dedicated migrator lane: `cmiforge-migrator-mi` plus the stopped-when-idle `cmiforge-db-migrator` triggered WebJob host, using `CMIForge.Migrator` and `deploy/migrations/run-tenant-migrations.ps1`.
@@ -374,14 +378,18 @@ Current plan tiers:
   - All features
   - Email support
 - `Enterprise`
-  - Coming soon
+  - `$599/month`
+  - Includes 1,000 users
+  - Unlimited matters
+  - Unlimited clients
+  - Customer SQL data access
 
 Current enforcement:
 
 - User creation is blocked when the current plan reaches its user limit.
 - Matter creation is blocked when the current plan reaches its matter limit.
 - Submission-to-client/matter conversion also respects the matter limit.
-- Feature gates still exist in code, but the current Community and Professional packaging includes all features. The practical plan limits are user, matter, and client counts.
+- Feature gates still exist in code, but the current Community and Professional packaging includes most product features. Customer SQL data access is modeled as Enterprise-only. The practical plan limits are user, matter, and client counts.
 
 Plan and usage details are shown at:
 
@@ -525,7 +533,7 @@ Client numbers start at `00000001` and increment upward.
 
 Client list and detail pages link to related matters, contacts, and parties connected through the client's matters.
 
-Client aliases can be added during client creation and edited or deleted later from client details by users with entity edit rights. The client list shows the alias count, alias text is searchable, and conflict searches score client aliases directly so DBA/prior-name checks do not depend only on client-party sync.
+Client aliases can be added during client creation and added, edited, or deleted later from the unified Aliases panel on client details by users with entity edit rights. The client list shows the alias count, alias text is searchable, and conflict searches score client aliases directly so DBA/prior-name checks do not depend only on client-party sync.
 
 Direct-created clients default to `Compliance Review`. Moving a client from `Compliance Review` to `Active` requires change-request notes and, when approved, logs both the normal change approval and a dedicated compliance-reviewed audit entry.
 
@@ -593,7 +601,7 @@ Parties have:
 
 Party aliases support alternate spellings, DBAs, former names, abbreviations, and other names that should match in a conflict search.
 
-Party aliases can be edited or deleted from party details by users with entity edit rights. Alias changes are normalized for searching and written to the audit log.
+Party aliases can be added, edited, or deleted from the unified Aliases panel on party details by users with entity edit rights. Alias changes are normalized for searching and written to the audit log.
 
 Party detail pages show matter roles, related contacts connected through those matters, and direct party-to-party relationships.
 
@@ -755,9 +763,9 @@ http://localhost:5153/Conflicts
 http://localhost:5153/Conflicts/Create
 ```
 
-## Import Center
+## Imports/Exports
 
-CMIForge now has an `Imports` area for CSV-based data loading. This is the first pass at the practical "Drag CSV Here" workflow for bringing an existing firm's operational data into the app.
+CMIForge now has an `Imports/Exports` area for CSV-based data movement. This is the practical "your data" workflow: bring an existing firm's operational data into the app, and download customer-owned records back out in predictable batches.
 
 Current import types:
 
@@ -770,6 +778,17 @@ Each import card now includes:
 - Download Template
 - Validate CSV
 - Import CSV
+
+Export cards are available for:
+
+- Clients
+- Matters
+- Parties
+- Contacts
+- Users
+- Time entries
+
+Each export downloads one CSV batch at a time. The current fixed batch size is `1,000` rows and is shown under Settings as a CMIForge-controlled read-only value.
 
 Validation mode uses the same parser and row checks as import mode, but it does not create or update clients, matters, parties, or matter-party links. It stores a validation batch with row-level messages so users can see issues before loading data.
 
@@ -812,12 +831,12 @@ Photo OCR import now supports a client-image workflow:
 - Let CMIForge draft likely client fields.
 - Create the client only after user review.
 
-The Import Center is permission-gated through:
+The Imports/Exports center is permission-gated through:
 
 - `Imports.View`
 - `Imports.Run`
 
-The Import Center lives at:
+The Imports/Exports center lives at:
 
 ```text
 http://localhost:5153/Imports
@@ -879,7 +898,7 @@ Also verified in the running app:
 - Plan page shows Community, Professional, and Enterprise tiers.
 - Parties show seeded conflict-test records.
 - A rich conflict search against `Stark Stone`, `Globex Bio Systems`, and `Mina Caldera` produced multiple Critical/Medium hits with AI assist and relationship expansion.
-- The Import Center migration applied to Azure SQL.
+- The original CSV import migration applied to Azure SQL.
 - Import template downloads and validation-only CSV checks were added for clients, matters, and parties.
 - Azure SQL contains the expected schema and records.
 - The `AddSubmissionAttachments` migration applied to Azure SQL.
@@ -902,6 +921,9 @@ Current dashboard capabilities:
 
 - Tenant-branded header using the configured firm/customer display name.
 - Dashboard selector with Firm Admin, My Work, and Matter Partner views.
+- Dashboard selector only shows views the current user is allowed to use.
+- Dashboard visibility grants can target users, teams, or roles from `Security -> Dashboard access`.
+- A dashboard with no grants remains broadly visible; a dashboard with grants is restricted to matching users, team members, role holders, and system admins.
 - Top-level counts for forms, submissions, published versions, and recorded hours.
 - Submission-status donut chart.
 - Conflict-status donut chart.
@@ -1004,6 +1026,7 @@ Current security capabilities:
 - Teams can carry roles.
 - Users can carry direct roles.
 - Roles contain granular permissions.
+- Dashboard visibility can be granted to users, teams, or roles.
 - The main navigation hides form/workflow/entity/security areas when the current user lacks permission.
 - Designer/admin pages also enforce server-side permission checks.
 - Workflow queue task actions verify that the current user is allowed to act on the task.
@@ -1084,6 +1107,9 @@ Security pages live at:
 ```text
 http://localhost:5153/Security
 http://localhost:5153/Security/Teams
+http://localhost:5153/Security/Dashboards
+http://localhost:5153/Security/Impersonation
+http://localhost:5153/Security/Audit
 ```
 
 ## Time Recording and Reporting Slice
@@ -1131,7 +1157,7 @@ New permissions:
 - `Time.Approve`
 - `Reporting.View`
 
-The Professional plan remains hardcoded as the active development plan. The product ladder now models Community as free, Professional at `$149/month`, and Enterprise as coming soon.
+The Professional plan remains hardcoded as the active development plan. The product ladder now models Community as free, Professional at `$149/month`, and Enterprise at `$599/month` for 1,000 users, unlimited clients, unlimited matters, and customer SQL data access.
 
 ## Security Hardening Slice
 
@@ -1165,9 +1191,10 @@ CMIForge now has a first-pass `System -> Settings` area for admin-editable opera
 Current settings behavior:
 
 - Settings are stored in the `SystemSettings` table.
-- Settings are grouped by category, starting with `General` and `Email`.
+- Settings are grouped by category, including `Data Access`, `Conflicts`, `Address Lookup`, `Email`, and `Inbound Email`.
 - Settings support value types for text, integer, boolean, email, and secret reference values.
 - Secret-style settings are masked in the UI. The current implementation stores a secret reference/name rather than the raw secret value.
+- Read-only data access settings show the CMIForge-controlled CSV export batch size and Enterprise-only SQL data access values.
 - Settings updates are audit logged through `AuditLogs`.
 - Settings are permission-gated through the existing `Security.Manage` permission for this first slice.
 - Settings are hidden from the System menu in demo mode.
@@ -1175,6 +1202,10 @@ Current settings behavior:
 
 Initial seeded settings include:
 
+- CSV export batch size
+- Customer SQL access availability
+- Customer SQL Entra principal
+- Customer SQL connection string
 - Support email
 - Default timezone fallback
 - Email notifications enabled flag

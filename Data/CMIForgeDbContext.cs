@@ -39,6 +39,8 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
 
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
+    public DbSet<DashboardAssignment> DashboardAssignments => Set<DashboardAssignment>();
+
     public DbSet<WorkflowDefinition> WorkflowDefinitions => Set<WorkflowDefinition>();
 
     public DbSet<WorkflowStep> WorkflowSteps => Set<WorkflowStep>();
@@ -839,6 +841,9 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
             entity.HasIndex(x => new { x.ClearedByUserId, x.ClearedAt });
             entity.HasIndex(x => new { x.EscalatedToUserId, x.EscalatedAt });
             entity.HasIndex(x => new { x.EscalationApprovedByUserId, x.EscalationApprovedAt });
+            entity.HasIndex(x => x.ClearedAsUserId);
+            entity.HasIndex(x => x.EscalatedAsUserId);
+            entity.HasIndex(x => x.EscalationApprovedAsUserId);
             entity
                 .HasOne(x => x.ConflictSearch)
                 .WithMany(x => x.Results)
@@ -865,6 +870,11 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .HasForeignKey(x => x.ClearedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
             entity
+                .HasOne(x => x.ClearedAsUser)
+                .WithMany()
+                .HasForeignKey(x => x.ClearedAsUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
                 .HasOne(x => x.EscalatedToUser)
                 .WithMany()
                 .HasForeignKey(x => x.EscalatedToUserId)
@@ -875,9 +885,19 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .HasForeignKey(x => x.EscalatedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
             entity
+                .HasOne(x => x.EscalatedAsUser)
+                .WithMany()
+                .HasForeignKey(x => x.EscalatedAsUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
                 .HasOne(x => x.EscalationApprovedByUser)
                 .WithMany()
                 .HasForeignKey(x => x.EscalationApprovedByUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.EscalationApprovedAsUser)
+                .WithMany()
+                .HasForeignKey(x => x.EscalationApprovedAsUserId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
@@ -957,6 +977,7 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
             entity.Property(x => x.ClearanceStatus).HasMaxLength(80);
             entity.Property(x => x.ClearanceNotes).HasMaxLength(2000);
             entity.Property(x => x.ClearedByDisplayName).HasMaxLength(160);
+            entity.Property(x => x.ClearedAsDisplayName).HasMaxLength(160);
             entity.Property(x => x.SearchableText).HasColumnType("nvarchar(max)");
             entity.Property(x => x.NormalizedSearchableText).HasColumnType("nvarchar(max)");
             entity.HasIndex(x => new { x.ConflictSearchArchiveId, x.Score });
@@ -965,6 +986,7 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
             entity.HasIndex(x => new { x.MatterId, x.SearchNumber });
             entity.HasIndex(x => new { x.ClientId, x.SearchNumber });
             entity.HasIndex(x => new { x.PartyId, x.SearchNumber });
+            entity.HasIndex(x => x.ClearedAsUserId);
             entity
                 .HasOne(x => x.ConflictSearchArchive)
                 .WithMany(x => x.Hits)
@@ -990,6 +1012,11 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .WithMany()
                 .HasForeignKey(x => x.ClearedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+            entity
+                .HasOne(x => x.ClearedAsUser)
+                .WithMany()
+                .HasForeignKey(x => x.ClearedAsUserId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<CMIForgeUser>(entity =>
@@ -1004,6 +1031,7 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
             entity.Property(x => x.EntraObjectId).HasMaxLength(80);
             entity.Property(x => x.EntraUserPrincipalName).HasMaxLength(254);
             entity.Property(x => x.Title).HasMaxLength(120);
+            entity.Property(x => x.FontScalePercent).HasDefaultValue(100);
             entity.HasIndex(x => x.LastLoginAt);
             entity.HasIndex(x => x.SystemId).IsUnique();
             entity.HasIndex(x => x.Email).IsUnique();
@@ -1127,6 +1155,36 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .HasOne(x => x.Permission)
                 .WithMany(x => x.RolePermissions)
                 .HasForeignKey(x => x.PermissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DashboardAssignment>(entity =>
+        {
+            entity.Property(x => x.DashboardKey).HasMaxLength(80);
+            entity.HasIndex(x => x.DashboardKey);
+            entity.HasIndex(x => new { x.DashboardKey, x.UserId })
+                .IsUnique()
+                .HasFilter("[UserId] IS NOT NULL");
+            entity.HasIndex(x => new { x.DashboardKey, x.TeamId })
+                .IsUnique()
+                .HasFilter("[TeamId] IS NOT NULL");
+            entity.HasIndex(x => new { x.DashboardKey, x.SecurityRoleId })
+                .IsUnique()
+                .HasFilter("[SecurityRoleId] IS NOT NULL");
+            entity
+                .HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(x => x.Team)
+                .WithMany()
+                .HasForeignKey(x => x.TeamId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity
+                .HasOne(x => x.SecurityRole)
+                .WithMany()
+                .HasForeignKey(x => x.SecurityRoleId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

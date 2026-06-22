@@ -194,8 +194,8 @@ public static class SeedData
             (PermissionKeys.ConflictsView, "View conflict searches", "Conflicts", "View conflict search requests and results."),
             (PermissionKeys.ConflictsRun, "Run conflict searches", "Conflicts", "Create party-based conflict search requests."),
             (PermissionKeys.ConflictsReview, "Review conflict searches", "Conflicts", "Record clearance, potential conflict, conflict, or needs-info decisions."),
-            (PermissionKeys.ImportsView, "View imports", "Imports", "View import center and import batch history."),
-            (PermissionKeys.ImportsRun, "Run imports", "Imports", "Upload CSV files to import clients, matters, and parties."),
+            (PermissionKeys.ImportsView, "View imports/exports", "Imports/Exports", "View import/export center, export downloads, and import batch history."),
+            (PermissionKeys.ImportsRun, "Run imports", "Imports/Exports", "Upload CSV files to import clients, matters, and parties."),
             (PermissionKeys.TimeViewOwn, "View own time", "Time", "View time entries recorded by the user."),
             (PermissionKeys.TimeViewAll, "View all time", "Time", "View time entries across users, clients, and matters."),
             (PermissionKeys.TimeCreate, "Create time", "Time", "Record time entries."),
@@ -304,6 +304,8 @@ public static class SeedData
         await EnsureTeamRoleAsync(db, cddTeam, intakeReviewer);
         await EnsureTeamRoleAsync(db, partnerApprovers, intakeReviewer);
         await EnsureTeamRoleAsync(db, partnerApprovers, entityManager);
+        await EnsureDashboardRoleAssignmentAsync(db, DashboardKeys.Firm, administrator);
+        await EnsureDashboardRoleAssignmentAsync(db, DashboardKeys.Partner, partner);
 
         await db.SaveChangesAsync();
     }
@@ -1567,6 +1569,19 @@ public static class SeedData
             db.TeamRoles.Add(new TeamRole
             {
                 TeamId = team.Id,
+                SecurityRoleId = role.Id
+            });
+        }
+    }
+
+    private static async Task EnsureDashboardRoleAssignmentAsync(CMIForgeDbContext db, string dashboardKey, SecurityRole role)
+    {
+        var exists = await db.DashboardAssignments.AnyAsync(x => x.DashboardKey == dashboardKey && x.SecurityRoleId == role.Id);
+        if (!exists)
+        {
+            db.DashboardAssignments.Add(new DashboardAssignment
+            {
+                DashboardKey = dashboardKey,
                 SecurityRoleId = role.Id
             });
         }

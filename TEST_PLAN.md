@@ -92,26 +92,27 @@ Steps:
    - plan usage meters
 3. Open the `My Work` dashboard view and confirm it shows assigned work, team queue counts, recent submissions, personal time, and conflict escalations assigned to the signed-in user.
 4. Open the `Matter Partner` dashboard view and confirm it shows lead matters, submitted time waiting for approval, pending conflicts, and partner-related submissions.
-5. If time is waiting for approval, confirm each waiting time row links to the time detail and exposes an `Approve` action.
-6. Confirm the top navigation now shows:
+5. Confirm the dashboard selector only shows dashboard views available to the effective current user.
+6. If time is waiting for approval, confirm each waiting time row links to the time detail and exposes an `Approve` action.
+7. Confirm the top navigation now shows:
    - `Submissions`
    - `Entities`
    - `Conflicts`
    - `System`
    - `Help`
-7. Open the `System` dropdown and confirm it contains:
+8. Open the `System` dropdown and confirm it contains:
    - `Forms`
    - `Workflows`
-   - `Imports`
+   - `Imports/Exports`
    - `Security`
    - `Terms`
-8. If you are not in demo mode, confirm these also appear under `System`:
+9. If you are not in demo mode, confirm these also appear under `System`:
    - `Settings`
    - `Signup Requests`
    - `Onboarding`
    - `Archive`
-9. Open `/Help`.
-10. Skim each help section in the contents list.
+10. Open `/Help`.
+11. Skim each help section in the contents list.
 
 Expected results:
 
@@ -136,10 +137,16 @@ Steps:
 4. Confirm the page shows direct roles, team membership, and lead-partner matters if any are assigned.
 5. Open `/Security`.
 6. Open `/Security/Teams`.
-7. Open `/Security/Impersonation`.
-8. If the current user has `System.ImpersonateUsers`, choose a different active user and start impersonation.
-9. Confirm the impersonation banner appears, then stop impersonation from the banner or page.
-10. Review seeded teams such as:
+7. Open `/Security/Dashboards`.
+8. Confirm Firm Admin has an Administrator role grant and Matter Partner has a Partner role grant.
+9. Add a dashboard visibility grant to a test user, team, or role, then remove it.
+10. Open `/Security/Impersonation`.
+11. If the current user has `System.ImpersonateUsers`, choose a different active user and start impersonation.
+12. Confirm the impersonation banner appears, then stop impersonation from the banner or page.
+13. Open `My Profile` from the top navigation user control.
+14. Select `Large`, save, and confirm the app reloads with larger text.
+15. Return to `My Profile`, select `Standard`, save, and confirm text returns to the default size.
+16. Review seeded teams such as:
    - `Admins`
    - `Intake Team`
    - `CDD Team`
@@ -149,11 +156,13 @@ Expected results:
 
 - Users are operational records, not just display strings.
 - Security is visibly role-based and team-aware.
+- Dashboard access can be assigned by user, team, or role without code changes.
 - Gabe appears wired into the seeded admin/intake setup.
 - Users with the Partner role can appear in lead-partner pickers.
 - Archived users are hidden from normal pickers and can be restored from System -> Archive.
 - User impersonation is available only to authorized admins, changes the effective current user for permissions/routing, and shows a visible banner while active.
 - Starting and stopping impersonation writes audit-log entries that keep the actual signed-in user as the actor.
+- User profile font-size changes are saved per user and apply throughout the shared app layout.
 
 ## 3. Entities Walkthrough
 
@@ -171,10 +180,11 @@ Steps:
 6. Add one or more aliases on create, such as `Northwind Harbor DBA` or `NHH`.
 7. Open the created client detail page.
 8. Confirm the direct-create warning appears and the status defaults to `Compliance Review`.
-9. Edit one alias, save it, then delete a throwaway alias.
-10. Submit a client change request moving status from `Compliance Review` to `Active`; first try without request notes, then add notes and submit.
-11. Approve the change request from `/Entities/Approvals`.
-12. Return to `/Entities/Clients` and search by alias text.
+9. Add a new alias from the detail page Aliases panel and confirm it appears after save.
+10. Edit one alias, save it, then delete a throwaway alias.
+11. Submit a client change request moving status from `Compliance Review` to `Active`; first try without request notes, then add notes and submit.
+12. Approve the change request from `/Entities/Approvals`.
+13. Return to `/Entities/Clients` and search by alias text.
 
 Expected results:
 
@@ -182,6 +192,7 @@ Expected results:
 - The client number is clickable.
 - The client list shows an alias count and can be searched by alias.
 - The detail page loads without error.
+- The client detail page has one Aliases panel containing both the add-alias controls and existing aliases.
 - Client aliases can be added, edited, and deleted by users with entity edit rights.
 - Adding a duplicate normalized client alias shows a validation error instead of silently doing nothing.
 - The detail page shows related matters, linked contacts, and related parties derived from the client's matters.
@@ -231,14 +242,16 @@ Steps:
    - `Globex`
    - `Caldera`
 4. Confirm aliases and relationship-style data exist on the party side.
-5. Add or edit a harmless party alias.
-6. Delete a throwaway party alias.
-7. Create a direct party and confirm it defaults to `Compliance Review`.
+5. Add a harmless party alias from the detail page Aliases panel and confirm it appears after save.
+6. Edit a harmless party alias.
+7. Delete a throwaway party alias.
+8. Create a direct party and confirm it defaults to `Compliance Review`.
 
 Expected results:
 
 - Parties feel distinct from clients and matters.
 - The seeded demo data looks intentionally designed for conflict-match richness.
+- The party detail page has one Aliases panel containing both the add-alias controls and existing aliases.
 - Party aliases can be added, edited, and deleted by users with entity edit rights.
 - Adding a duplicate normalized party alias shows a validation error instead of silently doing nothing.
 - Party detail pages show matter roles, related contacts from linked matters, and party relationships.
@@ -585,6 +598,7 @@ Steps:
 7. Select three or four result rows, choose an active user in `Escalate to`, add notes, and click `Escalate selected`.
 8. On an escalated row, approve the escalation as the assigned reviewer and add approval notes.
 9. Repeat for enough rows to confirm the overall search status rolls up appropriately.
+10. If impersonation is available, start impersonating another active user, clear a conflict result or overall search, and reload the conflict detail page.
 
 Expected results:
 
@@ -594,6 +608,7 @@ Expected results:
 - Multiple conflict result rows can be escalated together to another active user in one submit; users should not need to press each row's `Escalate row` button for a shared escalation.
 - Escalated rows show assigned reviewer, escalation notes, escalation timestamp, approval status, and approval notes.
 - Escalation and escalation approval appear in recent audit history for the conflict search.
+- Clearance, escalation, and escalation approval attribution show the actual actor, and when impersonation is active they show `actual user impersonating effective user`; they should not fall back to `System` for user-driven actions.
 - The saved row-level clearance persists after reload.
 - Search-level status updates when result decisions collectively indicate clear, needs info, potential conflict, or conflict.
 
@@ -650,32 +665,43 @@ Checks:
 - Confirm previous searches remain available as history.
 - Confirm conflict searching can surface prior search text and previous result clearance notes.
 
-## 11. Import Center
+## 11. Imports/Exports
 
-Purpose: understand the migration/import story for real firm data.
+Purpose: understand the migration/import/export story for real firm data.
 
 Steps:
 
 1. Open `/Imports`.
-2. Confirm each card has:
-   - `Download Template`
-   - `Validate CSV`
-   - `Import CSV`
-3. Download all three templates:
+2. Confirm the page title and navigation use `Imports/Exports`.
+3. Confirm the export area lists downloadable CSV batches for:
    - Clients
    - Matters
    - Parties
-4. Prepare a tiny CSV for each type, such as 2 to 3 rows.
-5. Run `Validate CSV` first.
-6. Review the validation messages and counts.
-7. Run `Import CSV`.
-8. In the Photo OCR area, upload a clear client image or scan.
-9. Click `Read Photo`.
-10. Review the OCR text and drafted client fields.
-11. Create the client only if the drafted values look reasonable.
+   - Contacts
+   - Users
+   - Time Entries
+4. Download the first clients export batch.
+5. Confirm the export progress bar moves when a batch is selected or downloaded.
+6. Confirm each import card has:
+   - `Download Template`
+   - `Validate CSV`
+   - `Import CSV`
+7. Download all three templates:
+   - Clients
+   - Matters
+   - Parties
+8. Prepare a tiny CSV for each type, such as 2 to 3 rows.
+9. Run `Validate CSV` first.
+10. Review the validation messages and counts.
+11. Run `Import CSV`.
+12. In the Photo OCR area, upload a clear client image or scan.
+13. Click `Read Photo`.
+14. Review the OCR text and drafted client fields.
+15. Create the client only if the drafted values look reasonable.
 
 Expected results:
 
+- CSV exports download in fixed 1,000-row batches.
 - Validation does not write operational data.
 - Import writes accepted rows and records a batch summary.
 - Client imports upsert by `ClientNumber`.
@@ -712,11 +738,13 @@ Steps:
    - Enterprise
 3. Confirm the current development plan is shown as `Professional`.
 4. Confirm Professional is shown at `$149/month` and does not mention per-user add-on pricing.
+5. Confirm Enterprise is shown at `$599/month`, 1,000 users, unlimited clients, unlimited matters, and customer SQL data access.
 
 Expected results:
 
 - Billing is presented as product gating, not real payment plumbing.
 - The current build is feature-unlocked for development, while still showing Professional user and matter limits.
+- SQL data access is Enterprise-only.
 
 ## 13A. Reports
 
@@ -784,15 +812,19 @@ Purpose: confirm operational settings exist, are grouped clearly, and are protec
 Steps:
 
 1. In a non-demo/local environment, open `System -> Settings`.
-2. Review the General, Branding, Conflicts, and Email settings.
-3. Confirm SMTP host, port, username, and password settings are not exposed as tenant-editable fields.
-4. Save a harmless non-secret change, such as support email, firm name, or live conflict preview enabled/disabled, then change it back.
-5. In the live demo environment, confirm Settings is not shown in the System dropdown.
-6. In the live demo environment, browse directly to `/System/Settings`.
+2. Review the Data Access, Conflicts, Address Lookup, Email, and Inbound Email settings.
+3. Confirm CSV export batch size is shown as `1000` and is disabled/read-only.
+4. Confirm SQL access availability, SQL Entra principal, and SQL connection string are disabled/read-only.
+5. Confirm SQL access copy says Enterprise is required unless the active plan includes customer SQL data access.
+6. Confirm SMTP host, port, username, and password settings are not exposed as tenant-editable fields.
+7. Save a harmless non-secret change, such as live conflict preview enabled/disabled, then change it back.
+8. In the live demo environment, confirm Settings is not shown in the System dropdown.
+9. In the live demo environment, browse directly to `/System/Settings`.
 
 Expected results:
 
 - Non-demo admins can update settings.
+- CMIForge-controlled data access settings are visible but not customer-editable.
 - Demo mode shows Settings as read-only and blocks saving.
 - Blank optional settings can be left blank while saving unrelated changes.
 - Tenant settings do not require customers to provide SMTP infrastructure; SMTP transport is a platform/SaaS configuration concern.
@@ -929,6 +961,7 @@ dotnet tool run dotnet-ef database update
    - external invite email tracking
    - workflow draft/publish state
    - entity note impersonation attribution
+   - dashboard assignments
 
 Expected results:
 
@@ -1065,6 +1098,7 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] CSV validation works
 - [ ] CSV import works
 - [ ] Security pages load
+- [ ] Security dashboard access page loads and shows user/team/role grant controls
 - [ ] Security impersonation starts, shows a banner, affects permissions/routing, and stops
 - [ ] Security audit log loads
 - [ ] System settings page loads in non-demo or is read-only in demo

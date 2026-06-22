@@ -147,6 +147,12 @@ public class ConflictSearchHitArchive
 
     public string ClearedByDisplayName { get; set; } = string.Empty;
 
+    public Guid? ClearedAsUserId { get; set; }
+
+    public CMIForgeUser? ClearedAsUser { get; set; }
+
+    public string ClearedAsDisplayName { get; set; } = string.Empty;
+
     public DateTimeOffset? ClearedAt { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }

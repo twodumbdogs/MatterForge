@@ -137,7 +137,7 @@ else
                 .ToList();
             @if (Model.CanReview)
             {
-                <form method="post" id="bulk-clearance-form" asp-page-handler="BulkResultReview" asp-route-id="@Model.Search.Id" class="mf-conflict-bulk-panel mt-3">
+                <form method="post" id="bulk-result-form" asp-page-handler="BulkResultAction" asp-route-id="@Model.Search.Id" class="mf-conflict-bulk-panel mt-3">
                     <div class="row g-2 align-items-end">
                         <div class="col-md-3">
                             <label class="form-label" for="bulkResultStatus">Selected rows</label>
@@ -153,7 +153,7 @@ else
                             <input id="bulkResultNotes" name="bulkResultNotes" class="form-control" placeholder="Optional note for every selected result" />
                         </div>
                         <div class="col-md-2">
-                            <button class="btn btn-primary w-100" type="submit" asp-page-handler="BulkResultReview">Apply</button>
+                            <button class="btn btn-primary w-100" type="submit" name="bulkResultAction" value="review">Apply</button>
                         </div>
                     </div>
                     <div class="row g-2 align-items-end mt-2">
@@ -169,7 +169,7 @@ else
                             <input asp-for="EscalationNotes" class="form-control" placeholder="Why this result needs approval" />
                         </div>
                         <div class="col-md-2">
-                            <button class="btn btn-outline-primary w-100" type="submit" asp-page-handler="BulkEscalate">Escalate selected</button>
+                            <button class="btn btn-outline-primary w-100" type="submit" name="bulkResultAction" value="escalate">Escalate selected</button>
                         </div>
                     </div>
                     <small class="text-muted d-block mt-2">
@@ -240,7 +240,7 @@ else
                                 @if (Model.CanReview)
                                 {
                                     <td>
-                                        <input class="form-check-input" type="checkbox" name="selectedResultIds" value="@result.Id" form="bulk-clearance-form" aria-label="Select result @result.MatchedName" />
+                                        <input class="form-check-input" type="checkbox" name="selectedResultIds" value="@result.Id" form="bulk-result-form" aria-label="Select result @result.MatchedName" />
                                     </td>
                                 }
                                 <td><strong>@result.Score</strong></td>
@@ -280,7 +280,7 @@ else
                                     @if (result.ClearedAt.HasValue)
                                     {
                                         <small class="d-block text-muted">
-                                            By @(string.IsNullOrWhiteSpace(result.ClearedByDisplayName) ? "System" : result.ClearedByDisplayName) on @UserDates.Format(result.ClearedAt.Value, "g")
+                                            By @result.ClearanceActorDisplayName on @UserDates.Format(result.ClearedAt.Value, "g")
                                         </small>
                                     }
                                     @if (!string.IsNullOrWhiteSpace(result.ClearanceNotes))
@@ -295,9 +295,9 @@ else
                                             </span>
                                             <small class="d-block text-muted">
                                                 To @result.EscalatedToDisplayName
-                                                @if (!string.IsNullOrWhiteSpace(result.EscalatedByDisplayName))
+                                                @if (!string.IsNullOrWhiteSpace(result.EscalationActorDisplayName) && result.EscalationActorDisplayName != "System")
                                                 {
-                                                    <span>by @result.EscalatedByDisplayName</span>
+                                                    <span>by @result.EscalationActorDisplayName</span>
                                                 }
                                                 @if (result.EscalatedAt.HasValue)
                                                 {
@@ -311,7 +311,7 @@ else
                                             @if (result.EscalationApprovedAt.HasValue)
                                             {
                                                 <small class="d-block text-muted">
-                                                    Approved by @(string.IsNullOrWhiteSpace(result.EscalationApprovedByDisplayName) ? "Assigned reviewer" : result.EscalationApprovedByDisplayName)
+                                                    Approved by @(result.EscalationApprovalActorDisplayName == "System" ? "Assigned reviewer" : result.EscalationApprovalActorDisplayName)
                                                     on @UserDates.Format(result.EscalationApprovedAt.Value, "g")
                                                 </small>
                                                 @if (!string.IsNullOrWhiteSpace(result.EscalationApprovalNotes))
@@ -400,10 +400,10 @@ else
                 return;
             }
 
-            const checkboxes = Array.from(document.querySelectorAll('input[name="selectedResultIds"][form="bulk-clearance-form"]'));
+            const checkboxes = Array.from(document.querySelectorAll('input[name="selectedResultIds"][form="bulk-result-form"]'));
             const visibleRows = () => rows.filter((row) => !row.classList.contains('d-none'));
             const visibleCheckboxes = () => visibleRows()
-                .map((row) => row.querySelector('input[name="selectedResultIds"][form="bulk-clearance-form"]'))
+                .map((row) => row.querySelector('input[name="selectedResultIds"][form="bulk-result-form"]'))
                 .filter(Boolean);
 
             const updateSelectAllState = () => {
@@ -436,7 +436,7 @@ else
                     if (isVisible) {
                         visibleCount += 1;
                     } else {
-                        const checkbox = row.querySelector('input[name="selectedResultIds"][form="bulk-clearance-form"]');
+                        const checkbox = row.querySelector('input[name="selectedResultIds"][form="bulk-result-form"]');
                         if (checkbox) {
                             checkbox.checked = false;
                         }

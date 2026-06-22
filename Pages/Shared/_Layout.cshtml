@@ -23,6 +23,19 @@
     var canManageSecurity = await Permissions.HasAsync(CMIForge.Services.PermissionKeys.SecurityManage);
     var canImpersonateUsers = await Permissions.HasAsActualUserAsync(CMIForge.Services.PermissionKeys.SystemImpersonateUsers);
     var impersonationContext = await CurrentUserService.GetImpersonationContextAsync();
+    var layoutCurrentUser = await CurrentUserService.GetCurrentUserAsync();
+    var fontScalePercent = layoutCurrentUser?.FontScalePercent is 90 or 100 or 115 or 130
+        ? layoutCurrentUser.FontScalePercent
+        : 100;
+    var rootFontSizePx = (15m * fontScalePercent / 100m).ToString("0.##", global::System.Globalization.CultureInfo.InvariantCulture);
+    var signedInLabel =
+        !string.IsNullOrWhiteSpace(layoutCurrentUser?.FirstName)
+            ? layoutCurrentUser.FirstName
+            : !string.IsNullOrWhiteSpace(layoutCurrentUser?.DisplayName)
+                ? layoutCurrentUser.DisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? layoutCurrentUser.DisplayName
+                : !string.IsNullOrWhiteSpace(CurrentUserService.GetAuthenticatedEmail())
+                    ? CurrentUserService.GetAuthenticatedEmail()?.Split('@', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "Signed in"
+                    : "Signed in";
     var showSystemMenu = true;
     var isSubmissionSection = path.StartsWithSegments("/Submissions")
         || path.StartsWithSegments("/Workflow/Queue");
@@ -33,7 +46,7 @@
         || path.StartsWithSegments("/System");
     var tenantDisplayName = await TenantBranding.GetDisplayNameAsync();
 }
-<html lang="en">
+<html lang="en" style="--mf-root-font-size: @(rootFontSizePx)px;">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -151,7 +164,7 @@
                                     @if (canViewImports)
                                     {
                                         <li>
-                                            <a class="dropdown-item @(path.StartsWithSegments("/Imports") ? "active" : null)" asp-area="" asp-page="/Imports/Index">Imports</a>
+                                            <a class="dropdown-item @(path.StartsWithSegments("/Imports") ? "active" : null)" asp-area="" asp-page="/Imports/Index">Imports/Exports</a>
                                         </li>
                                     }
                                     @if (canManageSecurity)
@@ -210,28 +223,27 @@
                             <span class="mf-theme-switch-thumb"></span>
                         </span>
                     </label>
-                    @if (CurrentUserService.IsEntraLoginEnabled())
+                    @if (layoutCurrentUser is not null)
                     {
-                        var isAuthenticated = User?.Identity?.IsAuthenticated == true;
-                        var signedInLabel = "Signed in";
-                        if (isAuthenticated)
-                        {
-                            var currentUser = await CurrentUserService.GetCurrentUserAsync();
-                            var authenticatedEmail = CurrentUserService.GetAuthenticatedEmail();
-                            signedInLabel =
-                                !string.IsNullOrWhiteSpace(currentUser?.FirstName)
-                                    ? currentUser.FirstName
-                                    : !string.IsNullOrWhiteSpace(currentUser?.DisplayName)
-                                        ? currentUser.DisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? currentUser.DisplayName
-                                        : !string.IsNullOrWhiteSpace(authenticatedEmail)
-                                            ? authenticatedEmail.Split('@', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "Signed in"
-                                            : "Signed in";
-                        }
-
-                        if (isAuthenticated)
+                        <div class="mf-nav-user">
+                            <a class="btn btn-sm btn-outline-light mf-nav-profile-link" asp-area="" asp-page="/Account/Profile" title="My profile" aria-label="My profile">
+                                <span aria-hidden="true">&#9881;</span>
+                            </a>
+                            <span class="navbar-text text-light">@signedInLabel</span>
+                            @if (CurrentUserService.IsEntraLoginEnabled() && User?.Identity?.IsAuthenticated == true)
+                            {
+                                <form method="post" action="/Account/SignOut" class="m-0">
+                                    <button class="btn btn-sm btn-outline-light" type="submit">Sign out</button>
+                                </form>
+                            }
+                        </div>
+                    }
+                    else if (CurrentUserService.IsEntraLoginEnabled())
+                    {
+                        if (User?.Identity?.IsAuthenticated == true)
                         {
                             <form method="post" action="/Account/SignOut" class="mf-nav-user">
-                                <span class="navbar-text text-light">@signedInLabel</span>
+                                <span class="navbar-text text-light">Signed in</span>
                                 <button class="btn btn-sm btn-outline-light" type="submit">Sign out</button>
                             </form>
                         }

@@ -9,11 +9,11 @@
 <section class="mf-hero">
     <div>
         <h1>@tenantDisplayName</h1>
-        @if (Model.View == CMIForge.Pages.DashboardViews.User)
+        @if (Model.View == CMIForge.Models.DashboardKeys.User)
         {
             <p class="lead">Your queue, submissions, time, and conflict escalations in one place.</p>
         }
-        else if (Model.View == CMIForge.Pages.DashboardViews.Partner)
+        else if (Model.View == CMIForge.Models.DashboardKeys.Partner)
         {
             <p class="lead">Partner-facing matter health, approvals, submissions, and conflict attention.</p>
         }
@@ -23,12 +23,12 @@
         }
     </div>
     <div class="mf-hero-metrics" aria-label="Dashboard highlights">
-        @if (Model.View == CMIForge.Pages.DashboardViews.User)
+        @if (Model.View == CMIForge.Models.DashboardKeys.User)
         {
             <span><strong>@(Model.MyOpenTaskCount + Model.MyTeamTaskCount)</strong> open tasks</span>
             <span><strong>@Model.MyEscalationCount</strong> escalations</span>
         }
-        else if (Model.View == CMIForge.Pages.DashboardViews.Partner)
+        else if (Model.View == CMIForge.Models.DashboardKeys.Partner)
         {
             <span><strong>@Model.PartnerLeadMatterCount</strong> lead matters</span>
             <span><strong>@Model.PartnerTimeApprovalCount</strong> time approvals</span>
@@ -42,12 +42,13 @@
 </section>
 
 <nav class="mf-dashboard-switcher" aria-label="Dashboard view">
-    <a class="@(Model.View == CMIForge.Pages.DashboardViews.Firm ? "active" : "")" asp-page="/Index" asp-route-view="firm">Firm Admin</a>
-    <a class="@(Model.View == CMIForge.Pages.DashboardViews.User ? "active" : "")" asp-page="/Index" asp-route-view="user">My Work</a>
-    <a class="@(Model.View == CMIForge.Pages.DashboardViews.Partner ? "active" : "")" asp-page="/Index" asp-route-view="partner">Matter Partner</a>
+    @foreach (var dashboard in Model.VisibleDashboards)
+    {
+        <a class="@(Model.View == dashboard.Key ? "active" : "")" asp-page="/Index" asp-route-view="@dashboard.Key">@dashboard.Name</a>
+    }
 </nav>
 
-@if (Model.View == CMIForge.Pages.DashboardViews.User)
+@if (Model.View == CMIForge.Models.DashboardKeys.User)
 {
     <section class="mf-stat-grid" aria-label="My dashboard counts">
         <a class="mf-stat mf-stat-link" asp-page="/Workflow/Queue" asp-route-view="mine">
@@ -183,7 +184,7 @@
         </div>
     </section>
 }
-else if (Model.View == CMIForge.Pages.DashboardViews.Partner)
+else if (Model.View == CMIForge.Models.DashboardKeys.Partner)
 {
     <section class="mf-stat-grid" aria-label="Matter partner dashboard counts">
         <a class="mf-stat mf-stat-link" asp-page="/Entities/Matters/Index">

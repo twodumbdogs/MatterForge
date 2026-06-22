@@ -1,0 +1,89 @@
+@page
+@model CMIForge.Pages.Account.ProfileModel
+@{
+    ViewData["Title"] = "My Profile";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">Profile</p>
+        <h1>My Profile</h1>
+        <p class="text-muted">Manage personal display preferences for your CMIForge workspace.</p>
+    </div>
+</div>
+
+@if (TempData["StatusMessage"] is string statusMessage)
+{
+    <div class="alert alert-success">@statusMessage</div>
+}
+
+@if (Model.CurrentUser is null)
+{
+    <div class="alert alert-warning">Your profile could not be loaded.</div>
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <section class="mf-panel">
+                <h2>Account</h2>
+                <dl class="row mt-3 mb-0">
+                    <dt class="col-sm-5">Name</dt>
+                    <dd class="col-sm-7">@Model.CurrentUser.DisplayName</dd>
+                    <dt class="col-sm-5">Email</dt>
+                    <dd class="col-sm-7">@Model.CurrentUser.Email</dd>
+                    <dt class="col-sm-5">Title</dt>
+                    <dd class="col-sm-7">@(string.IsNullOrWhiteSpace(Model.CurrentUser.Title) ? "None" : Model.CurrentUser.Title)</dd>
+                    <dt class="col-sm-5">Last login</dt>
+                    <dd class="col-sm-7">@(Model.CurrentUser.LastLoginAt.HasValue ? UserDates.Format(Model.CurrentUser.LastLoginAt.Value) : "Never")</dd>
+                </dl>
+            </section>
+        </div>
+        <div class="col-lg-8">
+            <form method="post" class="mf-panel">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                <h2>Display</h2>
+                <p class="text-muted">Choose the app text size that feels right on your screen.</p>
+
+                <fieldset class="mt-3">
+                    <legend class="form-label fw-semibold">Font size</legend>
+                    <div class="mf-font-size-options" role="radiogroup" aria-label="Font size">
+                        <input class="btn-check" type="radio" asp-for="Input.FontScalePercent" value="90" id="fontScaleSmall" />
+                        <label class="btn btn-outline-secondary mf-font-size-option mf-font-size-option-small" for="fontScaleSmall">
+                            <span>Small</span>
+                            <small>90%</small>
+                        </label>
+
+                        <input class="btn-check" type="radio" asp-for="Input.FontScalePercent" value="100" id="fontScaleStandard" />
+                        <label class="btn btn-outline-secondary mf-font-size-option mf-font-size-option-standard" for="fontScaleStandard">
+                            <span>Standard</span>
+                            <small>100%</small>
+                        </label>
+
+                        <input class="btn-check" type="radio" asp-for="Input.FontScalePercent" value="115" id="fontScaleLarge" />
+                        <label class="btn btn-outline-secondary mf-font-size-option mf-font-size-option-large" for="fontScaleLarge">
+                            <span>Large</span>
+                            <small>115%</small>
+                        </label>
+
+                        <input class="btn-check" type="radio" asp-for="Input.FontScalePercent" value="130" id="fontScaleExtraLarge" />
+                        <label class="btn btn-outline-secondary mf-font-size-option mf-font-size-option-extra-large" for="fontScaleExtraLarge">
+                            <span>Extra Large</span>
+                            <small>130%</small>
+                        </label>
+                    </div>
+                    <span asp-validation-for="Input.FontScalePercent" class="text-danger"></span>
+                </fieldset>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button class="btn btn-primary" type="submit">Save profile</button>
+                    <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

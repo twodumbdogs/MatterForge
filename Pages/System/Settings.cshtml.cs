@@ -14,7 +14,9 @@ public class SettingsModel(
     PermissionService permissionService,
     CurrentUserService currentUserService,
     DemoModeService demoModeService,
-    AuditLogService auditLogService) : PageModel
+    AuditLogService auditLogService,
+    ProductPlanService productPlanService,
+    IConfiguration configuration) : PageModel
 {
     [BindProperty]
     public List<SettingInput> Settings { get; set; } = [];
@@ -160,7 +162,11 @@ public class SettingsModel(
             new SettingDefault(InboundEmailSettingKeys.AllowedSenderDomains, "Inbound Email", "Allowed sender domains", "Comma- or semicolon-separated firm domains allowed to create inbound email intakes. Leave blank to reject all inbound messages.", string.Empty, SystemSettingValueTypes.Text),
             new SettingDefault(InboundEmailSettingKeys.DefaultFormKey, "Inbound Email", "Default intake form key", "Published form key used for submissions created from inbound email.", "new-matter-intake", SystemSettingValueTypes.Text),
             new SettingDefault(InboundEmailSettingKeys.MarkProcessedAsRead, "Inbound Email", "Mark processed email as read", "Marks mailbox messages as read after a successful CMIForge intake is created.", "true", SystemSettingValueTypes.Boolean),
-            new SettingDefault(InboundEmailSettingKeys.OcrEnabled, "Inbound Email", "Enable inbound attachment OCR", "Queues supported inbound attachments for OCR extraction once an OCR provider is configured.", "false", SystemSettingValueTypes.Boolean)
+            new SettingDefault(InboundEmailSettingKeys.OcrEnabled, "Inbound Email", "Enable inbound attachment OCR", "Queues supported inbound attachments for OCR extraction once an OCR provider is configured.", "false", SystemSettingValueTypes.Boolean),
+            new SettingDefault("DataExports.BatchSize", "Data Access", "CSV export batch size", "Number of rows included in each customer data CSV export batch. This is controlled by CMIForge.", "1000", SystemSettingValueTypes.Integer, IsEditable: false),
+            new SettingDefault("CustomerSqlAccess.Availability", "Data Access", "SQL access availability", "Customer SQL connection access is available on Enterprise plans and up.", productPlanService.AllowsFeature(ProductFeatureKeys.SqlDataAccess) ? "Available on this plan" : "Enterprise plan required", SystemSettingValueTypes.Text, IsEditable: false),
+            new SettingDefault("CustomerSqlAccess.EntraPrincipal", "Data Access", "SQL Entra principal", "Single CMIForge-controlled Entra identity authorized for customer SQL data access. It is scoped to database read/write only and has no Azure control-plane permissions.", CustomerSqlAccessValue("EntraPrincipal", "Provisioned by CMIForge for Enterprise tenants"), SystemSettingValueTypes.Text, IsEditable: false),
+            new SettingDefault("CustomerSqlAccess.ConnectionString", "Data Access", "SQL connection string", "Enterprise-only SQL connection string for direct customer data access. The mapped Entra principal can read/write application data but cannot modify Azure resources.", CustomerSqlConnectionStringValue(), SystemSettingValueTypes.Text, IsEditable: false)
         };
 
         var changed = false;
@@ -181,13 +187,20 @@ public class SettingsModel(
                 setting.DisplayName != item.DisplayName ||
                 setting.Description != item.Description ||
                 setting.ValueType != item.ValueType ||
-                setting.IsSecret != item.IsSecret)
+                setting.IsSecret != item.IsSecret ||
+                setting.IsEditable != item.IsEditable ||
+                (!item.IsEditable && setting.Value != item.Value))
             {
                 setting.Category = item.Category;
                 setting.DisplayName = item.DisplayName;
                 setting.Description = item.Description;
                 setting.ValueType = item.ValueType;
                 setting.IsSecret = item.IsSecret;
+                setting.IsEditable = item.IsEditable;
+                if (!item.IsEditable)
+                {
+                    setting.Value = item.Value;
+                }
                 changed = true;
             }
         }
@@ -251,6 +264,24 @@ public class SettingsModel(
             return false;
         }
     }
+
+    private string CustomerSqlConnectionStringValue()
+    {
+        if (!productPlanService.AllowsFeature(ProductFeatureKeys.SqlDataAccess))
+        {
+            return "Enterprise plan required";
+        }
+
+        return CustomerSqlAccessValue(
+            "ConnectionString",
+            "Pending CMIForge provisioning for this Enterprise tenant");
+    }
+
+    private string CustomerSqlAccessValue(string key, string fallback)
+    {
+        var value = configuration[$"CustomerDataAccess:{key}"];
+        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    }
 }
 
 public class SettingInput
@@ -286,4 +317,5 @@ public sealed record SettingDefault(
     string Description,
     string Value,
     string ValueType,
-    bool IsSecret = false);
+    bool IsSecret = false,
+    bool IsEditable = true);

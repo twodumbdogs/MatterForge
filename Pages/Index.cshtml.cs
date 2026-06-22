@@ -11,12 +11,15 @@ namespace CMIForge.Pages;
 public class IndexModel(
     CMIForgeDbContext db,
     ProductPlanService productPlanService,
-    CurrentUserService currentUserService) : PageModel
+    CurrentUserService currentUserService,
+    DashboardVisibilityService dashboardVisibilityService) : PageModel
 {
     [BindProperty(SupportsGet = true)]
     public string View { get; set; } = DashboardViews.Firm;
 
     public CMIForgeUser? CurrentUser { get; private set; }
+
+    public List<DashboardDefinition> VisibleDashboards { get; private set; } = [];
 
     public int FormCount { get; private set; }
 
@@ -93,15 +96,20 @@ public class IndexModel(
     public async Task OnGetAsync()
     {
         CurrentUser = await currentUserService.GetCurrentUserAsync();
+        VisibleDashboards = await dashboardVisibilityService.GetVisibleDashboardsAsync();
         View = NormalizeView(View);
+        if (!VisibleDashboards.Any(x => x.Key == View))
+        {
+            View = VisibleDashboards.FirstOrDefault()?.Key ?? DashboardKeys.User;
+        }
 
-        if (View == DashboardViews.User)
+        if (View == DashboardKeys.User)
         {
             await LoadUserDashboardAsync();
             return;
         }
 
-        if (View == DashboardViews.Partner)
+        if (View == DashboardKeys.Partner)
         {
             await LoadPartnerDashboardAsync();
             return;
@@ -428,9 +436,9 @@ public class IndexModel(
 
     private static string NormalizeView(string? view)
     {
-        return view is DashboardViews.User or DashboardViews.Partner
+        return view is DashboardKeys.User or DashboardKeys.Partner
             ? view
-            : DashboardViews.Firm;
+            : DashboardKeys.Firm;
     }
 }
 
@@ -559,9 +567,9 @@ public sealed record DashboardEscalationItem(
 
 public static class DashboardViews
 {
-    public const string Firm = "firm";
-    public const string User = "user";
-    public const string Partner = "partner";
+    public const string Firm = DashboardKeys.Firm;
+    public const string User = DashboardKeys.User;
+    public const string Partner = DashboardKeys.Partner;
 }
 
 internal sealed record CountBucket(string Label, int Count);

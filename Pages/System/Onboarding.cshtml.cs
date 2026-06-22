@@ -82,7 +82,7 @@ public class OnboardingModel(
             new("Add address-book contacts", contacts > 0, "Create client and matter contacts that are not CMIForge login users.", "/Entities/Contacts/Index"),
             new("Load parties", parties > 0, "Import parties so conflicts searches have useful data.", "/Entities/Parties/Index"),
             new("Run a conflicts test", conflicts > 0, "Run at least one search and verify clearance workflow.", "/Conflicts/Index"),
-            new("Exercise imports", imports > 0, "Validate the CSV import path before the customer depends on it.", "/Imports/Index"),
+            new("Exercise imports/exports", imports > 0, "Validate the CSV import path and export download path before the customer depends on them.", "/Imports/Index"),
             new("Record sample time", timeEntries > 0, "Confirm time recording and reports are useful for the customer.", "/Time/Index"),
             new("Configure attachments", attachmentsConfigured, "Confirm blob-backed upload settings before users add real files.", "/System/Settings"),
             new("Review system settings", settingsUpdated > 0, "Touch customer-specific settings so defaults are intentional.", "/System/Settings")

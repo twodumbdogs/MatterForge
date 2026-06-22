@@ -72,8 +72,8 @@ public class DetailsModel(
             return Forbid();
         }
 
-        var currentUser = await currentUserService.GetCurrentUserAsync();
-        await conflictSearchService.ApplyReviewDecisionAsync(id, Decision, ReviewNotes, currentUser?.Id);
+        var actionUser = await GetActionUserContextAsync();
+        await conflictSearchService.ApplyReviewDecisionAsync(id, Decision, ReviewNotes, actionUser.ActorUserId, actionUser.ActingAsUserId);
         return RedirectToPage(new { id });
     }
 
@@ -84,12 +84,17 @@ public class DetailsModel(
             return Forbid();
         }
 
-        var currentUser = await currentUserService.GetCurrentUserAsync();
-        await conflictSearchService.ApplyResultClearanceAsync(resultId, resultStatus, resultNotes, currentUser?.Id);
+        var actionUser = await GetActionUserContextAsync();
+        await conflictSearchService.ApplyResultClearanceAsync(resultId, resultStatus, resultNotes, actionUser.ActorUserId, actionUser.ActingAsUserId);
         return RedirectToPage(new { id });
     }
 
-    public async Task<IActionResult> OnPostBulkResultReviewAsync(Guid id, List<Guid> selectedResultIds, string bulkResultStatus, string bulkResultNotes)
+    public async Task<IActionResult> OnPostBulkResultActionAsync(
+        Guid id,
+        List<Guid> selectedResultIds,
+        string bulkResultAction,
+        string bulkResultStatus,
+        string bulkResultNotes)
     {
         if (!await permissionService.HasAsync(PermissionKeys.ConflictsReview))
         {
@@ -98,45 +103,39 @@ public class DetailsModel(
 
         if (selectedResultIds.Count == 0)
         {
-            ModelState.AddModelError(string.Empty, "Select at least one result to update.");
+            ModelState.AddModelError(string.Empty, "Select at least one result first.");
             await LoadSearchAsync(id);
             return Page();
         }
 
-        var currentUser = await currentUserService.GetCurrentUserAsync();
-        await conflictSearchService.ApplyResultClearanceAsync(selectedResultIds, bulkResultStatus, bulkResultNotes, currentUser?.Id);
-        return RedirectToPage(new { id });
-    }
-
-    public async Task<IActionResult> OnPostBulkEscalateAsync(Guid id, List<Guid> selectedResultIds)
-    {
-        if (!await permissionService.HasAsync(PermissionKeys.ConflictsReview))
+        if (string.Equals(bulkResultAction, "escalate", StringComparison.OrdinalIgnoreCase))
         {
-            return Forbid();
+            var recipient = await db.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == EscalatedToUserId && x.IsActive && !x.IsArchived);
+            if (recipient is null)
+            {
+                ModelState.AddModelError(nameof(EscalatedToUserId), "Choose an active user to escalate to.");
+                await LoadSearchAsync(id);
+                return Page();
+            }
+
+            var actionUser = await GetActionUserContextAsync();
+            var escalatedResults = await conflictSearchService.EscalateResultsAsync(selectedResultIds, EscalatedToUserId, EscalationNotes, actionUser.ActorUserId, actionUser.ActingAsUserId);
+            await LogEscalationAsync(id, escalatedResults, recipient!, EscalationNotes, actionUser);
+            return RedirectToPage(new { id });
         }
 
-        if (selectedResultIds.Count == 0)
+        if (!string.IsNullOrWhiteSpace(bulkResultAction) &&
+            !string.Equals(bulkResultAction, "review", StringComparison.OrdinalIgnoreCase))
         {
-            ModelState.AddModelError(string.Empty, "Select at least one result to escalate.");
-        }
-
-        var recipient = await db.Users
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == EscalatedToUserId && x.IsActive && !x.IsArchived);
-        if (recipient is null)
-        {
-            ModelState.AddModelError(nameof(EscalatedToUserId), "Choose an active user to escalate to.");
-        }
-
-        if (!ModelState.IsValid)
-        {
+            ModelState.AddModelError(string.Empty, "Choose a valid bulk result action.");
             await LoadSearchAsync(id);
             return Page();
         }
 
-        var currentUser = await currentUserService.GetCurrentUserAsync();
-        var escalatedResults = await conflictSearchService.EscalateResultsAsync(selectedResultIds, EscalatedToUserId, EscalationNotes, currentUser?.Id);
-        await LogEscalationAsync(id, escalatedResults, recipient!, EscalationNotes, currentUser?.Id);
+        var bulkActionUser = await GetActionUserContextAsync();
+        await conflictSearchService.ApplyResultClearanceAsync(selectedResultIds, bulkResultStatus, bulkResultNotes, bulkActionUser.ActorUserId, bulkActionUser.ActingAsUserId);
         return RedirectToPage(new { id });
     }
 
@@ -157,9 +156,9 @@ public class DetailsModel(
             return Page();
         }
 
-        var currentUser = await currentUserService.GetCurrentUserAsync();
-        var escalatedResults = await conflictSearchService.EscalateResultsAsync([resultId], EscalatedToUserId, EscalationNotes, currentUser?.Id);
-        await LogEscalationAsync(id, escalatedResults, recipient, EscalationNotes, currentUser?.Id);
+        var actionUser = await GetActionUserContextAsync();
+        var escalatedResults = await conflictSearchService.EscalateResultsAsync([resultId], EscalatedToUserId, EscalationNotes, actionUser.ActorUserId, actionUser.ActingAsUserId);
+        await LogEscalationAsync(id, escalatedResults, recipient, EscalationNotes, actionUser);
         return RedirectToPage(new { id });
     }
 
@@ -170,13 +169,13 @@ public class DetailsModel(
             return Forbid();
         }
 
-        var currentUser = await currentUserService.GetCurrentUserAsync();
-        if (currentUser is null)
+        var actionUser = await GetActionUserContextAsync();
+        if (actionUser.ActorUserId is null)
         {
             return Forbid();
         }
 
-        var result = await conflictSearchService.ApproveEscalationAsync(resultId, EscalationApprovalNotes, currentUser.Id);
+        var result = await conflictSearchService.ApproveEscalationAsync(resultId, EscalationApprovalNotes, actionUser.ActorUserId.Value, actionUser.ActingAsUserId);
         if (result is null)
         {
             ModelState.AddModelError(string.Empty, "Only the escalated reviewer can approve this result.");
@@ -195,7 +194,8 @@ public class DetailsModel(
                 ResultId = result.Id,
                 result.MatchedName,
                 result.SearchTerm,
-                ApprovedByUserId = currentUser.Id,
+                ApprovedByUserId = actionUser.ActorUserId,
+                ApprovedAsUserId = actionUser.ActingAsUserId,
                 Notes = EscalationApprovalNotes?.Trim() ?? string.Empty
             });
 
@@ -270,11 +270,17 @@ public class DetailsModel(
             .Include(x => x.Results)
                 .ThenInclude(x => x.ClearedByUser)
             .Include(x => x.Results)
+                .ThenInclude(x => x.ClearedAsUser)
+            .Include(x => x.Results)
                 .ThenInclude(x => x.EscalatedToUser)
             .Include(x => x.Results)
                 .ThenInclude(x => x.EscalatedByUser)
             .Include(x => x.Results)
+                .ThenInclude(x => x.EscalatedAsUser)
+            .Include(x => x.Results)
                 .ThenInclude(x => x.EscalationApprovedByUser)
+            .Include(x => x.Results)
+                .ThenInclude(x => x.EscalationApprovedAsUser)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (Search is not null)
@@ -311,7 +317,7 @@ public class DetailsModel(
         }
     }
 
-    private async Task LogEscalationAsync(Guid searchId, IReadOnlyCollection<ConflictSearchResult> results, CMIForgeUser recipient, string notes, Guid? currentUserId)
+    private async Task LogEscalationAsync(Guid searchId, IReadOnlyCollection<ConflictSearchResult> results, CMIForgeUser recipient, string notes, ConflictActionUserContext actionUser)
     {
         if (results.Count == 0)
         {
@@ -346,12 +352,28 @@ public class DetailsModel(
             {
                 EscalatedToUserId = recipient.Id,
                 EscalatedToDisplayName = recipient.DisplayName,
-                EscalatedByUserId = currentUserId,
+                EscalatedByUserId = actionUser.ActorUserId,
+                EscalatedAsUserId = actionUser.ActingAsUserId,
                 Notes = notes?.Trim() ?? string.Empty,
                 Results = resultSummaries
             });
     }
+
+    private async Task<ConflictActionUserContext> GetActionUserContextAsync()
+    {
+        var actualUser = await currentUserService.GetActualCurrentUserAsync();
+        var effectiveUser = await currentUserService.GetCurrentUserAsync();
+        var actingAsUserId = actualUser is not null &&
+            effectiveUser is not null &&
+            actualUser.Id != effectiveUser.Id
+                ? effectiveUser.Id
+                : (Guid?)null;
+
+        return new ConflictActionUserContext(actualUser?.Id, actingAsUserId);
+    }
 }
+
+public sealed record ConflictActionUserContext(Guid? ActorUserId, Guid? ActingAsUserId);
 
 public sealed class ConflictResultDisplayItem
 {
@@ -397,17 +419,29 @@ public sealed class ConflictResultDisplayItem
 
     public string ClearedByDisplayName { get; init; } = string.Empty;
 
+    public string ClearedAsDisplayName { get; init; } = string.Empty;
+
+    public string ClearanceActorDisplayName => FormatActionUserDisplayName(ClearedByDisplayName, ClearedAsDisplayName);
+
     public DateTimeOffset? ClearedAt { get; init; }
 
     public string EscalatedToDisplayName { get; init; } = string.Empty;
 
     public string EscalatedByDisplayName { get; init; } = string.Empty;
 
+    public string EscalatedAsDisplayName { get; init; } = string.Empty;
+
+    public string EscalationActorDisplayName => FormatActionUserDisplayName(EscalatedByDisplayName, EscalatedAsDisplayName);
+
     public DateTimeOffset? EscalatedAt { get; init; }
 
     public string EscalationNotes { get; init; } = string.Empty;
 
     public string EscalationApprovedByDisplayName { get; init; } = string.Empty;
+
+    public string EscalationApprovedAsDisplayName { get; init; } = string.Empty;
+
+    public string EscalationApprovalActorDisplayName => FormatActionUserDisplayName(EscalationApprovedByDisplayName, EscalationApprovedAsDisplayName);
 
     public DateTimeOffset? EscalationApprovedAt { get; init; }
 
@@ -437,13 +471,16 @@ public sealed class ConflictResultDisplayItem
             AiAssessment = result.AiAssessment,
             ClearanceStatus = result.ClearanceStatus,
             ClearanceNotes = result.ClearanceNotes,
-            ClearedByDisplayName = result.ClearedByUser?.DisplayName ?? "System",
+            ClearedByDisplayName = result.ClearedByUser?.DisplayName ?? string.Empty,
+            ClearedAsDisplayName = result.ClearedAsUser?.DisplayName ?? string.Empty,
             ClearedAt = result.ClearedAt,
             EscalatedToDisplayName = result.EscalatedToUser?.DisplayName ?? string.Empty,
             EscalatedByDisplayName = result.EscalatedByUser?.DisplayName ?? string.Empty,
+            EscalatedAsDisplayName = result.EscalatedAsUser?.DisplayName ?? string.Empty,
             EscalatedAt = result.EscalatedAt,
             EscalationNotes = result.EscalationNotes,
             EscalationApprovedByDisplayName = result.EscalationApprovedByUser?.DisplayName ?? string.Empty,
+            EscalationApprovedAsDisplayName = result.EscalationApprovedAsUser?.DisplayName ?? string.Empty,
             EscalationApprovedAt = result.EscalationApprovedAt,
             EscalationApprovalNotes = result.EscalationApprovalNotes
         };
@@ -474,7 +511,17 @@ public sealed class ConflictResultDisplayItem
             ClearanceStatus = result.ClearanceStatus,
             ClearanceNotes = result.ClearanceNotes,
             ClearedByDisplayName = result.ClearedByDisplayName,
+            ClearedAsDisplayName = result.ClearedAsDisplayName,
             ClearedAt = result.ClearedAt
         };
+    }
+
+    private static string FormatActionUserDisplayName(string actorDisplayName, string actingAsDisplayName)
+    {
+        var actor = string.IsNullOrWhiteSpace(actorDisplayName) ? "System" : actorDisplayName.Trim();
+        var actingAs = string.IsNullOrWhiteSpace(actingAsDisplayName) ? string.Empty : actingAsDisplayName.Trim();
+        return !string.IsNullOrWhiteSpace(actingAs) && !actor.Equals(actingAs, StringComparison.OrdinalIgnoreCase)
+            ? $"{actor} impersonating {actingAs}"
+            : actor;
     }
 }

@@ -62,6 +62,8 @@ public class ConflictSearchArchiveService(CMIForgeDbContext db)
                 .ThenInclude(x => x.Client)
             .Include(x => x.Results)
                 .ThenInclude(x => x.ClearedByUser)
+            .Include(x => x.Results)
+                .ThenInclude(x => x.ClearedAsUser)
             .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.Id == searchId);
         if (search is null || search.ReviewerDecision != ConflictSearchDecisions.Clear || search.Status != ConflictSearchStatuses.Cleared)
@@ -154,6 +156,8 @@ public class ConflictSearchArchiveService(CMIForgeDbContext db)
             ClearanceNotes = result.ClearanceNotes,
             ClearedByUserId = result.ClearedByUserId,
             ClearedByDisplayName = result.ClearedByDisplayName,
+            ClearedAsUserId = result.ClearedAsUserId,
+            ClearedAsDisplayName = result.ClearedAsDisplayName,
             ClearedAt = result.ClearedAt,
             CreatedAt = result.CreatedAt,
             SearchableText = BuildSearchableText(result),
@@ -261,7 +265,9 @@ public class ConflictSearchArchiveService(CMIForgeDbContext db)
             result.ClearedByUserId,
             result.ClearedByUser?.DisplayName ?? string.Empty,
             result.ClearedAt,
-            result.CreatedAt);
+            result.CreatedAt,
+            result.ClearedAsUserId,
+            result.ClearedAsUser?.DisplayName ?? string.Empty);
     }
 
     private static byte[] Compress(byte[] input)
@@ -333,7 +339,8 @@ public class ConflictSearchArchiveService(CMIForgeDbContext db)
             result.AiAssessment,
             result.ClearanceStatus,
             result.ClearanceNotes,
-            result.ClearedByDisplayName
+            result.ClearedByDisplayName,
+            result.ClearedAsDisplayName
         }.Where(x => !string.IsNullOrWhiteSpace(x)));
     }
 }
@@ -390,4 +397,6 @@ public sealed record ConflictSearchArchiveResultPayload(
     Guid? ClearedByUserId,
     string ClearedByDisplayName,
     DateTimeOffset? ClearedAt,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    Guid? ClearedAsUserId = null,
+    string ClearedAsDisplayName = "");
