@@ -18,5 +18,9 @@
   "CMIForge__RunSeedDataOnStartup": "true",
   "CMIForge__SeedSampleData": "false",
   "CMIForge__DefaultTimeZone": "America/Chicago",
+  "AzureSearch__Endpoint": "https://gw-ai-srch-basic.search.windows.net",
+  "AzureSearch__ApiKey": "<query-key-set-in-azure-not-in-git>",
+  "AzureSearch__ConflictDocumentsIndex": "cmiforge-customer0-conflict-documents",
+  "AzureSearch__MaxCandidates": "600",
   "ASPNETCORE_ENVIRONMENT": "Production"
 }

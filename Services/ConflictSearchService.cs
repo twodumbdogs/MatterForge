@@ -1,17 +1,23 @@
 using System.Globalization;
+using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json.Serialization;
 using CMIForge.Data;
 using CMIForge.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace CMIForge.Services;
 
-public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveService archiveService)
+public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveService archiveService, IConfiguration? configuration = null)
 {
     public ConflictSearchService(CMIForgeDbContext db)
-        : this(db, new ConflictSearchArchiveService(db))
+        : this(db, new ConflictSearchArchiveService(db), null)
     {
     }
+
+    private const string AzureSearchCandidateProviderEnabledSettingKey = "Conflicts.AzureAiSearchCandidateProviderEnabled";
+    private const string AzureSearchApiVersion = "2026-04-01";
+    private const int DefaultCandidateLimit = 600;
 
     private static readonly HashSet<string> CorporateSuffixes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -85,8 +91,8 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             RequestedByUserId = requestedByUserId
         };
 
-        db.ConflictSearches.Add(search);
         await RunSearchAsync(search);
+        db.ConflictSearches.Add(search);
         await db.SaveChangesAsync();
         return search;
     }
@@ -146,6 +152,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
     {
         var parties = await db.Parties
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(x => x.Aliases)
             .Include(x => x.MatterParties)
                 .ThenInclude(x => x.Matter)
@@ -161,6 +168,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             .ToListAsync();
         var clients = await db.Clients
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(x => x.Aliases)
             .Include(x => x.Matters)
             .OrderBy(x => x.ClientNumber)
@@ -264,6 +272,12 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             return null;
         }
 
+        var azureSearchCandidateIds = await FindAzureSearchCandidateDocumentIdsAsync(terms, includeHistory);
+        if (azureSearchCandidateIds is not null)
+        {
+            return azureSearchCandidateIds;
+        }
+
         var historyFilter = includeHistory
             ? string.Empty
             : $" AND [d].[SourceType] NOT IN ({string.Join(", ", HistoryDocumentTypes.Select((_, index) => $"@historyType{index}"))})";
@@ -316,6 +330,158 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         }
     }
 
+    private async Task<List<Guid>?> FindAzureSearchCandidateDocumentIdsAsync(List<string> terms, bool includeHistory)
+    {
+        if (!await IsAzureSearchCandidateProviderEnabledAsync())
+        {
+            return null;
+        }
+
+        var endpoint = configuration?["AzureSearch:Endpoint"]?.Trim().TrimEnd('/');
+        var apiKey = configuration?["AzureSearch:ApiKey"]?.Trim();
+        var indexName = ResolveAzureSearchIndexName();
+        if (string.IsNullOrWhiteSpace(endpoint) ||
+            string.IsNullOrWhiteSpace(apiKey) ||
+            string.IsNullOrWhiteSpace(indexName) ||
+            !Uri.TryCreate(endpoint, UriKind.Absolute, out var endpointUri))
+        {
+            return null;
+        }
+
+        var maxCandidates = Math.Clamp(
+            configuration?.GetValue("AzureSearch:MaxCandidates", DefaultCandidateLimit) ?? DefaultCandidateLimit,
+            1,
+            1000);
+        var ids = new List<Guid>();
+        var seen = new HashSet<Guid>();
+        var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(10)
+        };
+        client.DefaultRequestHeaders.Add("api-key", apiKey);
+
+        foreach (var term in terms)
+        {
+            var searchText = BuildAzureSearchQuery(term);
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                continue;
+            }
+
+            var request = new AzureSearchRequest(
+                Search: searchText,
+                Top: maxCandidates,
+                Select: "id",
+                SearchFields: "matchedName,matchedOn,searchableText,normalizedSearchableText",
+                SearchMode: "all",
+                QueryType: "simple",
+                Filter: includeHistory ? null : BuildAzureSearchActiveOnlyFilter(),
+                OrderBy: "search.score() desc, sortNumber asc");
+
+            try
+            {
+                var response = await client.PostAsJsonAsync(
+                    new Uri(endpointUri, $"/indexes/{Uri.EscapeDataString(indexName)}/docs/search?api-version={AzureSearchApiVersion}"),
+                    request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    return null;
+                }
+
+                var results = await response.Content.ReadFromJsonAsync<AzureSearchResponse>();
+                if (results is null)
+                {
+                    return null;
+                }
+
+                foreach (var document in results.Value)
+                {
+                    if (Guid.TryParse(document.Id, out var id) && seen.Add(id))
+                    {
+                        ids.Add(id);
+                    }
+                }
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (ids.Count >= maxCandidates)
+            {
+                break;
+            }
+        }
+
+        return ids.Take(maxCandidates).ToList();
+    }
+
+    private async Task<bool> IsAzureSearchCandidateProviderEnabledAsync()
+    {
+        var value = await db.SystemSettings
+            .AsNoTracking()
+            .Where(x => x.Key == AzureSearchCandidateProviderEnabledSettingKey)
+            .Select(x => x.Value)
+            .FirstOrDefaultAsync();
+
+        return bool.TryParse(value, out var enabled) && enabled;
+    }
+
+    private string? ResolveAzureSearchIndexName()
+    {
+        var configured = configuration?["AzureSearch:ConflictDocumentsIndex"];
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return configured.Trim();
+        }
+
+        var databaseName = db.Database.GetDbConnection().Database;
+        return string.IsNullOrWhiteSpace(databaseName)
+            ? null
+            : $"{databaseName.Trim().ToLowerInvariant()}-conflict-documents";
+    }
+
+    private static string BuildAzureSearchQuery(string term)
+    {
+        var normalized = NormalizeName(term);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        var tokens = normalized
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.Trim())
+            .Where(x => x.Length > 0)
+            .Select(x => $"{EscapeAzureSearchSimpleToken(x)}*")
+            .ToList();
+
+        return string.Join(' ', tokens);
+    }
+
+    private static string EscapeAzureSearchSimpleToken(string token)
+    {
+        var builder = new StringBuilder(token.Length);
+        foreach (var ch in token)
+        {
+            if (ch is '+' or '|' or '"' or '(' or ')' or '\'' or '\\' or '/')
+            {
+                builder.Append('\\');
+            }
+
+            builder.Append(ch);
+        }
+
+        return builder.ToString();
+    }
+
+    private static string BuildAzureSearchActiveOnlyFilter()
+    {
+        return string.Join(
+            " and ",
+            HistoryDocumentTypes.Select(x => $"sourceType ne '{x.Replace("'", "''", StringComparison.Ordinal)}'"));
+    }
+
     private async Task AddCandidateDocumentResultsAsync(
         Dictionary<string, ConflictSearchResult> results,
         ConflictSearch search,
@@ -356,6 +522,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             ? []
             : await db.Parties
                 .AsNoTracking()
+                .AsSplitQuery()
                 .Include(x => x.Aliases)
                 .Include(x => x.MatterParties)
                     .ThenInclude(x => x.Matter)
@@ -369,6 +536,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             ? []
             : await db.Clients
                 .AsNoTracking()
+                .AsSplitQuery()
                 .Include(x => x.Aliases)
                 .Include(x => x.Matters)
                 .Where(x => clientIds.Contains(x.Id))
@@ -402,6 +570,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         {
             var relatedParties = await db.Parties
                 .AsNoTracking()
+                .AsSplitQuery()
                 .Include(x => x.Aliases)
                 .Include(x => x.MatterParties)
                     .ThenInclude(x => x.Matter)
@@ -773,14 +942,35 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         return result;
     }
 
-    public async Task RerunSearchAsync(ConflictSearch search, string? additionalTerms)
+    public async Task RerunSearchAsync(Guid searchId, string? additionalTerms)
     {
-        var existingTerms = SplitSearchTerms(search.SearchTerms);
+        var existingSearch = await db.ConflictSearches
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == searchId);
+        if (existingSearch is null)
+        {
+            return;
+        }
+
+        var existingTerms = SplitSearchTerms(existingSearch.SearchTerms);
         var newTerms = SplitSearchTerms(additionalTerms ?? string.Empty);
         var combinedTerms = existingTerms
             .Concat(newTerms)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        var search = new ConflictSearch
+        {
+            Id = existingSearch.Id,
+            SearchNumber = existingSearch.SearchNumber,
+            SearchName = existingSearch.SearchName,
+            SearchTerms = existingSearch.SearchTerms,
+            FormSubmissionId = existingSearch.FormSubmissionId,
+            MatterId = existingSearch.MatterId,
+            RequestedByUserId = existingSearch.RequestedByUserId,
+            CreatedAt = existingSearch.CreatedAt,
+            ArchivedAt = existingSearch.ArchivedAt
+        };
 
         if (combinedTerms.Count > 0)
         {
@@ -788,6 +978,44 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         }
 
         await RunSearchAsync(search);
+
+        var results = search.Results.ToList();
+        search.Results.Clear();
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync();
+
+            await db.ConflictSearchResults
+                .Where(x => x.ConflictSearchId == search.Id)
+                .ExecuteDeleteAsync();
+
+            var updatedRows = await db.ConflictSearches
+                .Where(x => x.Id == search.Id)
+                .ExecuteUpdateAsync(updates => updates
+                    .SetProperty(x => x.SearchTerms, search.SearchTerms)
+                    .SetProperty(x => x.NormalizedTerms, search.NormalizedTerms)
+                    .SetProperty(x => x.Status, search.Status)
+                    .SetProperty(x => x.ReviewerDecision, search.ReviewerDecision)
+                    .SetProperty(x => x.ArchivedAt, search.ArchivedAt)
+                    .SetProperty(x => x.UpdatedAt, search.UpdatedAt)
+                    .SetProperty(x => x.AiSummary, search.AiSummary));
+
+            if (updatedRows == 0)
+            {
+                throw new InvalidOperationException($"Conflict search '{search.Id}' could not be updated because it no longer exists.");
+            }
+
+            db.ConflictSearchResults.AddRange(results);
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+        });
+    }
+
+    public async Task RerunSearchAsync(ConflictSearch search, string? additionalTerms)
+    {
+        await RerunSearchAsync(search.Id, additionalTerms);
     }
 
     private async Task RefreshSearchFromResultClearancesAsync(Guid searchId, Guid? reviewedByUserId)
@@ -934,37 +1162,26 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
 
     private async Task<bool> EnsureConflictSearchDocumentsAsync(bool includeHistory)
     {
-        var sourceTypes = includeHistory ? LiveDocumentTypes.Concat(HistoryDocumentTypes).ToArray() : LiveDocumentTypes;
-        var expectedCount = await CountExpectedConflictSearchDocumentsAsync(includeHistory);
-        var currentCount = await db.ConflictSearchDocuments.CountAsync(x => sourceTypes.Contains(x.SourceType));
+        var expectedCount = await CountExpectedLiveConflictSearchDocumentsAsync();
+        var currentCount = await db.ConflictSearchDocuments.CountAsync(x => LiveDocumentTypes.Contains(x.SourceType));
 
         if (expectedCount == currentCount && currentCount > 0)
         {
             return false;
         }
 
-        await RebuildConflictSearchDocumentsAsync(includeHistory);
+        await RebuildConflictSearchDocumentsAsync(includeHistory: false);
         return true;
     }
 
-    private async Task<int> CountExpectedConflictSearchDocumentsAsync(bool includeHistory)
+    private async Task<int> CountExpectedLiveConflictSearchDocumentsAsync()
     {
-        var liveCount =
+        return
             await db.Parties.CountAsync() +
             await db.PartyAliases.CountAsync() +
             await db.Clients.CountAsync() +
             await db.ClientAliases.CountAsync() +
             await db.Matters.CountAsync();
-
-        if (!includeHistory)
-        {
-            return liveCount;
-        }
-
-        return liveCount +
-            await db.ConflictSearches.CountAsync() +
-            await db.ConflictSearchResults.CountAsync(x => x.ClearanceNotes != string.Empty) +
-            await db.ConflictSearchHitArchives.CountAsync(x => x.ClearanceNotes != string.Empty);
     }
 
     private async Task RebuildConflictSearchDocumentsAsync(bool includeHistory)
@@ -1572,13 +1789,54 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             containsScore = 88 + (int)Math.Round(Math.Min(1, phraseCoverage) * 6);
         }
 
+        var prefixScore = CalculateTokenPrefixScore(
+            normalizedTerm,
+            normalizedCandidate,
+            termTokens,
+            candidateTokens);
         var tokenScore = (int)Math.Round(((termCoverage * 0.7) + (candidateCoverage * 0.3)) * 92);
 
         var trigramScore = (int)Math.Round(TrigramSimilarity(normalizedTerm, normalizedCandidate) * 100);
         var editScore = (int)Math.Round(LevenshteinRatio(normalizedTerm, normalizedCandidate) * 100);
 
-        var score = Math.Max(containsScore, Math.Max(tokenScore, Math.Max(trigramScore, editScore)));
+        var score = Math.Max(containsScore, Math.Max(prefixScore, Math.Max(tokenScore, Math.Max(trigramScore, editScore))));
         return Math.Clamp(score, 0, 99);
+    }
+
+    private static int CalculateTokenPrefixScore(
+        string normalizedTerm,
+        string normalizedCandidate,
+        HashSet<string> termTokens,
+        HashSet<string> candidateTokens)
+    {
+        if (termTokens.Count == 0 || candidateTokens.Count == 0)
+        {
+            return 0;
+        }
+
+        var searchableTermTokens = termTokens
+            .Where(token => token.Length >= 4)
+            .ToList();
+        if (searchableTermTokens.Count == 0)
+        {
+            return 0;
+        }
+
+        var matchedTerms = searchableTermTokens.Count(termToken =>
+            candidateTokens.Any(candidateToken => candidateToken.StartsWith(termToken, StringComparison.OrdinalIgnoreCase)));
+        if (matchedTerms == 0)
+        {
+            return 0;
+        }
+
+        var termCoverage = (double)matchedTerms / searchableTermTokens.Count;
+        var compactTermLength = CompactLength(normalizedTerm);
+        var compactCandidateLength = CompactLength(normalizedCandidate);
+        var lengthPenalty = compactCandidateLength == 0
+            ? 0
+            : Math.Min(1, (double)compactTermLength / compactCandidateLength);
+
+        return 78 + (int)Math.Round(termCoverage * 14) + (int)Math.Round(lengthPenalty * 4);
     }
 
     private static string RemoveConnectorWords(string value)
@@ -1920,6 +2178,22 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         string MatchedOn,
         string MatchType,
         int Score);
+
+    private sealed record AzureSearchRequest(
+        [property: JsonPropertyName("search")] string Search,
+        [property: JsonPropertyName("top")] int Top,
+        [property: JsonPropertyName("select")] string Select,
+        [property: JsonPropertyName("searchFields")] string SearchFields,
+        [property: JsonPropertyName("searchMode")] string SearchMode,
+        [property: JsonPropertyName("queryType")] string QueryType,
+        [property: JsonPropertyName("filter")] string? Filter,
+        [property: JsonPropertyName("orderby")] string OrderBy);
+
+    private sealed record AzureSearchResponse(
+        [property: JsonPropertyName("value")] IReadOnlyList<AzureSearchDocument> Value);
+
+    private sealed record AzureSearchDocument(
+        [property: JsonPropertyName("id")] string Id);
 }
 
 public sealed record ConflictPreview(

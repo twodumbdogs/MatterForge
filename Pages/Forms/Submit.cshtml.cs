@@ -85,6 +85,62 @@ public class SubmitModel(
         return new JsonResult(preview, FormJson.Options);
     }
 
+    public async Task<IActionResult> OnGetClientSuggestionsAsync(Guid id, string? term)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.FormsSubmit))
+        {
+            return Forbid();
+        }
+
+        var formId = id == Guid.Empty ? Id : id;
+        var formExists = await db.FormDefinitions.AnyAsync(x =>
+            x.Id == formId &&
+            x.IsActive &&
+            x.Versions.Any(v => v.IsPublished));
+
+        if (!formExists)
+        {
+            return NotFound();
+        }
+
+        var trimmedTerm = term?.Trim() ?? string.Empty;
+        if (trimmedTerm.Length < 2)
+        {
+            return new JsonResult(Array.Empty<ClientSuggestion>(), FormJson.Options);
+        }
+
+        var escapedTerm = EscapeLikeValue(trimmedTerm);
+        var clientNumberMatches = int.TryParse(trimmedTerm, out var parsedClientNumber)
+            ? parsedClientNumber
+            : (int?)null;
+
+        var suggestions = await db.Clients
+            .AsNoTracking()
+            .Where(x => !x.IsArchived)
+            .Where(x =>
+                EF.Functions.Like(x.Name, $"%{escapedTerm}%", "\\") ||
+                clientNumberMatches.HasValue && x.ClientNumber == clientNumberMatches.Value)
+            .OrderBy(x => x.Name.StartsWith(trimmedTerm) ? 0 : 1)
+            .ThenBy(x => x.Name)
+            .ThenBy(x => x.ClientNumber)
+            .Take(8)
+            .Select(x => new ClientSuggestion(
+                x.Name,
+                $"{x.ClientNumber:D8} - {x.Name}"))
+            .ToListAsync();
+
+        return new JsonResult(suggestions, FormJson.Options);
+    }
+
+    private static string EscapeLikeValue(string value)
+    {
+        return value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal)
+            .Replace("[", "\\[", StringComparison.Ordinal);
+    }
+
     public async Task<IActionResult> OnPostAsync()
     {
         if (!await permissionService.HasAsync(PermissionKeys.FormsSubmit))
@@ -180,14 +236,6 @@ public class SubmitModel(
 
     private async Task LoadFormAsync()
     {
-        ClientSuggestions = await db.Clients
-            .Where(x => !x.IsArchived)
-            .OrderBy(x => x.Name)
-            .Select(x => new ClientSuggestion(
-                x.Name,
-                $"{x.ClientNumber:D8} - {x.Name}"))
-            .ToListAsync();
-
         IsConflictPreviewEnabled = await IsConflictPreviewEnabledAsync();
 
         SubmitterOptions = await db.Users

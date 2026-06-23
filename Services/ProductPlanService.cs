@@ -7,7 +7,7 @@ public static class ProductInfo
 {
     public const string Name = "CMIForge";
     public const string ReleaseName = "CMIForge 1.0";
-    public const string Version = "20260619.1";
+    public const string Version = "20260623.1";
     public const string DisplayVersion = $"{ReleaseName} · {Version}";
 }
 
@@ -119,10 +119,10 @@ public class ProductPlanService(CMIForgeDbContext db, IConfiguration configurati
         "Enterprise",
         "$599/month",
         UserLimit: 1000,
-        MatterLimit: null,
-        ClientLimit: null,
+        MatterLimit: 5000,
+        ClientLimit: 5000,
         FeatureKeys: EnterpriseFeatureKeys,
-        Note: "Includes 1,000 users, unlimited clients and matters, and customer SQL data access.");
+        Note: "Includes 1,000 users, 5,000 clients, 5,000 matters, and customer SQL data access.");
 
     public IReadOnlyList<ProductPlan> Plans { get; } = [Community, Professional, Enterprise];
 

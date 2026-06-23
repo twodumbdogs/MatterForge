@@ -137,7 +137,8 @@ else
                 .ToList();
             @if (Model.CanReview)
             {
-                <form method="post" id="bulk-result-form" asp-page-handler="BulkResultAction" asp-route-id="@Model.Search.Id" class="mf-conflict-bulk-panel mt-3">
+                <form method="post" id="bulk-result-form" asp-page-handler="BulkResultAction" asp-route-id="@Model.Search.Id" asp-route-pageNumber="@Model.ResultPagination.PageNumber" class="mf-conflict-bulk-panel mt-3">
+                    <input type="hidden" name="pageNumber" value="@Model.ResultPagination.PageNumber" />
                     <div class="row g-2 align-items-end">
                         <div class="col-md-3">
                             <label class="form-label" for="bulkResultStatus">Selected rows</label>
@@ -209,10 +210,11 @@ else
                     </select>
                 </div>
                 <div class="mf-result-filter-actions">
-                    <span class="badge text-bg-light" data-conflict-filter-count>@Model.Results.Count result(s)</span>
+                    <span class="badge text-bg-light" data-conflict-filter-count>@Model.Results.Count result(s) on this page</span>
                     <button class="btn btn-outline-secondary btn-sm" type="button" data-conflict-filter-clear>Clear</button>
                 </div>
             </div>
+            <partial name="_RecordPagination" model="@(new CMIForge.Models.RecordPaginationViewModel(Model.ResultPagination, "results", Model.ResultRouteValues, "./Details"))" />
             <p class="text-muted mt-3 mb-0 d-none" data-conflict-filter-empty>No results match the selected filters.</p>
             <div class="table-responsive">
                 <table class="table align-middle mf-conflict-results-table">
@@ -234,7 +236,7 @@ else
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var result in Model.Results.OrderByDescending(x => x.Score).ThenBy(x => x.MatchedName))
+                        @foreach (var result in Model.Results)
                         {
                             <tr data-conflict-result-row data-clearance="@result.ClearanceStatus" data-role="@RoleFilterLabel(result.PartyRole)" data-risk="@result.RiskLevel">
                                 @if (Model.CanReview)
@@ -327,7 +329,8 @@ else
                                         <details class="mf-row-actions mt-2">
                                             <summary>@(hasPendingEscalation ? "Row actions / approve" : "Row actions")</summary>
                                             <div class="mf-row-action-grid mt-2">
-                                                <form method="post" asp-page-handler="ResultReview" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id">
+                                                <form method="post" asp-page-handler="ResultReview" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id" asp-route-pageNumber="@Model.ResultPagination.PageNumber">
+                                                    <input type="hidden" name="pageNumber" value="@Model.ResultPagination.PageNumber" />
                                                     <label class="form-label small text-muted mb-1" for="ResultStatus_@result.Id">Clearance</label>
                                                     <select name="resultStatus" id="ResultStatus_@result.Id" class="form-select form-select-sm mb-2" aria-label="Result clearance status">
                                                         @foreach (var option in Model.ResultStatusOptions)
@@ -345,7 +348,8 @@ else
                                                     <textarea name="resultNotes" class="form-control form-control-sm" rows="2" placeholder="Clearance notes">@result.ClearanceNotes</textarea>
                                                     <button class="btn btn-sm btn-primary mt-2">Save row</button>
                                                 </form>
-                                                <form method="post" asp-page-handler="ResultEscalate" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id">
+                                                <form method="post" asp-page-handler="ResultEscalate" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id" asp-route-pageNumber="@Model.ResultPagination.PageNumber">
+                                                    <input type="hidden" name="pageNumber" value="@Model.ResultPagination.PageNumber" />
                                                     <label class="form-label small text-muted mb-1" for="EscalatedToUserId_@result.Id">Escalate</label>
                                                     <select name="EscalatedToUserId" id="EscalatedToUserId_@result.Id" class="form-select form-select-sm mb-2" aria-label="Escalate result to user">
                                                         <option value="">Choose user...</option>
@@ -359,7 +363,8 @@ else
                                                 </form>
                                                 @if (hasPendingEscalation)
                                                 {
-                                                    <form method="post" asp-page-handler="ApproveEscalation" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id">
+                                                    <form method="post" asp-page-handler="ApproveEscalation" asp-route-id="@Model.Search.Id" asp-route-resultId="@result.Id" asp-route-pageNumber="@Model.ResultPagination.PageNumber">
+                                                        <input type="hidden" name="pageNumber" value="@Model.ResultPagination.PageNumber" />
                                                         <label class="form-label small text-muted mb-1" for="EscalationApprovalNotes_@result.Id">Approval</label>
                                                         <textarea name="EscalationApprovalNotes" id="EscalationApprovalNotes_@result.Id" class="form-control form-control-sm" rows="2" placeholder="Approval notes"></textarea>
                                                         <button class="btn btn-sm btn-success mt-2">Approve escalation</button>
@@ -379,6 +384,7 @@ else
                     </tbody>
                 </table>
             </div>
+            <partial name="_RecordPagination" model="@(new CMIForge.Models.RecordPaginationViewModel(Model.ResultPagination, "results", Model.ResultRouteValues, "./Details"))" />
         }
     </div>
     <partial name="/Pages/Entities/_EntityAuditHistory.cshtml" model="Model.AuditHistory" />
@@ -444,7 +450,7 @@ else
                 });
 
                 if (count) {
-                    count.textContent = `${visibleCount} of ${rows.length} result(s)`;
+                    count.textContent = `${visibleCount} of ${rows.length} result(s) on this page`;
                 }
 
                 if (empty) {

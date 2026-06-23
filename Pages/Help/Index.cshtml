@@ -147,6 +147,8 @@
                 <li>Reviewer decisions can be recorded at the overall search level or on individual result rows.</li>
                 <li>Individual or selected result rows can be escalated to another active user for approval with escalation notes. The assigned reviewer can approve the escalation with approval notes, and both actions are written to audit history.</li>
                 <li>Previous conflict search names, terms, review notes, AI summaries, and result clearance notes are included as searchable history.</li>
+                <li>On Azure SQL, larger tenants use a denormalized full-text search document index to find likely candidates quickly before CMIForge applies its own match-strength scoring.</li>
+                <li>Large conflict searches show 50 result hits per page so reviewers can work through the queue without loading every match at once.</li>
                 <li>Submission forms can show a floating live conflict preview while a user types client and matter names, giving early warnings before the form is submitted.</li>
             </ul>
             <h3>How Search Terms Work</h3>
@@ -222,6 +224,7 @@
                 <li>Matters upsert by <code>MatterNumber</code> and require an existing <code>ClientNumber</code>.</li>
                 <li>Parties link to matters by <code>MatterNumber</code> and reuse existing parties by normalized name.</li>
                 <li>Client photo OCR can read a client image or scan, show the extracted text for review, and draft the client fields before creation.</li>
+                <li>Enterprise SQL data access is a CMIForge-provisioned option, shown under Settings when available, and is not edited directly by customers.</li>
             </ul>
         </section>
 
@@ -287,6 +290,7 @@
                 <li>Settings are grouped by category, including email, inbound email, address lookup, conflicts, and data access.</li>
                 <li>Data access settings show the fixed 1,000-row CSV export batch size.</li>
                 <li>Enterprise SQL access settings are read-only and provisioned by CMIForge.</li>
+                <li>When private endpoints are enabled, direct database access requires the operator's SQL tool to run from an approved network path or a controlled temporary maintenance window. SSMS, Azure Data Studio, <code>sqlcmd</code>, and scripted SQL clients are all valid once network and Entra/SQL permissions are in place.</li>
                 <li>SMTP password configuration is represented as a secret reference so the actual secret can live outside the settings table.</li>
                 <li>Settings updates are audit logged.</li>
                 <li>Settings are hidden from the System menu and read-only in demo mode.</li>
@@ -318,7 +322,7 @@
             <ul>
                 <li><strong>Community</strong>: free, 3 users, 50 matters, 50 clients, all features, and community support.</li>
                 <li><strong>Professional</strong>: $149/month, includes 10 users, 500 matters, 500 clients, all features, and email support.</li>
-                <li><strong>Enterprise</strong>: $599/month for 1,000 users, unlimited clients and matters, and customer SQL data access.</li>
+                <li><strong>Enterprise</strong>: $599/month for 1,000 users, 5,000 clients, 5,000 matters, and customer SQL data access.</li>
             </ul>
             <p class="mb-0">The development and live demo build is currently hardcoded to Professional so development work and evaluation are not blocked by feature gates.</p>
         </section>
@@ -327,7 +331,8 @@
             <h2>Current Limits And Next Slices</h2>
             <ul>
                 <li>Conflict result clearance now supports row-level status, notes, reviewer, and timestamp fields; richer clearance workflow templates are still a future slice.</li>
-                <li>Conflict searches now search prior search text and previous result clearance notes; deeper full-text indexing is still a future scaling slice.</li>
+                <li>Conflict searches now search prior search text, previous result clearance notes, and an Azure SQL full-text candidate index where available. Semantic/vector search remains a future slice.</li>
+                <li>Azure AI Search proof-of-tech indexing now keeps one entity-directory index per tenant/environment for clients, matters, parties, aliases, and contacts. Users are intentionally excluded until there is a specific user-search need.</li>
                 <li>Submission attachments now support small PDF, Word, Excel, and hyperlink records. Richer attachment workflows are still a future slice.</li>
                 <li>Workflow notification steps are wired for SMTP-backed email and workflow-event logging. Tenant email delivery still depends on completed SMTP/secret configuration.</li>
                 <li>Time recording is not yet billing, invoice generation, rate management, or accounting sync.</li>

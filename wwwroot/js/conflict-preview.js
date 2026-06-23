@@ -101,24 +101,37 @@
         const margin = 16;
         const rect = activeSource.getBoundingClientRect();
         const hasNativePicker = activeSource.hasAttribute('list');
+        const clientLookupList = activeSource
+            .closest('[data-client-lookup]')
+            ?.querySelector('[data-client-lookup-list]:not([hidden])');
+        const clientLookupRect = clientLookupList?.getBoundingClientRect();
+        const hasClientLookup = Boolean(clientLookupRect && clientLookupRect.height > 0);
+        const hasFieldPicker = hasNativePicker || hasClientLookup;
         const availableRight = window.innerWidth - rect.right - margin;
         const availableLeft = rect.left - margin;
         let width = Math.min(Math.max(rect.width, 340), 430, window.innerWidth - margin * 2);
         let left = Math.min(Math.max(rect.left, margin), window.innerWidth - width - margin);
         let top = Math.max(rect.bottom + 10, margin);
+        let isSidecar = false;
 
-        if (hasNativePicker && availableRight >= 360) {
+        if (hasFieldPicker && availableRight >= 360) {
             width = Math.min(430, availableRight - margin);
             left = rect.right + margin;
             top = Math.max(rect.top, margin);
-        } else if (hasNativePicker && availableLeft >= 360) {
+            isSidecar = true;
+        } else if (hasFieldPicker && availableLeft >= 360) {
             width = Math.min(430, availableLeft - margin);
             left = rect.left - width - margin;
             top = Math.max(rect.top, margin);
+            isSidecar = true;
+        } else if (hasClientLookup && clientLookupRect) {
+            top = Math.max(clientLookupRect.bottom + 12, margin);
         } else if (hasNativePicker) {
             top = Math.max(rect.bottom + 230, margin);
         }
 
+        preview.classList.toggle('is-sidecar', isSidecar);
+        preview.classList.toggle('is-below-picker', hasFieldPicker && !isSidecar);
         top = Math.min(top, Math.max(margin, window.innerHeight - 180 - margin));
         const maxHeight = Math.max(180, Math.min(460, window.innerHeight - top - margin));
 
@@ -232,6 +245,8 @@
     if (isPopover) {
         preview.addEventListener('focusin', () => window.clearTimeout(hideTimer));
         preview.addEventListener('focusout', scheduleClosePopover);
+        window.addEventListener('cmiforge:client-lookup-opened', positionPopover);
+        window.addEventListener('cmiforge:client-lookup-closed', positionPopover);
         window.addEventListener('resize', positionPopover);
         window.addEventListener('scroll', positionPopover, true);
         renderEmpty('Focus a client, matter, contact, or party field to start the radar.');

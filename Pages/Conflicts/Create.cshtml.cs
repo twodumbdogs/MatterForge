@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace CMIForge.Pages.Conflicts;
 
@@ -13,7 +14,8 @@ public class CreateModel(
     CMIForgeDbContext db,
     ConflictSearchService conflictSearchService,
     CurrentUserService currentUserService,
-    PermissionService permissionService) : PageModel
+    PermissionService permissionService,
+    ILogger<CreateModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)]
     public Guid? SubmissionId { get; set; }
@@ -53,13 +55,25 @@ public class CreateModel(
             return Page();
         }
 
-        var currentUser = await currentUserService.GetCurrentUserAsync();
-        var search = await conflictSearchService.CreateAndRunSearchAsync(
-            Input.SearchName,
-            Input.SearchTerms,
-            SubmissionId,
-            Input.MatterId,
-            currentUser?.Id);
+        ConflictSearch search;
+        try
+        {
+            var currentUser = await currentUserService.GetCurrentUserAsync();
+            search = await conflictSearchService.CreateAndRunSearchAsync(
+                Input.SearchName,
+                Input.SearchTerms,
+                SubmissionId,
+                Input.MatterId,
+                currentUser?.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Conflict search failed while running terms: {SearchTerms}", Input.SearchTerms);
+            ModelState.AddModelError(
+                string.Empty,
+                "CMIForge could not complete that conflict search. Try narrowing the terms, or ask an administrator to check the search index status.");
+            return Page();
+        }
 
         return RedirectToPage("./Details", new { id = search.Id });
     }

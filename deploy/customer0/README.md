@@ -51,6 +51,19 @@ Customer 0 data-plane access now runs through the shared private-networking slic
 
 The Customer 0 deployment wrapper now keeps the app VNet-integrated through `cmiforge-vnet/appsvc-integration` when it calls the shared `deployme.ps1` path. It also creates/ensures the attachment container through Azure Resource Manager instead of the storage data plane, so storage public access can remain disabled.
 
+## Querying Azure SQL With Private Endpoints
+
+SSMS is optional, not required. What matters is whether the SQL client is running from a network path that can resolve and reach the SQL private endpoint, and whether the signed-in principal has database permission.
+
+Current options:
+
+- Use SSMS, Azure Data Studio, `sqlcmd`, `Invoke-Sqlcmd`, or a script from a VM inside `cmiforge-vnet`.
+- Reach that VM through Azure Bastion so the SQL connection stays private.
+- Add a Point-to-Site VPN later if local workstation querying should feel normal without opening public SQL access.
+- Use the repo's `-AllowTemporarySqlPublicAccess` maintenance switches for controlled local one-off work. Those scripts open a narrow firewall rule for the current public IP and restore SQL public access to disabled in cleanup.
+
+Normal EF schema changes should keep using the VNet-integrated migrator WebJob. Avoid making long-lived public SQL firewall rules for Customer 0.
+
 ## Volume Test Data
 
 Customer 0 currently includes a realistic generated dataset for early volume, dashboard, workflow, and search testing:
@@ -64,6 +77,14 @@ Customer 0 currently includes a realistic generated dataset for early volume, da
 - 300 open volume workflow tasks
 
 The records use marker notes and the `volumeTest` submission flag so they can be searched, measured, renamed, or removed later without mixing them up with real firm data. Use `tools/seed-customer0-big-volume-data.ps1 -AllowTemporarySqlPublicAccess` from the project root to inspect the large generated dataset without adding rows, or add `-Apply` to top it up to the target counts.
+
+After a large seed or import, warm the conflict-search full-text document table before browser testing:
+
+```powershell
+.\tools\rebuild-conflict-search-documents.ps1 -AllowTemporarySqlPublicAccess
+```
+
+That script keeps the EF schema migration separate from the data warmup. It ensures the Azure SQL full-text catalog/index exists, rebuilds `ConflictSearchDocuments` with set-based SQL, starts full-text population, and then reports source-type counts plus a sample full-text hit check. Use `-SkipHistory` when only live clients, matters, parties, and aliases should be indexed.
 
 ## Signup And Legal Acceptance
 

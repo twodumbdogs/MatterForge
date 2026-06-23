@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace CMIForge.Pages.Conflicts;
 
@@ -14,7 +15,8 @@ public class DetailsModel(
     ConflictSearchArchiveService archiveService,
     CurrentUserService currentUserService,
     PermissionService permissionService,
-    AuditLogService auditLogService) : PageModel
+    AuditLogService auditLogService,
+    ILogger<DetailsModel> logger) : PageModel
 {
     public ConflictSearch? Search { get; private set; }
 
@@ -28,6 +30,10 @@ public class DetailsModel(
             Search.Matter?.MatterNumber);
 
     public List<ConflictResultDisplayItem> Results { get; private set; } = [];
+
+    public RecordPage ResultPagination { get; private set; } = RecordPage.Empty;
+
+    public Dictionary<string, string> ResultRouteValues { get; private set; } = [];
 
     public bool IsArchived => Archive is not null;
 
@@ -61,6 +67,9 @@ public class DetailsModel(
     [BindProperty]
     public string EscalationApprovalNotes { get; set; } = string.Empty;
 
+    [BindProperty(SupportsGet = true)]
+    public int PageNumber { get; set; } = 1;
+
     public async Task<IActionResult> OnGetAsync(Guid id)
     {
         if (!await permissionService.HasAsync(PermissionKeys.ConflictsView))
@@ -81,7 +90,7 @@ public class DetailsModel(
 
         var actionUser = await GetActionUserContextAsync();
         await conflictSearchService.ApplyReviewDecisionAsync(id, Decision, ReviewNotes, actionUser.ActorUserId, actionUser.ActingAsUserId);
-        return RedirectToPage(new { id });
+        return RedirectToPage(new { id, pageNumber = PageNumber });
     }
 
     public async Task<IActionResult> OnPostResultReviewAsync(Guid id, Guid resultId, string resultStatus, string resultNotes)
@@ -93,7 +102,7 @@ public class DetailsModel(
 
         var actionUser = await GetActionUserContextAsync();
         await conflictSearchService.ApplyResultClearanceAsync(resultId, resultStatus, resultNotes, actionUser.ActorUserId, actionUser.ActingAsUserId);
-        return RedirectToPage(new { id });
+        return RedirectToPage(new { id, pageNumber = PageNumber });
     }
 
     public async Task<IActionResult> OnPostBulkResultActionAsync(
@@ -130,7 +139,7 @@ public class DetailsModel(
             var actionUser = await GetActionUserContextAsync();
             var escalatedResults = await conflictSearchService.EscalateResultsAsync(selectedResultIds, EscalatedToUserId, EscalationNotes, actionUser.ActorUserId, actionUser.ActingAsUserId);
             await LogEscalationAsync(id, escalatedResults, recipient!, EscalationNotes, actionUser);
-            return RedirectToPage(new { id });
+            return RedirectToPage(new { id, pageNumber = PageNumber });
         }
 
         if (!string.IsNullOrWhiteSpace(bulkResultAction) &&
@@ -143,7 +152,7 @@ public class DetailsModel(
 
         var bulkActionUser = await GetActionUserContextAsync();
         await conflictSearchService.ApplyResultClearanceAsync(selectedResultIds, bulkResultStatus, bulkResultNotes, bulkActionUser.ActorUserId, bulkActionUser.ActingAsUserId);
-        return RedirectToPage(new { id });
+        return RedirectToPage(new { id, pageNumber = PageNumber });
     }
 
     public async Task<IActionResult> OnPostResultEscalateAsync(Guid id, Guid resultId)
@@ -166,7 +175,7 @@ public class DetailsModel(
         var actionUser = await GetActionUserContextAsync();
         var escalatedResults = await conflictSearchService.EscalateResultsAsync([resultId], EscalatedToUserId, EscalationNotes, actionUser.ActorUserId, actionUser.ActingAsUserId);
         await LogEscalationAsync(id, escalatedResults, recipient, EscalationNotes, actionUser);
-        return RedirectToPage(new { id });
+        return RedirectToPage(new { id, pageNumber = PageNumber });
     }
 
     public async Task<IActionResult> OnPostApproveEscalationAsync(Guid id, Guid resultId)
@@ -206,7 +215,7 @@ public class DetailsModel(
                 Notes = EscalationApprovalNotes?.Trim() ?? string.Empty
             });
 
-        return RedirectToPage(new { id });
+        return RedirectToPage(new { id, pageNumber = PageNumber });
     }
 
     public async Task<IActionResult> OnPostRerunAsync(Guid id)
@@ -216,42 +225,27 @@ public class DetailsModel(
             return Forbid();
         }
 
-        var search = await db.ConflictSearches
+        var searchExists = await db.ConflictSearches
             .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == id);
-        if (search is null)
+            .AnyAsync(x => x.Id == id);
+        if (!searchExists)
         {
             return NotFound();
         }
 
-        await conflictSearchService.RerunSearchAsync(search, AdditionalSearchTerms);
-        var results = search.Results.ToList();
-        search.Results.Clear();
-
-        db.ChangeTracker.Clear();
-        db.ConflictSearches.Attach(search);
-        var searchEntry = db.Entry(search);
-        searchEntry.Property(x => x.SearchTerms).IsModified = true;
-        searchEntry.Property(x => x.NormalizedTerms).IsModified = true;
-        searchEntry.Property(x => x.Status).IsModified = true;
-        searchEntry.Property(x => x.ReviewerDecision).IsModified = true;
-        searchEntry.Property(x => x.ArchivedAt).IsModified = true;
-        searchEntry.Property(x => x.UpdatedAt).IsModified = true;
-        searchEntry.Property(x => x.AiSummary).IsModified = true;
-        db.ConflictSearchResults.AddRange(results);
-
         try
         {
-            await db.SaveChangesAsync();
+            await conflictSearchService.RerunSearchAsync(id, AdditionalSearchTerms);
         }
-        catch (DbUpdateConcurrencyException ex) when (ex.Entries.All(entry => entry.Entity is ConflictSearchResult))
+        catch (Exception ex)
         {
-            foreach (var entry in ex.Entries)
-            {
-                entry.State = EntityState.Detached;
-            }
-
-            await db.SaveChangesAsync();
+            logger.LogError(ex, "Conflict search rerun failed for {ConflictSearchId}", id);
+            db.ChangeTracker.Clear();
+            ModelState.AddModelError(
+                string.Empty,
+                "CMIForge could not complete that conflict search re-run. Try fewer additional terms, or ask an administrator to check the search index status.");
+            await LoadSearchAsync(id);
+            return Page();
         }
 
         return RedirectToPage(new { id });
@@ -262,32 +256,13 @@ public class DetailsModel(
         CanReview = await permissionService.HasAsync(PermissionKeys.ConflictsReview);
         CanRun = await permissionService.HasAsync(PermissionKeys.ConflictsRun);
         Search = await db.ConflictSearches
+            .AsNoTracking()
             .Include(x => x.FormSubmission)
                 .ThenInclude(x => x!.FormDefinition)
             .Include(x => x.Matter)
                 .ThenInclude(x => x!.Client)
             .Include(x => x.RequestedByUser)
             .Include(x => x.ReviewedByUser)
-            .Include(x => x.Results)
-                .ThenInclude(x => x.Party)
-            .Include(x => x.Results)
-                .ThenInclude(x => x.Matter)
-            .Include(x => x.Results)
-                .ThenInclude(x => x.Client)
-            .Include(x => x.Results)
-                .ThenInclude(x => x.ClearedByUser)
-            .Include(x => x.Results)
-                .ThenInclude(x => x.ClearedAsUser)
-            .Include(x => x.Results)
-                .ThenInclude(x => x.EscalatedToUser)
-            .Include(x => x.Results)
-                .ThenInclude(x => x.EscalatedByUser)
-            .Include(x => x.Results)
-                .ThenInclude(x => x.EscalatedAsUser)
-            .Include(x => x.Results)
-                .ThenInclude(x => x.EscalationApprovedByUser)
-            .Include(x => x.Results)
-                .ThenInclude(x => x.EscalationApprovedAsUser)
             .FirstOrDefaultAsync(x => x.Id == id);
 
         if (Search is not null)
@@ -306,19 +281,51 @@ public class DetailsModel(
             if (Archive is not null)
             {
                 var payload = archiveService.DecompressPayload(Archive);
-                Results = payload.Results
+                var allResults = payload.Results
                     .Select(ConflictResultDisplayItem.FromArchive)
+                    .OrderByDescending(x => x.Score)
+                    .ThenBy(x => x.MatchedName)
+                    .ToList();
+                ResultPagination = RecordPage.Create(PageNumber, allResults.Count);
+                Results = allResults
+                    .Skip(ResultPagination.Skip)
+                    .Take(ResultPagination.PageSize)
                     .ToList();
                 CanReview = false;
                 CanRun = false;
             }
             else
             {
-                Results = Search.Results
+                var resultCount = await db.ConflictSearchResults
+                    .AsNoTracking()
+                    .Where(x => x.ConflictSearchId == Search.Id)
+                    .CountAsync();
+                ResultPagination = RecordPage.Create(PageNumber, resultCount);
+                var pageResults = await db.ConflictSearchResults
+                    .AsNoTracking()
+                    .AsSplitQuery()
+                    .Include(x => x.Party)
+                    .Include(x => x.Matter)
+                    .Include(x => x.Client)
+                    .Include(x => x.ClearedByUser)
+                    .Include(x => x.ClearedAsUser)
+                    .Include(x => x.EscalatedToUser)
+                    .Include(x => x.EscalatedByUser)
+                    .Include(x => x.EscalatedAsUser)
+                    .Include(x => x.EscalationApprovedByUser)
+                    .Include(x => x.EscalationApprovedAsUser)
+                    .Where(x => x.ConflictSearchId == Search.Id)
+                    .OrderByDescending(x => x.Score)
+                    .ThenBy(x => x.MatchedName)
+                    .Skip(ResultPagination.Skip)
+                    .Take(ResultPagination.PageSize)
+                    .ToListAsync();
+                Results = pageResults
                     .Select(ConflictResultDisplayItem.FromLive)
                     .ToList();
             }
 
+            ResultRouteValues = new Dictionary<string, string>();
             Decision = Search.ReviewerDecision;
             ReviewNotes = Search.ReviewNotes;
         }

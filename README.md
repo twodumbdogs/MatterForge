@@ -2,7 +2,7 @@
 
 CMIForge is a C# / ASP.NET Core prototype for configurable legal intake, workflow approvals, operational entity management, and conflict searches.
 
-Current version: `20260621.1`.
+Current version: `20260623.1`.
 
 The product currently has three public-facing surfaces:
 
@@ -34,8 +34,11 @@ The repo also now includes a Customer 0 deployment slice for a real, non-demo te
 - Dashboard visibility grants by user, team, or role from Security
 - Clients, matters, contacts, users, parties, aliases, and relationships
 - Native conflicts search with deterministic AI-style explanations
+- Azure SQL full-text candidate indexing for larger conflict-search datasets, backed by `ConflictSearchDocuments`
+- Azure AI Search Basic proof-of-tech indexes for demo and Customer 0 conflict-search documents plus entity-directory search
 - In-app conflict search-term help with examples for names, aliases, punctuation, history, and match strength
 - Conflict result escalation to another active firm user, with escalation notes, approval notes, and audit history
+- Conflict result detail paging at 50 hits per page
 - Floating live conflict preview on submission forms
 - Workflow definitions, approval queues, outcomes, and answer-based routing
 - Submission details with a right-side workflow rail for open actions and recent workflow history
@@ -115,7 +118,7 @@ This closeout captures the final polish and operator notes from the latest build
 - Customers can download core operational data to CSV in fixed 1,000-row batches.
 - The export batch size is shown under Settings as a CMIForge-controlled read-only value.
 - Settings also shows Enterprise-only SQL data access fields for the CMIForge-controlled Entra principal and customer SQL connection string. Those fields are read-only and are intended to be provisioned by CMIForge, with database read/write scope only and no Azure control-plane permissions.
-- Enterprise is now modeled at `$599/month` for 1,000 users, unlimited clients, unlimited matters, and SQL data access.
+- Enterprise is now modeled at `$599/month` for 1,000 users, 5,000 clients, 5,000 matters, and SQL data access.
 
 ## 2026-06-22 Dashboard Access
 
@@ -135,6 +138,20 @@ This closeout captures the final polish and operator notes from the latest build
 - The public marketing site now includes a concise data-residency section: `Choose where your data lives`.
 - The in-app terms now include a guarded `Data Hosting Location` clause covering supported geographic regions, commercially reasonable regional storage/processing efforts, and operational exceptions for support, backup, security, disaster recovery, and service management.
 - The legal agreement acceptance version is now `2026-06-22`.
+
+## 2026-06-23 Search Scaling And Private Data Access
+
+- Conflict search now uses a denormalized `ConflictSearchDocuments` table plus Azure SQL full-text search as the candidate finder when SQL Server full-text is available.
+- CMIForge still applies its own deterministic scorer to returned candidates; SQL full-text rank is not the final displayed score.
+- Large seeded or imported tenants should run `tools/rebuild-conflict-search-documents.ps1` after data loads so the first user-facing conflict preview/search does not have to build the document corpus.
+- Customer 0 was warmed with `40,437` conflict-search documents and direct full-text hit checks against the generated volume data.
+- Conflict search details now page result hits at 50 rows per page, using the same `RecordPage` pattern as entity lists.
+- Azure AI Search Basic is provisioned as a proof-of-tech layer in shared service `gw-ai-srch-basic`, with separate tenant indexes `cmiforge-demo-conflict-documents` and `cmiforge-customer0-conflict-documents`. SQL full-text remains the active cheaper near-term conflict-search candidate path in the app; Search is available for semantic/vector/richer-ranking experiments behind trusted tenant configuration later.
+- The Basic indexers use user-assigned managed identity `gw-index` with read access to `dbo.ConflictSearchDocuments`. SQL public access was temporarily enabled for initial indexer setup and then restored to disabled.
+- System Settings now includes `Use Azure AI Search candidates`; when enabled, the configured tenant index is used as the candidate finder and CMIForge still hydrates SQL rows, applies its own scorer, and falls back to SQL full-text if Search is unavailable.
+- Azure AI Search also has one tenant entity-directory index per environment: `cmiforge-demo-entity-directory` and `cmiforge-customer0-entity-directory`, sourced from `dbo.EntitySearchDocuments`. The view flattens clients, matters, parties, client aliases, party aliases, and contacts into one searchable document surface with a `sourceType` field. Users are intentionally excluded until there is a clear user-search use case.
+- Initial entity-directory indexing completed with `57` demo documents and `40,081` Customer 0 documents. Search-only checks returned Customer 0 hits for `manufacturing`, `walker`, and `alder`.
+- With private endpoints enabled and Azure SQL public access disabled, direct database querying requires a network path into the VNet, such as a jumpbox VM, Bastion, VPN, or a controlled temporary public-access maintenance window. SSMS is optional; Azure Data Studio, `sqlcmd`, `Invoke-Sqlcmd`, or scripts are also fine once network and Entra/SQL permissions are correct.
 
 ## 2026-06-20 Private Networking Hardening
 
@@ -163,6 +180,8 @@ Production EF migrations now use a dedicated migration lane instead of normal we
 - `cmiforge-dev-web-06161223` and `cmiforge-customer0-web` should keep `CMIForge__RunMigrationsOnStartup=false`.
 
 Because Azure SQL public access is disabled, local EF migrations against the cloud databases should not be the default path. Use the dedicated migration runner. `-AllowTemporarySqlPublicAccess` is reserved for one-time/local SQL grant maintenance, then the scripts restore SQL public access to disabled.
+
+For ad hoc database querying, the preferred durable operator path is to run the SQL client from a machine on the private network path, such as a small Azure VM in `cmiforge-vnet` reached through Bastion or a future VPN. A local workstation can still use the repo's controlled `-AllowTemporarySqlPublicAccess` maintenance switches when a short local query or grant is necessary, but that should remain an explicit exception.
 
 The repeatable customer provisioning path is private-network aware:
 
@@ -341,7 +360,7 @@ The app defaults to `Professional` unless the tenant sets `CMIForge:Plan` / `CMI
 - Email support
 - Price: `$149/month`
 
-Community and Enterprise tiers are visible in the app on `/Billing`, but payment handling is intentionally deferred. The active plan is shown in the app footer next to the product version. Enterprise is modeled at `$599/month` for 1,000 users, unlimited clients, unlimited matters, and customer SQL data access.
+Community and Enterprise tiers are visible in the app on `/Billing`, but payment handling is intentionally deferred. The active plan is shown in the app footer next to the product version. Enterprise is modeled at `$599/month` for 1,000 users, 5,000 clients, 5,000 matters, and customer SQL data access.
 
 ## Customer 0 Volume Test Data
 

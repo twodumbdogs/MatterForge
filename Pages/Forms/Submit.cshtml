@@ -63,13 +63,10 @@ else
                                     <textarea class="form-control" id="@field.Key" name="Fields[@field.Key]" rows="4" data-conflict-source data-field-input>@Model.PostedValues.GetValueOrDefault(field.Key)</textarea>
                                     break;
                                 case CMIForge.Services.FieldType.Client:
-                                    <input class="form-control" id="@field.Key" name="Fields[@field.Key]" list="client-options-@field.Key" value="@Model.PostedValues.GetValueOrDefault(field.Key)" placeholder="Pick an existing client or type a new name" data-conflict-source data-field-input />
-                                    <datalist id="client-options-@field.Key">
-                                        @foreach (var client in Model.ClientSuggestions)
-                                        {
-                                            <option value="@client.Name">@client.DisplayLabel</option>
-                                        }
-                                    </datalist>
+                                    <div class="mf-client-lookup" data-client-lookup data-client-lookup-url="@Url.Page("./Submit", "ClientSuggestions", new { id = Model.Id })">
+                                        <input class="form-control" id="@field.Key" name="Fields[@field.Key]" value="@Model.PostedValues.GetValueOrDefault(field.Key)" placeholder="Pick an existing client or type a new name" autocomplete="off" data-client-lookup-input data-conflict-source data-field-input />
+                                        <div class="mf-client-lookup-list" data-client-lookup-list hidden></div>
+                                    </div>
                                     <small class="text-muted">Choose an existing client name or enter a brand-new one.</small>
                                     break;
                                 case CMIForge.Services.FieldType.Address:
@@ -164,9 +161,13 @@ else
     {
         <script src="~/js/address-lookup.js" asp-append-version="true"></script>
     }
+    @if (Model.Schema?.Fields.Any(x => x.Type == CMIForge.Services.FieldType.Client) == true)
+    {
+        <script src="~/js/client-lookup.js" asp-append-version="true"></script>
+    }
     @if (Model.IsConflictPreviewEnabled)
     {
-        <script src="/js/conflict-preview.js"></script>
+        <script src="~/js/conflict-preview.js" asp-append-version="true"></script>
     }
     <script src="~/js/form-tabs.js" asp-append-version="true"></script>
 }

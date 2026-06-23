@@ -36,7 +36,6 @@ It captures the current Azure dev resources, the expected app settings shape, an
 - Shared paid App Service plan for custom-domain app hosts: `cmiforge-customer0-plan` (`B1`)
 - Legacy/free dev App Service plan resource: `cmiforge-dev-plan` (`F1`)
 - Azure SQL server: `gwmatterforge.database.windows.net`
-- Azure SQL prototype/dev database: `matterforge-prototype`
 - Azure SQL public demo database: `cmiforge-demo`
 - Attachment storage account: `cmiforgeattachasgmt7`
 - Attachment container: `submission-attachments`
@@ -81,6 +80,17 @@ The App Service managed identity already has a database user in `cmiforge-demo` 
 The same App Service managed identity has Blob access to the attachment storage account. The app should not need `SubmissionAttachments__ConnectionString` in the cloud dev environment.
 
 The dev/demo app is VNet-integrated through `cmiforge-vnet/appsvc-integration`. Azure SQL and Blob Storage public network access are disabled, so cloud data access depends on the private endpoints and private DNS zones. Cloud database migrations should run through `deploy/migrations/run-tenant-migrations.ps1` and the dedicated `cmiforge-db-migrator` WebJob, not through normal web-app startup.
+
+## Querying Azure SQL With Private Endpoints
+
+SSMS is not mandatory. The SQL client can be SSMS, Azure Data Studio, `sqlcmd`, `Invoke-Sqlcmd`, or a small scripted Microsoft.Data.SqlClient tool. The gating issue is network reachability and permissions:
+
+- A local workstation cannot reach the SQL private endpoint unless it is connected to the VNet path.
+- Durable operator options include a small VM in `cmiforge-vnet` reached through Azure Bastion, a Point-to-Site VPN, or a future site-to-site/ExpressRoute path.
+- Cloud migrations should continue to use the VNet-integrated migrator WebJob.
+- For short local maintenance, repo scripts can use `-AllowTemporarySqlPublicAccess` to open a narrow firewall rule for the current public IP, perform the SQL action, then restore public access to disabled.
+
+Use temporary public access only as an explicit maintenance exception, not as the normal app or migration path.
 
 Current attachment settings:
 
@@ -177,7 +187,7 @@ The most recent public-site deploy was verified at:
 - `https://cmiforge.com`
 - `https://happy-smoke-052d7f610.7.azurestaticapps.net`
 
-The live site currently includes the pain-focused intake messaging, Community/Professional/Enterprise pricing including the `$599/month` Enterprise SQL-access tier, `support@cmiforge.com`, and prominent links for request access, customer login, and the live demo.
+The live site currently includes the pain-focused intake messaging, Community/Professional/Enterprise pricing including the `$599/month` Enterprise SQL-access tier with 1,000 users, 5,000 clients, and 5,000 matters, `support@cmiforge.com`, and prominent links for request access, customer login, and the live demo.
 
 ## Current App Domains
 

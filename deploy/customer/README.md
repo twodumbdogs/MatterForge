@@ -49,6 +49,8 @@ The provisioning script now defaults new tenant apps into the shared private net
 
 It also creates blob containers through Azure Resource Manager with `az storage container-rm`, so storage public network access can stay disabled. EF migrations run through `deploy/migrations/run-tenant-migrations.ps1`, using the `cmiforge-migrator-mi` identity and the `cmiforge-db-migrator` triggered WebJob host inside the shared VNet path. If local SQL data-plane work is needed while SQL public access is disabled, pass `-AllowTemporarySqlPublicAccess`; the script opens a narrow firewall rule for the current public IP and restores SQL public access to disabled during cleanup.
 
+For ad hoc SQL querying after private endpoints are enabled, the SQL tool is flexible but the network path is not. SSMS, Azure Data Studio, `sqlcmd`, `Invoke-Sqlcmd`, or scripts can all work from a VM/jumpbox in the VNet, a Bastion session, a VPN-connected workstation, or a short controlled temporary public-access window. Do not assume a local workstation can query private-endpoint SQL just because the DNS name is public-looking.
+
 ## Example
 
 From `c#/CMIForge`:

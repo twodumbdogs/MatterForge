@@ -2,7 +2,7 @@
 
 CMIForge is a homegrown ASP.NET Core Razor Pages prototype for configurable legal intake, entity management, workflow automation, and conflict searches. The long-term idea is a law-firm intake/workflow platform in the spirit of tools like Intapp Open, but built in focused slices so the data model and user experience can grow together.
 
-Current version: `20260621.1`.
+Current version: `20260623.1`.
 
 ## Original Direction
 
@@ -28,6 +28,8 @@ We deliberately did not over-engineer hosting first. The app still runs locally 
 - Azure App Service for Customer 0
 - Azure Static Web Apps for the public marketing site
 - Azure DNS for `cmiforge.com`
+- Azure SQL full-text search for conflict-search candidate indexing on larger tenants
+- Azure AI Search Basic proof-of-tech service `gw-ai-srch-basic` for tenant-separated conflict-search document and entity-directory indexes
 - A future Azure Function App/API resource is provisioned for a possible split architecture later
 - In-memory database fallback when the configured connection string is missing or still has the placeholder server
 - Bootstrap-style UI with custom CMIForge styling
@@ -80,6 +82,21 @@ Private-networking hardening was implemented after that planning note:
 - Disabled public network access on storage account `cmiforgeattachasgmt7` and set storage network default action to `Deny`.
 - Left Key Vault public network access enabled for now because secrets have not yet been moved into Key Vault and operator data-plane access still needs a clean private path.
 - Updated the repeatable customer provisioning path so new tenant App Services can be VNet-integrated automatically, tenant attachment containers are created through ARM rather than blocked storage data-plane calls, tenant identities can receive Key Vault Secrets User, and EF schema updates run through the VNet-integrated migration WebJob instead of live web-app startup.
+
+## 2026-06-23 Closeout
+
+This closeout captures the search-scaling, big-data, operator-access, and result-paging work from the June 23 build day:
+
+- Customer 0's larger generated dataset is now the main performance proving ground: 700 generated users, 10,000 generated clients, 10,000 generated parties, 20,000 generated matters, 19,600 matter-party links, 1,000 volume submissions, and 300 open workflow tasks.
+- Conflict search now has a denormalized `ConflictSearchDocuments` table and Azure SQL full-text candidate lookup. Full-text search finds likely rows; the existing CMIForge scoring code still produces displayed match strength, risk, explanations, and AI-assist text.
+- The maintenance script `tools/rebuild-conflict-search-documents.ps1` warms large tenants after bulk loads. It ensures the full-text catalog/index, rebuilds the document table with set-based SQL, starts full-text population, and reports source-type counts plus sample hits.
+- Customer 0 was warmed to `40,437` conflict-search documents, and direct `CONTAINSTABLE` checks returned generated Customer 0 hits.
+- Conflict result detail pages now page hits at 50 per page using the same `RecordPage` pattern as entity lists. A Customer 0 search with `1008` results was browser-smoked at page 1 and page 2.
+- Azure AI Search Basic is now provisioned for proof-of-tech testing in shared service `gw-ai-srch-basic`, with one conflict-document index/data source/indexer set per environment: `cmiforge-demo-conflict-documents` and `cmiforge-customer0-conflict-documents`. The indexers use managed identity `gw-index` against `dbo.ConflictSearchDocuments`; initial indexing completed with 53 demo documents and 40,437 Customer 0 documents. System Settings includes an off-by-default `Use Azure AI Search candidates` toggle. When enabled, Search finds candidate document IDs, CMIForge hydrates rows from SQL, applies the existing scorer/explanations, and falls back to SQL full-text if Search is unavailable.
+- Azure AI Search also has one entity-directory index/data source/indexer set per environment: `cmiforge-demo-entity-directory` and `cmiforge-customer0-entity-directory`. Both source from `dbo.EntitySearchDocuments`, a tenant-local SQL view that flattens clients, matters, parties, client aliases, party aliases, and contacts into one search surface with `sourceType` and source ID fields. Users are intentionally excluded because user profile and identity data should only enter Search when there is a specific product need.
+- Initial entity-directory indexing completed with 57 demo documents and 40,081 Customer 0 documents. Search-only smoke queries returned Customer 0 hits for `manufacturing`, `walker`, and `alder`.
+- Direct Azure SQL querying now depends on private-network reachability because public access is disabled. SSMS is not required; SSMS, Azure Data Studio, `sqlcmd`, `Invoke-Sqlcmd`, or scripts all work if run from a VNet-connected operator path or during a controlled temporary public-access maintenance window.
+- Today's working recap is tracked in `CHAT_2026-06-23.md`.
 
 ## 2026-06-19 Session Update
 
@@ -159,7 +176,6 @@ Current Azure resources:
 - Public demo App Service app: `cmiforge-dev-web-06161223`
 - Customer 0 App Service app: `cmiforge-customer0-web`
 - Azure SQL server: `gwmatterforge.database.windows.net`
-- Azure SQL prototype/dev database: `matterforge-prototype`
 - Azure SQL public demo database: `cmiforge-demo`
 - Azure SQL Customer 0 database: `cmiforge-customer0`
 - Attachment storage account: `cmiforgeattachasgmt7`
@@ -182,7 +198,7 @@ Current hosting stance:
 - The public marketing site is separate and deployed through Azure Static Web Apps.
 - The Static Web App + Function App split is scaffolded for later, but the app has not been rewritten into that model.
 - The live dev app uses demo mode so visitors can explore with the seeded `Ima User` context.
-- The live demo app points at the separate `cmiforge-demo` database so public test data stays away from the prototype/dev database.
+- The live demo app points at the separate `cmiforge-demo` database so public test data stays away from the Customer 0 database.
 - `app.cmiforge.com` is bound to the Customer 0 app as the real tenant doorway.
 - `demo.cmiforge.com` is bound to the public demo app.
 - DNS for `cmiforge.com`, `app.cmiforge.com`, and `demo.cmiforge.com` is managed by Azure DNS after the Namecheap nameserver delegation.
@@ -381,8 +397,8 @@ Current plan tiers:
 - `Enterprise`
   - `$599/month`
   - Includes 1,000 users
-  - Unlimited matters
-  - Unlimited clients
+  - 5,000 matters
+  - 5,000 clients
   - Customer SQL data access
 
 Current enforcement:
@@ -732,7 +748,9 @@ Current search behavior:
 - Searches prior conflict search names, terms, review notes, and AI summaries.
 - Searches prior conflict result clearance notes.
 - Uses a denormalized `ConflictSearchDocuments` table with Azure SQL full-text search as a candidate finder when SQL Server full-text is available, then applies the existing CMIForge scorer to the narrowed candidates.
+- Large seeded/imported tenants should warm that document table with `tools/rebuild-conflict-search-documents.ps1` after data loads so the first browser conflict preview does not have to build the indexable corpus.
 - Falls back to the original in-memory scan/scoring path when full-text search is unavailable, such as local in-memory test runs.
+- Pages conflict result hits at 50 rows per page on the detail screen.
 - Labels string similarity as match strength, separate from legal/contextual risk.
 - Scores exact normalized matches at the top of the scale.
 - Scores contains/full-phrase matches based on token coverage.
@@ -1163,7 +1181,7 @@ New permissions:
 - `Time.Approve`
 - `Reporting.View`
 
-The Professional plan remains hardcoded as the active development plan. The product ladder now models Community as free, Professional at `$149/month`, and Enterprise at `$599/month` for 1,000 users, unlimited clients, unlimited matters, and customer SQL data access.
+The Professional plan remains hardcoded as the active development plan. The product ladder now models Community as free, Professional at `$149/month`, and Enterprise at `$599/month` for 1,000 users, 5,000 clients, 5,000 matters, and customer SQL data access.
 
 ## Security Hardening Slice
 

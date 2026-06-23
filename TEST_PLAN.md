@@ -1,6 +1,6 @@
 # CMIForge Feature Walkthrough Test Plan
 
-Current version: `20260621.1`
+Current version: `20260623.1`
 
 This is a practical manual test plan for getting familiar with CMIForge while also smoke-testing the major product slices. It is written as a guided tour, not just a bug-hunt checklist.
 
@@ -19,6 +19,7 @@ By the end of this walkthrough, you should have personally exercised:
 - Entity archive, restore, audit history, pagination, and change approvals
 - Submission conversion into operational records
 - Conflict searches and review notes
+- Conflict search full-text warmup, Azure AI Search proof-of-tech indexes, and 50-row result pagination
 - CSV import templates, validation, and import flows
 - Security/team/role pages
 - System settings and demo-mode protection
@@ -42,6 +43,8 @@ By the end of this walkthrough, you should have personally exercised:
 - The current hardcoded plan is `Professional`, so all features should be available with the Professional user and matter limits.
 - Azure SQL and Azure Blob attachment storage are already configured.
 - In the live dev app, private submission attachments use Azure Blob Storage through managed identity.
+- Azure SQL public access is disabled in the cloud environments; ad hoc cloud DB querying requires VNet reachability or a controlled temporary public-access maintenance window.
+- Azure AI Search Basic uses tenant-separated indexes. Conflict-search indexes are optional candidate providers; entity-directory indexes are one per tenant/environment and should include clients, matters, parties, client aliases, party aliases, and contacts, but not users.
 - After CMIForge changes, the normal Codex workflow is to build/verify, deploy affected live surfaces, and smoke-check the live URL unless Gabe explicitly says not to deploy.
 
 ## Suggested Time
@@ -564,7 +567,8 @@ Expected results:
 - The create and re-run flows give immediate visual feedback while the search is running.
 - You should see multiple interesting hits from the seeded data.
 - Results should include score, risk, explanation, and AI-style assessment.
-- On Azure SQL, the first search after a large data load may warm/rebuild `ConflictSearchDocuments`; subsequent searches should use the full-text candidate index and feel materially faster than a full-table scan.
+- On Azure SQL, run `tools/rebuild-conflict-search-documents.ps1` after a large data load; subsequent searches should use the full-text candidate index and feel materially faster than a full-table scan.
+- Searches with more than 50 hits should show standard result pagination and display only 50 rows per page.
 
 ### 9A.1 Search Term Handling Examples
 
@@ -606,6 +610,7 @@ Expected results:
 
 - Each result can store its own status, notes, reviewer, and timestamp.
 - The result filters remain visually attached to the table, while row-level review/escalation controls stay collapsed until needed.
+- On high-volume searches, the result table shows 50 hits per page and the pagination text uses ranges such as `Showing 51-100 of ...`.
 - Multiple conflict result rows can be selected and updated together, including all rows via the header checkbox.
 - Multiple conflict result rows can be escalated together to another active user in one submit; users should not need to press each row's `Escalate row` button for a shared escalation.
 - Escalated rows show assigned reviewer, escalation notes, escalation timestamp, approval status, and approval notes.
@@ -638,6 +643,7 @@ Steps:
 4. Click into a different field and then back into the client/matter field.
 5. Open `/System/Settings`, turn `Conflicts.LivePreviewEnabled` off, save, and reload the intake form.
 6. Turn the setting back on after verification.
+7. In non-demo mode, turn `Use Azure AI Search candidates` on, run a known conflict search such as `manufacturing`, and confirm results still render with CMIForge match strength/explanations. Turn it back off to confirm SQL full-text remains the default candidate path.
 
 Expected results:
 
@@ -647,6 +653,7 @@ Expected results:
 - The preview does not block normal form entry.
 - The native existing-client picker should not cover the conflict preview; when the browser shows client suggestions, the preview should sit lower on the page.
 - When disabled in settings, the conflict preview panel and script do not appear on intake forms.
+- When Azure AI Search candidates are enabled and trusted Search config is present, conflict search still shows normal CMIForge-scored results; if Search is unavailable, the app falls back to SQL full-text.
 
 ### 9E. Run Conflicts from Context
 
@@ -742,7 +749,7 @@ Steps:
    - Enterprise
 3. Confirm the current development plan is shown as `Professional`.
 4. Confirm Professional is shown at `$149/month` and does not mention per-user add-on pricing.
-5. Confirm Enterprise is shown at `$599/month`, 1,000 users, unlimited clients, unlimited matters, and customer SQL data access.
+5. Confirm Enterprise is shown at `$599/month`, 1,000 users, 5,000 clients, 5,000 matters, and customer SQL data access.
 6. Confirm the app footer shows the active plan next to the CMIForge version.
 
 Expected results:
@@ -938,6 +945,8 @@ Purpose: confirm code, EF migrations, and the model snapshot agree before deploy
 
 For normal Codex work, deployment is part of the completion loop unless Gabe explicitly says not to deploy. Use `-SkipDatabaseUpdate` only for changes that do not need schema updates or when migrations have already been handled separately.
 
+Cloud tenant migrations should use the dedicated VNet-integrated migrator WebJob. Local SQL tools can still be used for controlled maintenance, but Azure SQL public access is disabled by default, so the operator must either run from a private-network path or use an explicit temporary public-access maintenance switch that restores access afterward.
+
 Steps:
 
 1. Run:
@@ -1096,6 +1105,7 @@ Use this as the short “did we break anything obvious?” sweep after future ch
 - [ ] Entity list pagination works
 - [ ] Conflict search runs
 - [ ] Conflict search term examples in Help match current behavior
+- [ ] Large conflict searches page results at 50 rows per page
 - [ ] Conflict review saves
 - [ ] Conflict result filters narrow visible rows
 - [ ] Conflict multi-select clearance updates selected rows
@@ -1133,8 +1143,12 @@ Expected Customer 0 volume counts:
 Suggested checks:
 
 - Run `tools/seed-customer0-big-volume-data.ps1 -AllowTemporarySqlPublicAccess` without `-Apply` and confirm all large generated counts are at target with zero planned additions.
+- Run `tools/rebuild-conflict-search-documents.ps1 -AllowTemporarySqlPublicAccess` after big-volume reseeds/imports and confirm document counts plus sample full-text hits are reported.
+- Confirm Azure AI Search entity-directory index counts after setup or reseed: `cmiforge-demo-entity-directory` should have 57 documents in the current demo seed, and `cmiforge-customer0-entity-directory` should have 40,081 documents in the current Customer 0 volume seed.
+- Query the entity-directory indexes directly for sample terms such as `manufacturing`, `walker`, and `alder`; confirm results include mixed `sourceType` values rather than separate indexes per entity table.
 - Open `/Entities/Clients`, `/Entities/Matters`, and `/Entities/Parties` and search for sample generated names such as `Brightline`, `Granite`, `Lucas`, or `City of Austin`.
 - Open `/Submissions` and confirm the larger list still loads and pages/filtering remain responsive.
+- Open a high-hit conflict search and confirm result pages show 50 rows at a time.
 - Open `/Workflow/Queue` and confirm the seeded open workflow tasks do not make the queue unusably slow.
 - Open the dashboard and confirm the charts render with the larger dataset.
 

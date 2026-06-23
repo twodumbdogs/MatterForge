@@ -26,6 +26,15 @@ CMIForge__RunMigrationsOnStartup=false
 
 Use `-AllowTemporarySqlPublicAccess` only for a local operator run when SQL public access is disabled and the migrator SQL user has not been granted yet. After the first grant, normal migration runs should not need SQL public access.
 
+## Operator SQL Access With Private Endpoints
+
+Private endpoint networking changes where SQL tools must run; it does not require one specific SQL UI.
+
+- SSMS, Azure Data Studio, `sqlcmd`, `Invoke-Sqlcmd`, and scripted Microsoft.Data.SqlClient maintenance tools are all valid.
+- To stay private, run the tool from a machine that can reach `cmiforge-vnet`, such as a small jumpbox VM reached through Azure Bastion or a VPN-connected workstation.
+- Use `-AllowTemporarySqlPublicAccess` only for short local maintenance windows when a private operator path is not available.
+- After any temporary public access run, verify Azure SQL public network access is back to `Disabled`.
+
 ## Multiple Tenant Databases
 
 ```powershell
@@ -42,4 +51,3 @@ Use `-AllowTemporarySqlPublicAccess` only for a local operator run when SQL publ
 2. grant the migrator identity schema-change access
 3. run EF migrations from the VNet-integrated WebJob host
 4. deploy the tenant web app with startup migrations disabled
-

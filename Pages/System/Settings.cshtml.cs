@@ -147,6 +147,7 @@ public class SettingsModel(
         var defaults = new[]
         {
             new SettingDefault("Conflicts.LivePreviewEnabled", "Conflicts", "Live conflict preview", "Shows the conflict radar while users type client, matter, contact, or party names on intake forms.", "true", SystemSettingValueTypes.Boolean),
+            new SettingDefault("Conflicts.AzureAiSearchCandidateProviderEnabled", "Conflicts", "Use Azure AI Search candidates", "Uses the configured Azure AI Search tenant index as the conflict candidate finder, while CMIForge still applies its own scoring and falls back to SQL full-text if Search is unavailable.", "false", SystemSettingValueTypes.Boolean),
             new SettingDefault("AddressLookup.Enabled", "Address Lookup", "Enable address lookup", "Turns address autocomplete suggestions on for client and contact address fields when a provider key is configured.", "false", SystemSettingValueTypes.Boolean),
             new SettingDefault("AddressLookup.GeoapifyApiKey", "Address Lookup", "Geoapify API key", "Server-side Geoapify key used for address autocomplete. The key is never sent to browsers.", string.Empty, SystemSettingValueTypes.SecretReference, IsSecret: true),
             new SettingDefault("AddressLookup.CountryFilter", "Address Lookup", "Country filter", "Optional ISO country code used to narrow address suggestions, such as us. Leave blank for worldwide lookup.", "us", SystemSettingValueTypes.Text),
