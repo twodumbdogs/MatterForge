@@ -39,6 +39,7 @@
     }
     else
     {
+        <partial name="_RecordPagination" model="@(new CMIForge.Models.RecordPaginationViewModel(Model.SearchPagination, "searches", Model.SearchRouteValues, "./Index"))" />
         <div class="table-responsive">
             <table class="table align-middle mf-compact-table">
                 <thead>
@@ -90,6 +91,7 @@
                 </tbody>
             </table>
         </div>
+        <partial name="_RecordPagination" model="@(new CMIForge.Models.RecordPaginationViewModel(Model.SearchPagination, "searches", Model.SearchRouteValues, "./Index"))" />
     }
 </div>
 

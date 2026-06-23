@@ -13,7 +13,8 @@ public partial class EditModel(
     CMIForgeDbContext db,
     PermissionService permissionService,
     ProductPlanService productPlanService,
-    AuditLogService auditLogService) : PageModel
+    AuditLogService auditLogService,
+    ILogger<EditModel> logger) : PageModel
 {
     [BindProperty(SupportsGet = true)]
     public Guid Id { get; set; }
@@ -152,8 +153,21 @@ public partial class EditModel(
             await ValidateInputAsync(Id, true);
         }
 
+        var originalIsPublished = workflow.IsPublished;
+        var originalPublishedAt = workflow.PublishedAt;
         var canPublish = publishRequested && ModelState.IsValid;
-        await SaveWorkflowAsync(workflow, canPublish);
+        try
+        {
+            await SaveWorkflowAsync(workflow, canPublish);
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Workflow definition save failed for {WorkflowDefinitionId}.", workflow.Id);
+            ModelState.AddModelError(string.Empty, "CMIForge could not save those workflow steps. Check step names, routing values, assignments, and notification recipients, then try again.");
+            IsPublished = originalIsPublished;
+            PublishedAt = originalPublishedAt;
+            return Page();
+        }
 
         if (publishRequested && !canPublish)
         {
@@ -185,80 +199,88 @@ public partial class EditModel(
 
     private async Task SaveWorkflowAsync(WorkflowDefinition workflow, bool publish)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync();
-
-        workflow.Name = Input.Name.Trim();
-        workflow.Key = Input.Key.Trim();
-        workflow.Description = Input.Description?.Trim() ?? string.Empty;
-        workflow.FormDefinitionId = Input.FormDefinitionId;
-        workflow.IsActive = Input.IsActive;
-        workflow.IsPublished = publish;
-        workflow.PublishedAt = publish ? DateTimeOffset.UtcNow : null;
-        workflow.UpdatedAt = DateTimeOffset.UtcNow;
-
-        var usedSteps = UsedSteps().ToList();
-        var existingUsedStepIds = usedSteps
-            .Where(x => x.Id.HasValue)
-            .Select(x => x.Id!.Value)
-            .ToHashSet();
-
-        var tempStepNumber = -1;
-        foreach (var existingStep in workflow.Steps.Where(x => existingUsedStepIds.Contains(x.Id)))
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
-            existingStep.StepNumber = tempStepNumber--;
-        }
+            await using var transaction = await db.Database.BeginTransactionAsync();
 
-        if (existingUsedStepIds.Count > 0)
-        {
-            await db.SaveChangesAsync();
-        }
+            var usedSteps = UsedSteps().ToList();
+            var existingUsedStepIds = usedSteps
+                .Where(x => x.Id.HasValue)
+                .Select(x => x.Id!.Value)
+                .ToHashSet();
 
-        foreach (var stepInput in usedSteps)
-        {
-            var step = stepInput.Id.HasValue
-                ? workflow.Steps.FirstOrDefault(x => x.Id == stepInput.Id.Value)
-                : null;
-
-            if (step is null)
+            var tempStepNumber = -1;
+            foreach (var existingStep in workflow.Steps.Where(x => existingUsedStepIds.Contains(x.Id)))
             {
-                step = new WorkflowStep();
-                workflow.Steps.Add(step);
+                existingStep.StepNumber = tempStepNumber--;
             }
 
-            step.StepNumber = stepInput.StepNumber;
-            step.Name = stepInput.Name!.Trim();
-            step.Instructions = stepInput.Instructions?.Trim() ?? string.Empty;
-            step.StepType = NormalizeStepType(stepInput.StepType);
-            step.AssignedUserId = stepInput.AssignedUserId;
-            step.AssignedTeamId = stepInput.AssignedTeamId;
-            step.ApprovalLabel = string.IsNullOrWhiteSpace(stepInput.ApprovalLabel) ? "Approve" : stepInput.ApprovalLabel.Trim();
-            step.CompletionSubmissionStatus = string.IsNullOrWhiteSpace(stepInput.CompletionSubmissionStatus)
-                ? SubmissionStatuses.InReview
-                : stepInput.CompletionSubmissionStatus;
-            step.OutcomesJson = IsNotificationStep(stepInput)
-                ? "[]"
-                : WorkflowOutcomeParser.Serialize(WorkflowOutcomeParser.FromDesignerText(
-                    stepInput.Outcomes,
-                    stepInput.ApprovalLabel,
-                    stepInput.CompletionSubmissionStatus));
-            step.ConditionFieldKey = stepInput.ConditionFieldKey?.Trim() ?? string.Empty;
-            step.ConditionOperator = string.IsNullOrWhiteSpace(stepInput.ConditionOperator)
-                ? WorkflowStepConditionOperators.Always
-                : stepInput.ConditionOperator;
-            step.ConditionValue = stepInput.ConditionValue?.Trim() ?? string.Empty;
-            step.NotificationSubject = stepInput.NotificationSubject?.Trim() ?? string.Empty;
-            step.NotificationBody = stepInput.NotificationBody?.Trim() ?? string.Empty;
-            step.NotificationRecipients = WorkflowNotificationRecipientInput.Normalize(stepInput.NotificationRecipientTokens);
-            step.NotificationTemplateId = IsNotificationStep(stepInput) ? stepInput.NotificationTemplateId : null;
-            step.UpdatedAt = DateTimeOffset.UtcNow;
-        }
+            if (existingUsedStepIds.Count > 0)
+            {
+                await db.SaveChangesAsync();
+            }
 
-        await db.SaveChangesAsync();
-        await transaction.CommitAsync();
+            workflow.Name = Input.Name.Trim();
+            workflow.Key = Input.Key.Trim();
+            workflow.Description = Input.Description?.Trim() ?? string.Empty;
+            workflow.FormDefinitionId = Input.FormDefinitionId;
+            workflow.IsActive = Input.IsActive;
+            workflow.IsPublished = publish;
+            workflow.PublishedAt = publish ? DateTimeOffset.UtcNow : null;
+            workflow.UpdatedAt = DateTimeOffset.UtcNow;
+
+            foreach (var stepInput in usedSteps)
+            {
+                var step = stepInput.Id.HasValue
+                    ? workflow.Steps.FirstOrDefault(x => x.Id == stepInput.Id.Value)
+                    : null;
+
+                if (step is null)
+                {
+                    step = new WorkflowStep();
+                    workflow.Steps.Add(step);
+                }
+
+                step.StepNumber = stepInput.StepNumber;
+                step.Name = stepInput.Name!.Trim();
+                step.Instructions = stepInput.Instructions?.Trim() ?? string.Empty;
+                step.StepType = NormalizeStepType(stepInput.StepType);
+                step.AssignedUserId = stepInput.AssignedUserId;
+                step.AssignedTeamId = stepInput.AssignedTeamId;
+                step.ApprovalLabel = string.IsNullOrWhiteSpace(stepInput.ApprovalLabel) ? "Approve" : stepInput.ApprovalLabel.Trim();
+                step.CompletionSubmissionStatus = string.IsNullOrWhiteSpace(stepInput.CompletionSubmissionStatus)
+                    ? SubmissionStatuses.InReview
+                    : stepInput.CompletionSubmissionStatus;
+                step.OutcomesJson = IsNotificationStep(stepInput)
+                    ? "[]"
+                    : WorkflowOutcomeParser.Serialize(WorkflowOutcomeParser.FromDesignerText(
+                        stepInput.Outcomes,
+                        stepInput.ApprovalLabel,
+                        stepInput.CompletionSubmissionStatus));
+                step.ConditionFieldKey = stepInput.ConditionFieldKey?.Trim() ?? string.Empty;
+                step.ConditionOperator = string.IsNullOrWhiteSpace(stepInput.ConditionOperator)
+                    ? WorkflowStepConditionOperators.Always
+                    : stepInput.ConditionOperator;
+                step.ConditionValue = stepInput.ConditionValue?.Trim() ?? string.Empty;
+                step.NotificationSubject = stepInput.NotificationSubject?.Trim() ?? string.Empty;
+                step.NotificationBody = stepInput.NotificationBody?.Trim() ?? string.Empty;
+                step.NotificationRecipients = WorkflowNotificationRecipientInput.Normalize(stepInput.NotificationRecipientTokens);
+                step.NotificationTemplateId = IsNotificationStep(stepInput) ? stepInput.NotificationTemplateId : null;
+                step.UpdatedAt = DateTimeOffset.UtcNow;
+            }
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+        });
     }
 
     private async Task ValidateInputAsync(Guid existingWorkflowId, bool requirePublishReady)
     {
+        ValidateMaxLength("Input.Name", Input.Name, 160, "Workflow name");
+        ValidateMaxLength("Input.Key", Input.Key, 80, "Workflow key");
+        ValidateMaxLength("Input.Description", Input.Description, 1000, "Workflow description");
+
         if (!string.IsNullOrWhiteSpace(Input.Key) && !SlugRegex().IsMatch(Input.Key))
         {
             ModelState.AddModelError("Input.Key", "Use lowercase letters, numbers, and hyphens only.");
@@ -281,6 +303,16 @@ public partial class EditModel(
 
         foreach (var step in steps)
         {
+            var stepLabel = $"Step {step.StepNumber}";
+            ValidateMaxLength(string.Empty, step.Name, 160, $"{stepLabel} name");
+            ValidateMaxLength(string.Empty, step.Instructions, 1000, $"{stepLabel} instructions");
+            ValidateMaxLength(string.Empty, step.ApprovalLabel, 60, $"{stepLabel} approval label");
+            ValidateMaxLength(string.Empty, step.CompletionSubmissionStatus, 60, $"{stepLabel} completion status");
+            ValidateMaxLength(string.Empty, step.ConditionFieldKey, 80, $"{stepLabel} condition field key");
+            ValidateMaxLength(string.Empty, step.ConditionValue, 200, $"{stepLabel} condition value");
+            ValidateMaxLength(string.Empty, step.NotificationSubject, 200, $"{stepLabel} notification subject");
+            ValidateMaxLength(string.Empty, WorkflowNotificationRecipientInput.Normalize(step.NotificationRecipientTokens), 1000, $"{stepLabel} notification recipients");
+
             if (step.StepNumber <= 0)
             {
                 ModelState.AddModelError(string.Empty, "Workflow step numbers must be greater than zero.");
@@ -329,6 +361,14 @@ public partial class EditModel(
         if (duplicateStepNumbers.Count > 0)
         {
             ModelState.AddModelError(string.Empty, $"Duplicate workflow step numbers: {string.Join(", ", duplicateStepNumbers)}.");
+        }
+    }
+
+    private void ValidateMaxLength(string key, string? value, int maxLength, string label)
+    {
+        if (!string.IsNullOrEmpty(value) && value.Length > maxLength)
+        {
+            ModelState.AddModelError(key, $"{label} must be {maxLength} characters or fewer.");
         }
     }
 

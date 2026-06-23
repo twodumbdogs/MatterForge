@@ -50,7 +50,7 @@
                     {
                         <tr>
                             <td><a asp-page="./Details" asp-route-id="@user.Id"><code>@user.SystemId.ToString("D8")</code></a></td>
-                            <td><a asp-page="./Details" asp-route-id="@user.Id"><strong>@user.DisplayName</strong></a></td>
+                            <td><a class="mf-record-link" asp-page="./Details" asp-route-id="@user.Id"><strong>@user.DisplayName</strong></a></td>
                             <td>@user.FirstName</td>
                             <td>@user.LastName</td>
                             <td>@user.Email</td>

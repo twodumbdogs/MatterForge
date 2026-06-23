@@ -5,7 +5,6 @@ using CMIForge.Models;
 using CMIForge.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace CMIForge.Pages.Forms;
@@ -27,16 +26,18 @@ public class SubmitModel(
     public Guid? SubmitterUserId { get; set; }
 
     [BindProperty]
+    public string SubmitterUserLookupText { get; set; } = string.Empty;
+
+    [BindProperty]
     [Display(Name = "Lead partner")]
     public Guid? LeadPartnerId { get; set; }
+
+    [BindProperty]
+    public string LeadPartnerLookupText { get; set; } = string.Empty;
 
     public FormDefinition? Form { get; private set; }
 
     public FormSchema? Schema { get; private set; }
-
-    public List<SelectListItem> SubmitterOptions { get; private set; } = [];
-
-    public List<SelectListItem> PartnerOptions { get; private set; } = [];
 
     public List<ClientSuggestion> ClientSuggestions { get; private set; } = [];
 
@@ -127,6 +128,67 @@ public class SubmitModel(
             .Select(x => new ClientSuggestion(
                 x.Name,
                 $"{x.ClientNumber:D8} - {x.Name}"))
+            .ToListAsync();
+
+        return new JsonResult(suggestions, FormJson.Options);
+    }
+
+    public async Task<IActionResult> OnGetUserSuggestionsAsync(Guid id, string? term, bool partnersOnly = false)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.FormsSubmit))
+        {
+            return Forbid();
+        }
+
+        var formId = id == Guid.Empty ? Id : id;
+        var formExists = await db.FormDefinitions.AnyAsync(x =>
+            x.Id == formId &&
+            x.IsActive &&
+            x.Versions.Any(v => v.IsPublished));
+
+        if (!formExists)
+        {
+            return NotFound();
+        }
+
+        var trimmedTerm = term?.Trim() ?? string.Empty;
+        if (trimmedTerm.Length < 2)
+        {
+            return new JsonResult(Array.Empty<UserSuggestion>(), FormJson.Options);
+        }
+
+        var escapedTerm = EscapeLikeValue(trimmedTerm);
+        var systemIdMatch = int.TryParse(trimmedTerm, out var parsedSystemId)
+            ? parsedSystemId
+            : (int?)null;
+
+        var query = db.Users
+            .AsNoTracking()
+            .Where(x => x.IsActive && !x.IsArchived);
+
+        if (partnersOnly)
+        {
+            query = query.Where(x => x.Roles.Any(role =>
+                role.SecurityRole != null &&
+                role.SecurityRole.Key == SecurityRoleKeys.Partner &&
+                role.SecurityRole.IsActive));
+        }
+
+        var suggestions = await query
+            .Where(x =>
+                EF.Functions.Like(x.DisplayName, $"%{escapedTerm}%", "\\") ||
+                EF.Functions.Like(x.Email, $"%{escapedTerm}%", "\\") ||
+                systemIdMatch.HasValue && x.SystemId == systemIdMatch.Value)
+            .OrderBy(x => x.DisplayName.StartsWith(trimmedTerm) ? 0 : 1)
+            .ThenBy(x => x.DisplayName)
+            .ThenBy(x => x.SystemId)
+            .Take(10)
+            .Select(x => new UserSuggestion(
+                x.Id,
+                FormatUserLookupLabel(x.DisplayName, x.SystemId),
+                string.IsNullOrWhiteSpace(x.Title)
+                    ? $"{x.Email} · {x.SystemId:D8}"
+                    : $"{x.Title} · {x.Email} · {x.SystemId:D8}"))
             .ToListAsync();
 
         return new JsonResult(suggestions, FormJson.Options);
@@ -238,18 +300,17 @@ public class SubmitModel(
     {
         IsConflictPreviewEnabled = await IsConflictPreviewEnabledAsync();
 
-        SubmitterOptions = await db.Users
-            .Where(x => x.IsActive && !x.IsArchived)
-            .OrderBy(x => x.DisplayName)
-            .Select(x => new SelectListItem($"{x.DisplayName} ({x.SystemId:D8})", x.Id.ToString()))
-            .ToListAsync();
+        var submitterDisplayName = await ResolveUserDisplayNameAsync(SubmitterUserId);
+        if (!string.IsNullOrWhiteSpace(submitterDisplayName))
+        {
+            SubmitterUserLookupText = submitterDisplayName;
+        }
 
-        PartnerOptions = await db.Users
-            .Where(x => x.IsActive && !x.IsArchived)
-            .Where(x => x.Roles.Any(role => role.SecurityRole != null && role.SecurityRole.Key == SecurityRoleKeys.Partner && role.SecurityRole.IsActive))
-            .OrderBy(x => x.DisplayName)
-            .Select(x => new SelectListItem($"{x.DisplayName} ({x.SystemId:D8})", x.Id.ToString()))
-            .ToListAsync();
+        var leadPartnerDisplayName = await ResolveUserDisplayNameAsync(LeadPartnerId);
+        if (!string.IsNullOrWhiteSpace(leadPartnerDisplayName))
+        {
+            LeadPartnerLookupText = leadPartnerDisplayName;
+        }
 
         Form = await db.FormDefinitions
             .Include(x => x.Versions)
@@ -278,6 +339,29 @@ public class SubmitModel(
             x.Roles.Any(role => role.SecurityRole != null && role.SecurityRole.Key == SecurityRoleKeys.Partner && role.SecurityRole.IsActive));
     }
 
+    private async Task<string> ResolveUserDisplayNameAsync(Guid? userId)
+    {
+        if (!userId.HasValue)
+        {
+            return string.Empty;
+        }
+
+        var user = await db.Users
+            .AsNoTracking()
+            .Where(x => x.Id == userId.Value && x.IsActive && !x.IsArchived)
+            .Select(x => new { x.DisplayName, x.SystemId })
+            .FirstOrDefaultAsync();
+
+        return user is null
+            ? string.Empty
+            : FormatUserLookupLabel(user.DisplayName, user.SystemId);
+    }
+
+    private static string FormatUserLookupLabel(string displayName, int systemId)
+    {
+        return $"{displayName} ({systemId:D8})";
+    }
+
     private async Task<bool> IsConflictPreviewEnabledAsync()
     {
         var value = await db.SystemSettings
@@ -300,3 +384,5 @@ public class SubmitModel(
 }
 
 public record ClientSuggestion(string Name, string DisplayLabel);
+
+public record UserSuggestion(Guid Id, string Name, string DisplayLabel);

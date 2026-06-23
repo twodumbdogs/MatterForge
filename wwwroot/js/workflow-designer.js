@@ -1,9 +1,38 @@
 (() => {
+    const stepNamePattern = /Input\.Steps\[(?:\d+)\]/g;
+
+    const idFromName = (name) => name
+        .replace(/\[/g, '_')
+        .replace(/\]\./g, '__')
+        .replace(/\./g, '_')
+        .replace(/\]/g, '_');
+
+    const updateIndexedAttributes = (element, index) => {
+        ['name', 'id', 'for', 'data-valmsg-for'].forEach((attribute) => {
+            const value = element.getAttribute(attribute);
+            if (!value || !stepNamePattern.test(value)) {
+                stepNamePattern.lastIndex = 0;
+                return;
+            }
+
+            stepNamePattern.lastIndex = 0;
+            element.setAttribute(attribute, value.replace(stepNamePattern, `Input.Steps[${index}]`));
+        });
+
+        if (element.matches('input, select, textarea') && element.name) {
+            element.id = idFromName(element.name);
+        }
+    };
+
     const getCards = (list) => Array.from(list.querySelectorAll('[data-workflow-step-card]'));
 
     const renumberSteps = (list) => {
         getCards(list).forEach((card, index) => {
             card.dataset.workflowStepIndex = index.toString();
+            card.querySelectorAll('input, select, textarea, label, span').forEach((element) => {
+                updateIndexedAttributes(element, index);
+            });
+
             const orderInput = card.querySelector('input[name$=".StepNumber"]');
             if (!orderInput) {
                 return;
@@ -55,6 +84,7 @@
         });
 
         list.addEventListener('input', () => updateButtons(list));
+        list.closest('form')?.addEventListener('submit', () => renumberSteps(list));
         renumberSteps(list);
     });
 })();

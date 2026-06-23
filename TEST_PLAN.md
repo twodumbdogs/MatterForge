@@ -569,6 +569,7 @@ Expected results:
 - Results should include score, risk, explanation, and AI-style assessment.
 - On Azure SQL, run `tools/rebuild-conflict-search-documents.ps1` after a large data load; subsequent searches should use the full-text candidate index and feel materially faster than a full-table scan.
 - Searches with more than 50 hits should show standard result pagination and display only 50 rows per page.
+- `/Conflicts` should show standard search-list pagination and load without materializing every result row for every saved search.
 
 ### 9A.1 Search Term Handling Examples
 

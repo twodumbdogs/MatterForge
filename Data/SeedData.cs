@@ -54,7 +54,15 @@ public static class SeedData
         await EnsureStarterNotificationTemplatesAsync(db);
         await EnsureStarterTimeCodeSetsAsync(db);
         await EnsureStarterFormAsync(db, seedSampleData);
-        await EnsureStarterWorkflowAsync(db);
+        try
+        {
+            await EnsureStarterWorkflowAsync(db);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Seed data should never keep a tenant app from starting if a customer-edited workflow changed underneath us.
+            db.ChangeTracker.Clear();
+        }
 
         if (seedSampleData)
         {
@@ -1364,6 +1372,7 @@ public static class SeedData
             .Include(x => x.Steps)
             .FirstOrDefaultAsync(x => x.Key == "standard-intake-review");
 
+        var seedWorkflowSteps = workflow is null || workflow.Steps.Count == 0;
         if (workflow is null)
         {
             workflow = new WorkflowDefinition
@@ -1377,43 +1386,54 @@ public static class SeedData
             db.WorkflowDefinitions.Add(workflow);
         }
 
-        workflow.Name = "Standard Intake Review";
-        workflow.Description = "Starter workflow for reviewing and approving new matter intake submissions.";
-        workflow.FormDefinitionId = form.Id;
-        workflow.IsActive = true;
-        workflow.IsPublished = true;
-        workflow.PublishedAt ??= DateTimeOffset.UtcNow;
+        if (seedWorkflowSteps)
+        {
+            workflow.Name = "Standard Intake Review";
+            workflow.Description = "Starter workflow for reviewing and approving new matter intake submissions.";
+            workflow.FormDefinitionId = form.Id;
+            workflow.IsActive = true;
+            workflow.IsPublished = true;
+            workflow.PublishedAt ??= DateTimeOffset.UtcNow;
 
-        EnsureWorkflowStep(
-            workflow,
-            1,
-            "Intake Review",
-            "Review submitted intake details for completeness before approval.",
-            null,
-            intakeTeam?.Id,
-            "Mark reviewed",
-            SubmissionStatuses.InReview);
+            EnsureWorkflowStep(
+                workflow,
+                1,
+                "Intake Review",
+                "Review submitted intake details for completeness before approval.",
+                null,
+                intakeTeam?.Id,
+                "Mark reviewed",
+                SubmissionStatuses.InReview);
 
-        EnsureWorkflowStep(
-            workflow,
-            2,
-            "Final Approval",
-            "Approve the intake so it can be converted into client and matter records.",
-            demoUser?.Id,
-            null,
-            "Approve",
-            SubmissionStatuses.Approved);
+            EnsureWorkflowStep(
+                workflow,
+                2,
+                "Final Approval",
+                "Approve the intake so it can be converted into client and matter records.",
+                demoUser?.Id,
+                null,
+                "Approve",
+                SubmissionStatuses.Approved);
 
-        await db.SaveChangesAsync();
+            await db.SaveChangesAsync();
+        }
 
+        var updatedVersions = false;
         foreach (var version in form.Versions.Where(x => x.WorkflowDefinitionId is null))
         {
             version.WorkflowDefinitionId = workflow.Id;
+            updatedVersions = true;
         }
 
-        await EnsureExistingWorkflowTaskAssignmentsAsync(db, workflow);
+        if (seedWorkflowSteps)
+        {
+            await EnsureExistingWorkflowTaskAssignmentsAsync(db, workflow);
+        }
 
-        await db.SaveChangesAsync();
+        if (updatedVersions || seedWorkflowSteps)
+        {
+            await db.SaveChangesAsync();
+        }
     }
 
     private static async Task<CMIForgeUser?> FindDemoUserAsync(CMIForgeDbContext db)

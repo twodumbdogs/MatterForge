@@ -750,6 +750,7 @@ Current search behavior:
 - Uses a denormalized `ConflictSearchDocuments` table with Azure SQL full-text search as a candidate finder when SQL Server full-text is available, then applies the existing CMIForge scorer to the narrowed candidates.
 - Large seeded/imported tenants should warm that document table with `tools/rebuild-conflict-search-documents.ps1` after data loads so the first browser conflict preview does not have to build the indexable corpus.
 - Falls back to the original in-memory scan/scoring path when full-text search is unavailable, such as local in-memory test runs.
+- The `/Conflicts` list page is paginated and projects only list-level search metadata, then calculates result counts and highest-risk badges only for the visible page.
 - Pages conflict result hits at 50 rows per page on the detail screen.
 - Labels string similarity as match strength, separate from legal/contextual risk.
 - Scores exact normalized matches at the top of the scale.
@@ -765,7 +766,7 @@ Current search behavior:
 Current AI behavior:
 
 - The app generates an `AI Assist Summary` for each conflict search.
-- Each result gets an `AI assessment` explaining why it deserves reviewer attention.
+- Each result gets an `AI Hit Assessment` with a short triage label such as `must review`, `should review`, `review if related`, or `low-confidence hit`.
 - This is currently deterministic/heuristic and does not call an external LLM yet.
 - The code is shaped so a real LLM-backed assistant can later replace or augment the deterministic explanation layer.
 

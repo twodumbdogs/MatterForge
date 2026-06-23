@@ -35,6 +35,10 @@ public class DetailsModel(
 
     public bool CanViewAllTime { get; private set; }
 
+    public bool CanApproveTime { get; private set; }
+
+    public Guid? CurrentUserId { get; private set; }
+
     public decimal TotalTimeHours { get; private set; }
 
     [BindProperty]
@@ -106,13 +110,52 @@ public class DetailsModel(
         return RedirectToPage(new { id });
     }
 
+    public async Task<IActionResult> OnPostApproveTimeAsync(Guid id, Guid entryId)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.TimeApprove))
+        {
+            return Forbid();
+        }
+
+        var currentUser = await currentUserService.GetCurrentUserAsync();
+        var entry = await db.TimeEntries
+            .Include(x => x.Matter)
+            .FirstOrDefaultAsync(x => x.Id == entryId && x.MatterId == id);
+        if (entry is null)
+        {
+            return NotFound();
+        }
+
+        if (!CanApproveTimeEntry(entry, currentUser?.Id))
+        {
+            return Forbid();
+        }
+
+        entry.Status = TimeEntryStatuses.Approved;
+        entry.ApprovedAt = DateTimeOffset.UtcNow;
+        entry.ApprovedByUserId = currentUser?.Id;
+        entry.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "TimeEntry.Approved",
+            "TimeEntry",
+            entry.Id,
+            entry.TimeEntryNumber.ToString("D8"),
+            $"Approved time entry {entry.TimeEntryNumber:D8} from matter details.");
+
+        return RedirectToPage(new { id });
+    }
+
     private async Task LoadPageAsync(Guid id)
     {
         CanRunConflicts = await permissionService.HasAsync(PermissionKeys.ConflictsRun);
         CanEditEntities = await permissionService.HasAsync(PermissionKeys.EntitiesEdit);
         CanRecordTime = await permissionService.HasAsync(PermissionKeys.TimeCreate);
         CanViewAllTime = await permissionService.HasAsync(PermissionKeys.TimeViewAll);
-        CanViewTime = CanViewAllTime || await permissionService.HasAsync(PermissionKeys.TimeViewOwn);
+        CanApproveTime = await permissionService.HasAsync(PermissionKeys.TimeApprove);
+        var canViewOwnTime = await permissionService.HasAsync(PermissionKeys.TimeViewOwn);
+        CurrentUserId = (await currentUserService.GetCurrentUserAsync())?.Id;
+        CanViewTime = CanViewAllTime || canViewOwnTime || CanApproveTime;
         Matter = await db.Matters
             .Include(x => x.Client)
             .Include(x => x.ResponsibleUser)
@@ -134,10 +177,11 @@ public class DetailsModel(
         {
             if (CanViewTime && !CanViewAllTime)
             {
-                var currentUser = await currentUserService.GetCurrentUserAsync();
-                Matter.TimeEntries = currentUser is null
+                Matter.TimeEntries = CurrentUserId is null
                     ? []
-                    : Matter.TimeEntries.Where(x => x.UserId == currentUser.Id).ToList();
+                    : Matter.TimeEntries
+                        .Where(x => (canViewOwnTime && x.UserId == CurrentUserId.Value) || CanApproveTimeEntry(x, CurrentUserId))
+                        .ToList();
             }
 
             TotalTimeHours = Matter.TimeEntries.Sum(x => x.Minutes) / 60m;
@@ -162,5 +206,19 @@ public class DetailsModel(
         RecentInviteSends = Matter is null
             ? []
             : await inviteTrackingService.ListForMatterAsync(id);
+    }
+
+    public bool CanApproveTimeEntry(TimeEntry entry)
+    {
+        return CanApproveTimeEntry(entry, CurrentUserId);
+    }
+
+    private static bool CanApproveTimeEntry(TimeEntry entry, Guid? currentUserId)
+    {
+        return currentUserId.HasValue &&
+            entry.Status == TimeEntryStatuses.Submitted &&
+            !entry.ExportedAt.HasValue &&
+            entry.Matter?.RequiresTimeApproval == true &&
+            entry.Matter.LeadPartnerId == currentUserId.Value;
     }
 }

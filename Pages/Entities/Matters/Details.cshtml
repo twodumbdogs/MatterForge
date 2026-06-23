@@ -156,9 +156,14 @@ else
                                 <th>Date</th>
                                 <th>User</th>
                                 <th>Phase/task</th>
+                                <th>Narrative</th>
                                 <th>Hours</th>
                                 <th>Billable</th>
                                 <th>Status</th>
+                                @if (Model.CanApproveTime)
+                                {
+                                    <th></th>
+                                }
                             </tr>
                         </thead>
                         <tbody>
@@ -178,9 +183,30 @@ else
                                             <small class="d-block text-muted">@entry.TimeTask.Code</small>
                                         }
                                     </td>
+                                    <td class="mf-truncate-cell">
+                                        @if (!string.IsNullOrWhiteSpace(entry.ClientNarrative))
+                                        {
+                                            <span>@entry.ClientNarrative</span>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(entry.InternalNotes))
+                                        {
+                                            <small class="d-block text-muted">@entry.InternalNotes</small>
+                                        }
+                                    </td>
                                     <td>@((entry.Minutes / 60m).ToString("0.00"))</td>
                                     <td>@(entry.IsBillable ? "Yes" : "No")</td>
                                     <td>@entry.Status</td>
+                                    @if (Model.CanApproveTime)
+                                    {
+                                        <td class="text-end">
+                                            @if (Model.CanApproveTimeEntry(entry))
+                                            {
+                                                <form method="post" asp-page-handler="ApproveTime" asp-route-id="@Model.Matter.Id" asp-route-entryId="@entry.Id" class="d-inline">
+                                                    <button class="btn btn-sm btn-success" type="submit">Approve</button>
+                                                </form>
+                                            }
+                                        </td>
+                                    }
                                 </tr>
                             }
                         </tbody>

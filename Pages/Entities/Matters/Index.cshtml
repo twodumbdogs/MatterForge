@@ -53,10 +53,28 @@
                                     <strong>@matter.Name</strong>
                                 </a>
                             </td>
-                            <td>@matter.Client?.Name</td>
+                            <td>
+                                @if (matter.Client is not null)
+                                {
+                                    <a class="mf-record-link" asp-page="/Entities/Clients/Details" asp-route-id="@matter.Client.Id">@matter.Client.Name</a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Unassigned</span>
+                                }
+                            </td>
                             <td>@matter.PracticeArea</td>
                             <td><span class="badge text-bg-primary">@matter.Status</span></td>
-                            <td>@(matter.ResponsibleUser?.DisplayName ?? "Unassigned")</td>
+                            <td>
+                                @if (matter.ResponsibleUser is not null)
+                                {
+                                    <a class="mf-record-link" asp-page="/Entities/Users/Details" asp-route-id="@matter.ResponsibleUser.Id">@matter.ResponsibleUser.DisplayName</a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Unassigned</span>
+                                }
+                            </td>
                             <td>@matter.OpenedDate?.ToString("MMM d, yyyy")</td>
                         </tr>
                     }

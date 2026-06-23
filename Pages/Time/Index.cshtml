@@ -102,6 +102,7 @@
                         <th>Client</th>
                         <th>Matter</th>
                         <th>Phase/task</th>
+                        <th>Narrative</th>
                         <th>Hours</th>
                         <th>Billable</th>
                         <th>Status</th>
@@ -118,17 +119,22 @@
                         <tr>
                             <td><a asp-page="./Details" asp-route-id="@entry.Id"><code>@entry.TimeEntryNumber.ToString("D8")</code></a></td>
                             <td>@entry.WorkDate.ToString("MMM d, yyyy")</td>
-                            <td>@entry.User?.DisplayName</td>
+                            <td>
+                                @if (entry.User is not null)
+                                {
+                                    <a class="mf-record-link" asp-page="/Entities/Users/Details" asp-route-id="@entry.User.Id">@entry.User.DisplayName</a>
+                                }
+                            </td>
                             <td>
                                 @if (entry.Client is not null)
                                 {
-                                    <a asp-page="/Entities/Clients/Details" asp-route-id="@entry.Client.Id">@entry.Client.Name</a>
+                                    <a class="mf-record-link" asp-page="/Entities/Clients/Details" asp-route-id="@entry.Client.Id">@entry.Client.Name</a>
                                 }
                             </td>
                             <td>
                                 @if (entry.Matter is not null)
                                 {
-                                    <a asp-page="/Entities/Matters/Details" asp-route-id="@entry.Matter.Id">@entry.Matter.Name</a>
+                                    <a class="mf-record-link" asp-page="/Entities/Matters/Details" asp-route-id="@entry.Matter.Id">@entry.Matter.Name</a>
                                 }
                             </td>
                             <td>
@@ -141,6 +147,16 @@
                                     <small class="d-block text-muted">@entry.TimeTask.Code</small>
                                 }
                             </td>
+                            <td class="mf-truncate-cell">
+                                @if (!string.IsNullOrWhiteSpace(entry.ClientNarrative))
+                                {
+                                    <span>@entry.ClientNarrative</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(entry.InternalNotes))
+                                {
+                                    <small class="d-block text-muted">@entry.InternalNotes</small>
+                                }
+                            </td>
                             <td>@((entry.Minutes / 60m).ToString("0.00"))</td>
                             <td>@(entry.IsBillable ? "Yes" : "No")</td>
                             <td>@entry.Status</td>
@@ -150,14 +166,17 @@
                                 <td class="text-end">
                                     @if (Model.CanApproveEntry(entry))
                                     {
-                                        <form method="post" asp-page-handler="Approve" asp-route-id="@entry.Id" class="d-inline">
-                                            <input type="hidden" asp-for="From" />
-                                            <input type="hidden" asp-for="To" />
-                                            <input type="hidden" asp-for="UserId" />
-                                            <input type="hidden" asp-for="MatterId" />
-                                            <input type="hidden" asp-for="Status" />
-                                            <button class="btn btn-sm btn-success" type="submit">Approve</button>
-                                        </form>
+                                        <div class="d-inline-flex gap-2 align-items-center">
+                                            <a class="btn btn-sm btn-outline-primary" asp-page="./Details" asp-route-id="@entry.Id">Review</a>
+                                            <form method="post" asp-page-handler="Approve" asp-route-id="@entry.Id" class="d-inline">
+                                                <input type="hidden" asp-for="From" />
+                                                <input type="hidden" asp-for="To" />
+                                                <input type="hidden" asp-for="UserId" />
+                                                <input type="hidden" asp-for="MatterId" />
+                                                <input type="hidden" asp-for="Status" />
+                                                <button class="btn btn-sm btn-success" type="submit">Approve</button>
+                                            </form>
+                                        </div>
                                     }
                                 </td>
                             }

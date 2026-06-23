@@ -61,10 +61,6 @@ public class DetailsModel(
         CanCreate = await permissionService.HasAsync(PermissionKeys.TimeCreate);
         var canEdit = await permissionService.HasAsync(PermissionKeys.TimeEdit);
         var canApprove = await permissionService.HasAsync(PermissionKeys.TimeApprove);
-        if (!canViewAll && !canViewOwn)
-        {
-            return Forbid();
-        }
 
         Entry = await db.TimeEntries
             .Include(x => x.User)
@@ -89,7 +85,9 @@ public class DetailsModel(
             Entry.Matter.LeadPartnerId.HasValue &&
             user?.Id == Entry.Matter.LeadPartnerId.Value;
 
-        if (!canViewAll && user?.Id != Entry.UserId && !canApproveThisEntry)
+        if (!canViewAll &&
+            !(canViewOwn && user?.Id == Entry.UserId) &&
+            !canApproveThisEntry)
         {
             return Forbid();
         }

@@ -48,7 +48,7 @@
                     {
                         <tr>
                             <td><a asp-page="./Details" asp-route-id="@client.Id"><code>@client.ClientNumber.ToString("D8")</code></a></td>
-                            <td class="mf-truncate-cell"><a asp-page="./Details" asp-route-id="@client.Id"><strong>@client.Name</strong></a></td>
+                            <td class="mf-truncate-cell"><a class="mf-record-link" asp-page="./Details" asp-route-id="@client.Id"><strong>@client.Name</strong></a></td>
                             <td><span class="badge text-bg-success">@client.Status</span></td>
                             <td>@client.PrimaryContact</td>
                             <td>@client.Email</td>

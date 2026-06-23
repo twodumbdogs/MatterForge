@@ -14,7 +14,8 @@ public partial class CreateModel(
     CMIForgeDbContext db,
     PermissionService permissionService,
     ProductPlanService productPlanService,
-    AuditLogService auditLogService) : PageModel
+    AuditLogService auditLogService,
+    ILogger<CreateModel> logger) : PageModel
 {
     [BindProperty]
     public WorkflowDefinitionInput Input { get; set; } = WorkflowDefinitionInput.Default();
@@ -133,7 +134,16 @@ public partial class CreateModel(
         }
 
         db.WorkflowDefinitions.Add(workflow);
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Workflow definition create failed.");
+            ModelState.AddModelError(string.Empty, "CMIForge could not save those workflow steps. Check step names, routing values, assignments, and notification recipients, then try again.");
+            return Page();
+        }
 
         if (publishRequested && !canPublish)
         {
@@ -162,6 +172,10 @@ public partial class CreateModel(
 
     private async Task ValidateInputAsync(Guid? existingWorkflowId, bool requirePublishReady)
     {
+        ValidateMaxLength("Input.Name", Input.Name, 160, "Workflow name");
+        ValidateMaxLength("Input.Key", Input.Key, 80, "Workflow key");
+        ValidateMaxLength("Input.Description", Input.Description, 1000, "Workflow description");
+
         if (!string.IsNullOrWhiteSpace(Input.Key) && !SlugRegex().IsMatch(Input.Key))
         {
             ModelState.AddModelError("Input.Key", "Use lowercase letters, numbers, and hyphens only.");
@@ -184,6 +198,16 @@ public partial class CreateModel(
 
         foreach (var step in steps)
         {
+            var stepLabel = $"Step {step.StepNumber}";
+            ValidateMaxLength(string.Empty, step.Name, 160, $"{stepLabel} name");
+            ValidateMaxLength(string.Empty, step.Instructions, 1000, $"{stepLabel} instructions");
+            ValidateMaxLength(string.Empty, step.ApprovalLabel, 60, $"{stepLabel} approval label");
+            ValidateMaxLength(string.Empty, step.CompletionSubmissionStatus, 60, $"{stepLabel} completion status");
+            ValidateMaxLength(string.Empty, step.ConditionFieldKey, 80, $"{stepLabel} condition field key");
+            ValidateMaxLength(string.Empty, step.ConditionValue, 200, $"{stepLabel} condition value");
+            ValidateMaxLength(string.Empty, step.NotificationSubject, 200, $"{stepLabel} notification subject");
+            ValidateMaxLength(string.Empty, WorkflowNotificationRecipientInput.Normalize(step.NotificationRecipientTokens), 1000, $"{stepLabel} notification recipients");
+
             if (step.StepNumber <= 0)
             {
                 ModelState.AddModelError(string.Empty, "Workflow step numbers must be greater than zero.");
@@ -232,6 +256,14 @@ public partial class CreateModel(
         if (duplicateStepNumbers.Count > 0)
         {
             ModelState.AddModelError(string.Empty, $"Duplicate workflow step numbers: {string.Join(", ", duplicateStepNumbers)}.");
+        }
+    }
+
+    private void ValidateMaxLength(string key, string? value, int maxLength, string label)
+    {
+        if (!string.IsNullOrEmpty(value) && value.Length > maxLength)
+        {
+            ModelState.AddModelError(key, $"{label} must be {maxLength} characters or fewer.");
         }
     }
 

@@ -482,7 +482,7 @@ public sealed class ConflictResultDisplayItem
             Score = result.Score,
             RiskLevel = result.RiskLevel,
             Explanation = result.Explanation,
-            AiAssessment = result.AiAssessment,
+            AiAssessment = FormatAiHitAssessment(result.RiskLevel, result.AiAssessment),
             ClearanceStatus = result.ClearanceStatus,
             ClearanceNotes = result.ClearanceNotes,
             ClearedByDisplayName = result.ClearedByUser?.DisplayName ?? string.Empty,
@@ -521,7 +521,7 @@ public sealed class ConflictResultDisplayItem
             Score = result.Score,
             RiskLevel = result.RiskLevel,
             Explanation = result.Explanation,
-            AiAssessment = result.AiAssessment,
+            AiAssessment = FormatAiHitAssessment(result.RiskLevel, result.AiAssessment),
             ClearanceStatus = result.ClearanceStatus,
             ClearanceNotes = result.ClearanceNotes,
             ClearedByDisplayName = result.ClearedByDisplayName,
@@ -537,5 +537,22 @@ public sealed class ConflictResultDisplayItem
         return !string.IsNullOrWhiteSpace(actingAs) && !actor.Equals(actingAs, StringComparison.OrdinalIgnoreCase)
             ? $"{actor} impersonating {actingAs}"
             : actor;
+    }
+
+    private static string FormatAiHitAssessment(string riskLevel, string assessment)
+    {
+        if (!string.IsNullOrWhiteSpace(assessment) &&
+            !assessment.StartsWith("AI assist:", StringComparison.OrdinalIgnoreCase))
+        {
+            return assessment.Trim();
+        }
+
+        return riskLevel switch
+        {
+            ConflictRiskLevels.Critical => "must review",
+            ConflictRiskLevels.High => "should review",
+            ConflictRiskLevels.Medium => "review if related",
+            _ => "low-confidence hit"
+        };
     }
 }

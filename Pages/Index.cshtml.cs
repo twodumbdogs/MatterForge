@@ -257,7 +257,11 @@ public class IndexModel(
 
         var timeEntries = await db.TimeEntries
             .AsNoTracking()
+            .Include(x => x.User)
+            .Include(x => x.Client)
             .Include(x => x.Matter)
+            .Include(x => x.TimePhase)
+            .Include(x => x.TimeTask)
             .Where(x => x.UserId == currentUserId)
             .OrderByDescending(x => x.WorkDate)
             .ThenByDescending(x => x.CreatedAt)
@@ -335,7 +339,11 @@ public class IndexModel(
             ? []
             : await db.TimeEntries
                 .AsNoTracking()
+                .Include(x => x.User)
+                .Include(x => x.Client)
                 .Include(x => x.Matter)
+                .Include(x => x.TimePhase)
+                .Include(x => x.TimeTask)
                 .Where(x => leadMatterIds.Contains(x.MatterId) && x.Status == TimeEntryStatuses.Submitted)
                 .OrderBy(x => x.WorkDate)
                 .ThenBy(x => x.CreatedAt)
@@ -497,7 +505,12 @@ public sealed record DashboardTimeItem(
     Guid Id,
     int TimeEntryNumber,
     DateOnly WorkDate,
+    string UserName,
+    string ClientName,
     string MatterName,
+    string PhaseTaskLabel,
+    string ClientNarrative,
+    string InternalNotes,
     string Status,
     int Minutes,
     bool IsBillable)
@@ -510,10 +523,22 @@ public sealed record DashboardTimeItem(
             entry.Id,
             entry.TimeEntryNumber,
             entry.WorkDate,
+            entry.User?.DisplayName ?? "Timekeeper",
+            entry.Client?.Name ?? "Client",
             entry.Matter?.Name ?? "Matter",
+            BuildPhaseTaskLabel(entry),
+            entry.ClientNarrative,
+            entry.InternalNotes,
             entry.Status,
             entry.Minutes,
             entry.IsBillable);
+    }
+
+    private static string BuildPhaseTaskLabel(TimeEntry entry)
+    {
+        var phase = entry.TimePhase is null ? string.Empty : entry.TimePhase.Code;
+        var task = entry.TimeTask is null ? string.Empty : entry.TimeTask.Code;
+        return string.Join(" / ", new[] { phase, task }.Where(x => !string.IsNullOrWhiteSpace(x)));
     }
 }
 

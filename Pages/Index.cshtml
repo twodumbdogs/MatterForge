@@ -251,15 +251,26 @@ else if (Model.View == CMIForge.Models.DashboardKeys.Partner)
                             <div class="mf-dashboard-row mf-dashboard-row-action">
                                 <a asp-page="/Time/Details" asp-route-id="@entry.Id">
                                     <span>
-                                        <strong>@entry.Hours.ToString("0.0") hrs · @entry.WorkDate.ToString("MMM d")</strong>
-                                        <small>@entry.MatterName</small>
+                                        <strong>@entry.Hours.ToString("0.0") hrs · @entry.WorkDate.ToString("MMM d") · @entry.UserName</strong>
+                                        <small>@entry.ClientName · @entry.MatterName</small>
+                                        @if (!string.IsNullOrWhiteSpace(entry.PhaseTaskLabel))
+                                        {
+                                            <small>@entry.PhaseTaskLabel</small>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(entry.ClientNarrative))
+                                        {
+                                            <small>@entry.ClientNarrative</small>
+                                        }
                                     </span>
                                     <em>@CMIForge.Services.RecordNumbers.TimeEntry(entry.TimeEntryNumber)</em>
                                 </a>
-                                <form method="post" asp-page="/Time/Index" asp-page-handler="Approve" asp-route-id="@entry.Id">
-                                    <input type="hidden" name="Status" value="@CMIForge.Services.TimeEntryStatuses.Submitted" />
-                                    <button class="btn btn-sm btn-success" type="submit">Approve</button>
-                                </form>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <a class="btn btn-sm btn-outline-primary" asp-page="/Time/Details" asp-route-id="@entry.Id">Review</a>
+                                    <form method="post" asp-page="/Time/Index" asp-page-handler="Approve" asp-route-id="@entry.Id">
+                                        <input type="hidden" name="Status" value="@CMIForge.Services.TimeEntryStatuses.Submitted" />
+                                        <button class="btn btn-sm btn-success" type="submit">Approve</button>
+                                    </form>
+                                </div>
                             </div>
                         }
                     </div>

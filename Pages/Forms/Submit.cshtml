@@ -23,18 +23,22 @@ else
         <input type="hidden" asp-for="Id" />
 
         <div class="mb-3">
-            <label asp-for="SubmitterUserId" class="form-label"></label>
-            <select asp-for="SubmitterUserId" asp-items="Model.SubmitterOptions" class="form-select">
-                <option value="">Choose a user...</option>
-            </select>
+            <label class="form-label" for="SubmitterUserLookupText">@Html.DisplayNameFor(model => model.SubmitterUserId)</label>
+            <div class="mf-user-lookup" data-user-lookup data-user-lookup-url="@Url.Page("./Submit", "UserSuggestions", new { id = Model.Id })">
+                <input type="hidden" asp-for="SubmitterUserId" data-user-lookup-value />
+                <input class="form-control" asp-for="SubmitterUserLookupText" placeholder="Search users by name, email, or number" autocomplete="off" data-user-lookup-input />
+                <div class="mf-user-lookup-list" data-user-lookup-list hidden></div>
+            </div>
             <span asp-validation-for="SubmitterUserId" class="text-danger"></span>
         </div>
 
         <div class="mb-3">
-            <label asp-for="LeadPartnerId" class="form-label"></label>
-            <select asp-for="LeadPartnerId" asp-items="Model.PartnerOptions" class="form-select">
-                <option value="">Unassigned</option>
-            </select>
+            <label class="form-label" for="LeadPartnerLookupText">@Html.DisplayNameFor(model => model.LeadPartnerId)</label>
+            <div class="mf-user-lookup" data-user-lookup data-user-lookup-url="@Url.Page("./Submit", "UserSuggestions", new { id = Model.Id, partnersOnly = true })">
+                <input type="hidden" asp-for="LeadPartnerId" data-user-lookup-value />
+                <input class="form-control" asp-for="LeadPartnerLookupText" placeholder="Search partners by name, email, or number" autocomplete="off" data-user-lookup-input data-user-lookup-optional />
+                <div class="mf-user-lookup-list" data-user-lookup-list hidden></div>
+            </div>
             <span asp-validation-for="LeadPartnerId" class="text-danger"></span>
         </div>
 
@@ -165,6 +169,7 @@ else
     {
         <script src="~/js/client-lookup.js" asp-append-version="true"></script>
     }
+    <script src="~/js/user-lookup.js" asp-append-version="true"></script>
     @if (Model.IsConflictPreviewEnabled)
     {
         <script src="~/js/conflict-preview.js" asp-append-version="true"></script>

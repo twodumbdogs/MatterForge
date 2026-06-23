@@ -2129,15 +2129,13 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
 
     private static string BuildAiAssessment(ConflictSearchResult result)
     {
-        var action = result.RiskLevel switch
+        return result.RiskLevel switch
         {
-            ConflictRiskLevels.Critical => "Treat as a must-review hit before approval.",
-            ConflictRiskLevels.High => "Review closely and compare party role, matter context, and relationship history.",
-            ConflictRiskLevels.Medium => "Likely worth a conflicts reviewer look, especially if parties are related.",
-            _ => "Low-confidence candidate; useful mainly as a safety net."
+            ConflictRiskLevels.Critical => "must review",
+            ConflictRiskLevels.High => "should review",
+            ConflictRiskLevels.Medium => "review if related",
+            _ => "low-confidence hit"
         };
-
-        return $"AI assist: {action} The hit came from {result.MatchedOn.ToLowerInvariant()} with {result.Score}/100 match strength.";
     }
 
     private static string BuildAiSummary(ConflictSearch search, List<string> terms)

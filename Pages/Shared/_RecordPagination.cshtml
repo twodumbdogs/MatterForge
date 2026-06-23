@@ -21,7 +21,7 @@
         @if (Model.Page.TotalPages > 1)
         {
             <nav aria-label="@Model.Label pages">
-                <ul class="pagination pagination-sm mb-0">
+                <ul class="pagination pagination-sm mb-0 mf-record-pagination">
                     <li class="page-item @(Model.Page.HasPrevious ? null : "disabled")">
                         @if (Model.Page.HasPrevious)
                         {
@@ -32,8 +32,28 @@
                             <span class="page-link">Previous</span>
                         }
                     </li>
-                    <li class="page-item disabled">
-                        <span class="page-link">Page @Model.Page.PageNumber of @Model.Page.TotalPages</span>
+                    <li class="page-item">
+                        <form class="mf-page-jump-form" method="get" action="@currentPath">
+                            @foreach (var routeValue in Model.RouteValues ?? new Dictionary<string, string>())
+                            {
+                                if (!string.Equals(routeValue.Key, "pageNumber", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <input type="hidden" name="@routeValue.Key" value="@routeValue.Value" />
+                                }
+                            }
+                            <span class="page-link mf-page-jump-control">
+                                <span>Page</span>
+                                <input class="form-control form-control-sm mf-page-jump-input"
+                                       type="number"
+                                       name="pageNumber"
+                                       min="1"
+                                       max="@Model.Page.TotalPages"
+                                       value="@Model.Page.PageNumber"
+                                       aria-label="Go to page number" />
+                                <span>of @Model.Page.TotalPages</span>
+                                <button class="btn btn-outline-primary btn-sm" type="submit">Go</button>
+                            </span>
+                        </form>
                     </li>
                     <li class="page-item @(Model.Page.HasNext ? null : "disabled")">
                         @if (Model.Page.HasNext)
