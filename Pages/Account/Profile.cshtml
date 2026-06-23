@@ -75,6 +75,23 @@ else
                     <span asp-validation-for="Input.FontScalePercent" class="text-danger"></span>
                 </fieldset>
 
+                <fieldset class="mt-4">
+                    <legend class="form-label fw-semibold">Theme</legend>
+                    <div class="mf-theme-preference">
+                        <div>
+                            <strong>Dark mode</strong>
+                            <div class="text-muted small">Use the darker CMIForge workspace theme on this browser.</div>
+                        </div>
+                        <label class="mf-theme-switch" title="Toggle dark mode">
+                            <span data-theme-toggle-label>Dark mode</span>
+                            <input class="mf-theme-switch-input" type="checkbox" role="switch" data-theme-toggle aria-label="Dark mode" />
+                            <span class="mf-theme-switch-track" aria-hidden="true">
+                                <span class="mf-theme-switch-thumb"></span>
+                            </span>
+                        </label>
+                    </div>
+                </fieldset>
+
                 <div class="d-flex gap-2 mt-4">
                     <button class="btn btn-primary" type="submit">Save profile</button>
                     <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>

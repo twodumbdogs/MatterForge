@@ -115,6 +115,35 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
                 .ExecuteDeleteAsync();
         }
 
+        var results = new Dictionary<string, ConflictSearchResult>();
+        var candidateDocumentIds = await FindCandidateDocumentIdsAsync(terms, includeHistory);
+        if (candidateDocumentIds is not null)
+        {
+            await AddCandidateDocumentResultsAsync(results, search, terms, candidateDocumentIds, includeHistory);
+        }
+        else
+        {
+            await AddFullScanResultsAsync(results, search, terms, includeHistory);
+        }
+
+        search.Results.Clear();
+        foreach (var result in results.Values.OrderByDescending(x => x.Score).ThenBy(x => x.MatchedName))
+        {
+            result.RiskLevel = DetermineRiskLevel(result);
+            result.Explanation = BuildExplanation(result);
+            result.AiAssessment = BuildAiAssessment(result);
+            search.Results.Add(result);
+        }
+
+        search.AiSummary = BuildAiSummary(search, terms);
+    }
+
+    private async Task AddFullScanResultsAsync(
+        Dictionary<string, ConflictSearchResult> results,
+        ConflictSearch search,
+        List<string> terms,
+        bool includeHistory)
+    {
         var parties = await db.Parties
             .AsNoTracking()
             .Include(x => x.Aliases)
@@ -141,8 +170,6 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             .Include(x => x.Client)
             .OrderBy(x => x.MatterNumber)
             .ToListAsync();
-
-        var results = new Dictionary<string, ConflictSearchResult>();
 
         foreach (var term in terms)
         {
@@ -216,17 +243,264 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         {
             await AddHistoricalResultsAsync(results, search, terms);
         }
+    }
 
-        search.Results.Clear();
-        foreach (var result in results.Values.OrderByDescending(x => x.Score).ThenBy(x => x.MatchedName))
+    private async Task<List<Guid>?> FindCandidateDocumentIdsAsync(List<string> terms, bool includeHistory)
+    {
+        if (terms.Count == 0 || !db.Database.IsSqlServer())
         {
-            result.RiskLevel = DetermineRiskLevel(result);
-            result.Explanation = BuildExplanation(result);
-            result.AiAssessment = BuildAiAssessment(result);
-            search.Results.Add(result);
+            return null;
         }
 
-        search.AiSummary = BuildAiSummary(search, terms);
+        var rebuilt = await EnsureConflictSearchDocumentsAsync(includeHistory);
+        if (rebuilt)
+        {
+            return null;
+        }
+
+        var fullTextQuery = BuildFullTextQuery(terms);
+        if (string.IsNullOrWhiteSpace(fullTextQuery))
+        {
+            return null;
+        }
+
+        var historyFilter = includeHistory
+            ? string.Empty
+            : $" AND [d].[SourceType] NOT IN ({string.Join(", ", HistoryDocumentTypes.Select((_, index) => $"@historyType{index}"))})";
+
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync();
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT TOP (600) [d].[Id]
+            FROM CONTAINSTABLE([ConflictSearchDocuments], ([SearchableText], [NormalizedSearchableText]), @searchText, 600) AS [ft]
+            INNER JOIN [ConflictSearchDocuments] AS [d] ON [d].[Id] = [ft].[KEY]
+            WHERE 1 = 1{historyFilter}
+            ORDER BY [ft].[RANK] DESC, [d].[SortNumber] ASC
+            """;
+
+        var searchParameter = command.CreateParameter();
+        searchParameter.ParameterName = "@searchText";
+        searchParameter.Value = fullTextQuery;
+        command.Parameters.Add(searchParameter);
+
+        if (!includeHistory)
+        {
+            for (var i = 0; i < HistoryDocumentTypes.Length; i++)
+            {
+                var parameter = command.CreateParameter();
+                parameter.ParameterName = $"@historyType{i}";
+                parameter.Value = HistoryDocumentTypes[i];
+                command.Parameters.Add(parameter);
+            }
+        }
+
+        try
+        {
+            var ids = new List<Guid>();
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                ids.Add(reader.GetGuid(0));
+            }
+
+            return ids;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task AddCandidateDocumentResultsAsync(
+        Dictionary<string, ConflictSearchResult> results,
+        ConflictSearch search,
+        List<string> terms,
+        List<Guid> candidateDocumentIds,
+        bool includeHistory)
+    {
+        if (candidateDocumentIds.Count == 0)
+        {
+            return;
+        }
+
+        var documents = await db.ConflictSearchDocuments
+            .AsNoTracking()
+            .Where(x => candidateDocumentIds.Contains(x.Id))
+            .OrderBy(x => x.SortNumber)
+            .ToListAsync();
+
+        var partyIds = documents
+            .Where(x => x.PartyId.HasValue)
+            .Select(x => x.PartyId!.Value)
+            .Distinct()
+            .ToList();
+        var clientIds = documents
+            .Where(x => x.ClientId.HasValue &&
+                (x.SourceType == ConflictSearchDocumentSourceTypes.Client ||
+                    x.SourceType == ConflictSearchDocumentSourceTypes.ClientAlias))
+            .Select(x => x.ClientId!.Value)
+            .Distinct()
+            .ToList();
+        var matterIds = documents
+            .Where(x => x.MatterId.HasValue && x.SourceType == ConflictSearchDocumentSourceTypes.Matter)
+            .Select(x => x.MatterId!.Value)
+            .Distinct()
+            .ToList();
+
+        var parties = partyIds.Count == 0
+            ? []
+            : await db.Parties
+                .AsNoTracking()
+                .Include(x => x.Aliases)
+                .Include(x => x.MatterParties)
+                    .ThenInclude(x => x.Matter)
+                        .ThenInclude(x => x!.Client)
+                .Where(x => partyIds.Contains(x.Id))
+                .OrderBy(x => x.PartyNumber)
+                .ToListAsync();
+        var partiesById = parties.ToDictionary(x => x.Id);
+
+        var clients = clientIds.Count == 0
+            ? []
+            : await db.Clients
+                .AsNoTracking()
+                .Include(x => x.Aliases)
+                .Include(x => x.Matters)
+                .Where(x => clientIds.Contains(x.Id))
+                .OrderBy(x => x.ClientNumber)
+                .ToListAsync();
+
+        var matters = matterIds.Count == 0
+            ? []
+            : await db.Matters
+                .AsNoTracking()
+                .Include(x => x.Client)
+                .Where(x => matterIds.Contains(x.Id))
+                .OrderBy(x => x.MatterNumber)
+                .ToListAsync();
+
+        var relationships = partyIds.Count == 0
+            ? []
+            : await db.PartyRelationships
+                .AsNoTracking()
+                .Include(x => x.FromParty)
+                .Include(x => x.ToParty)
+                .Where(x => partyIds.Contains(x.FromPartyId) || partyIds.Contains(x.ToPartyId))
+                .ToListAsync();
+
+        var relatedPartyIds = relationships
+            .SelectMany(x => new[] { x.FromPartyId, x.ToPartyId })
+            .Where(x => !partiesById.ContainsKey(x))
+            .Distinct()
+            .ToList();
+        if (relatedPartyIds.Count > 0)
+        {
+            var relatedParties = await db.Parties
+                .AsNoTracking()
+                .Include(x => x.Aliases)
+                .Include(x => x.MatterParties)
+                    .ThenInclude(x => x.Matter)
+                        .ThenInclude(x => x!.Client)
+                .Where(x => relatedPartyIds.Contains(x.Id))
+                .ToListAsync();
+
+            foreach (var relatedParty in relatedParties)
+            {
+                partiesById[relatedParty.Id] = relatedParty;
+            }
+        }
+
+        foreach (var term in terms)
+        {
+            var normalizedTerm = NormalizeName(term);
+            foreach (var party in parties)
+            {
+                var best = BestPartyMatch(term, normalizedTerm, party);
+                if (best.Score < 45)
+                {
+                    continue;
+                }
+
+                AddPartyResults(results, search.Id, term, party, best.Score, best.MatchedName, best.MatchedOn, best.MatchType, relationshipType: null);
+
+                if (best.Score < 70)
+                {
+                    continue;
+                }
+
+                foreach (var relationship in relationships.Where(x => x.FromPartyId == party.Id || x.ToPartyId == party.Id))
+                {
+                    var relatedPartyId = relationship.FromPartyId == party.Id ? relationship.ToPartyId : relationship.FromPartyId;
+                    if (!partiesById.TryGetValue(relatedPartyId, out var relatedParty) || relatedParty.Id == party.Id)
+                    {
+                        continue;
+                    }
+
+                    var relatedScore = Math.Max(45, best.Score - 20);
+                    AddPartyResults(
+                        results,
+                        search.Id,
+                        term,
+                        relatedParty,
+                        relatedScore,
+                        relatedParty.Name,
+                        $"{party.Name} relationship",
+                        "Relationship expansion",
+                        relationship.RelationshipType);
+                }
+            }
+
+            foreach (var client in clients)
+            {
+                var bestClient = BestClientMatch(term, normalizedTerm, client);
+                if (bestClient.Score < 45)
+                {
+                    continue;
+                }
+
+                AddClientResults(results, search.Id, term, client, bestClient.Score, bestClient.MatchedName, bestClient.MatchedOn, bestClient.MatchType);
+            }
+
+            foreach (var matter in matters)
+            {
+                var bestMatter = BestMatterMatch(term, normalizedTerm, matter);
+                if (bestMatter.Score < 45)
+                {
+                    continue;
+                }
+
+                AddMatterResult(results, search.Id, term, matter, bestMatter.Score, bestMatter.MatchedName, bestMatter.MatchedOn, bestMatter.MatchType);
+            }
+        }
+
+        if (!includeHistory)
+        {
+            return;
+        }
+
+        var historicalDocuments = documents
+            .Where(x => HistoryDocumentTypes.Contains(x.SourceType))
+            .ToList();
+        foreach (var document in historicalDocuments)
+        {
+            AddHistoricalTextMatches(
+                results,
+                search.Id,
+                terms,
+                new HistoricalConflictText(
+                    document.MatterId,
+                    document.ClientId,
+                    document.MatchedName,
+                    document.MatchedOn,
+                    document.MatchType,
+                    document.PartyRole,
+                    document.SearchableText));
+        }
     }
 
     private void DetachTrackedResults(Guid searchId)
@@ -264,7 +538,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
                 0);
         }
 
-        await RunSearchAsync(previewSearch);
+        await RunSearchAsync(previewSearch, includeHistory: false);
 
         var results = previewSearch.Results
             .OrderByDescending(x => Array.IndexOf(ConflictRiskLevels.All, x.RiskLevel))
@@ -640,6 +914,367 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         }
 
         await db.SaveChangesAsync();
+    }
+
+    private static readonly string[] HistoryDocumentTypes =
+    [
+        ConflictSearchDocumentSourceTypes.PriorSearch,
+        ConflictSearchDocumentSourceTypes.PriorResult,
+        ConflictSearchDocumentSourceTypes.ArchivedResult
+    ];
+
+    private static readonly string[] LiveDocumentTypes =
+    [
+        ConflictSearchDocumentSourceTypes.Party,
+        ConflictSearchDocumentSourceTypes.PartyAlias,
+        ConflictSearchDocumentSourceTypes.Client,
+        ConflictSearchDocumentSourceTypes.ClientAlias,
+        ConflictSearchDocumentSourceTypes.Matter
+    ];
+
+    private async Task<bool> EnsureConflictSearchDocumentsAsync(bool includeHistory)
+    {
+        var sourceTypes = includeHistory ? LiveDocumentTypes.Concat(HistoryDocumentTypes).ToArray() : LiveDocumentTypes;
+        var expectedCount = await CountExpectedConflictSearchDocumentsAsync(includeHistory);
+        var currentCount = await db.ConflictSearchDocuments.CountAsync(x => sourceTypes.Contains(x.SourceType));
+
+        if (expectedCount == currentCount && currentCount > 0)
+        {
+            return false;
+        }
+
+        await RebuildConflictSearchDocumentsAsync(includeHistory);
+        return true;
+    }
+
+    private async Task<int> CountExpectedConflictSearchDocumentsAsync(bool includeHistory)
+    {
+        var liveCount =
+            await db.Parties.CountAsync() +
+            await db.PartyAliases.CountAsync() +
+            await db.Clients.CountAsync() +
+            await db.ClientAliases.CountAsync() +
+            await db.Matters.CountAsync();
+
+        if (!includeHistory)
+        {
+            return liveCount;
+        }
+
+        return liveCount +
+            await db.ConflictSearches.CountAsync() +
+            await db.ConflictSearchResults.CountAsync(x => x.ClearanceNotes != string.Empty) +
+            await db.ConflictSearchHitArchives.CountAsync(x => x.ClearanceNotes != string.Empty);
+    }
+
+    private async Task RebuildConflictSearchDocumentsAsync(bool includeHistory)
+    {
+        var sourceTypes = includeHistory ? LiveDocumentTypes.Concat(HistoryDocumentTypes).ToArray() : LiveDocumentTypes;
+        await db.ConflictSearchDocuments
+            .Where(x => sourceTypes.Contains(x.SourceType))
+            .ExecuteDeleteAsync();
+
+        var now = DateTimeOffset.UtcNow;
+        var documents = new List<ConflictSearchDocument>();
+
+        var parties = await db.Parties
+            .AsNoTracking()
+            .Include(x => x.Aliases)
+            .OrderBy(x => x.PartyNumber)
+            .ToListAsync();
+        foreach (var party in parties)
+        {
+            documents.Add(new ConflictSearchDocument
+            {
+                SourceType = ConflictSearchDocumentSourceTypes.Party,
+                SourceId = party.Id,
+                PartyId = party.Id,
+                MatchedName = party.Name,
+                MatchedOn = "Party name",
+                MatchType = "Name match",
+                PartyRole = "Global party",
+                SearchableText = JoinSearchableText(party.Name, party.NormalizedName, party.PartyType, party.Status, party.Notes, string.Join(' ', party.Aliases.Select(x => x.Alias))),
+                NormalizedSearchableText = NormalizeName(JoinSearchableText(party.Name, party.NormalizedName, party.Notes, string.Join(' ', party.Aliases.Select(x => x.Alias)))),
+                SortNumber = party.PartyNumber,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+
+            foreach (var alias in party.Aliases)
+            {
+                documents.Add(new ConflictSearchDocument
+                {
+                    SourceType = ConflictSearchDocumentSourceTypes.PartyAlias,
+                    SourceId = alias.Id,
+                    PartyId = party.Id,
+                    MatchedName = alias.Alias,
+                    MatchedOn = "Alias",
+                    MatchType = "Alias match",
+                    PartyRole = "Global party",
+                    SearchableText = JoinSearchableText(alias.Alias, alias.NormalizedAlias, alias.Notes, party.Name, party.PartyType),
+                    NormalizedSearchableText = NormalizeName(JoinSearchableText(alias.Alias, alias.NormalizedAlias, alias.Notes, party.Name)),
+                    SortNumber = party.PartyNumber,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+            }
+        }
+
+        var clients = await db.Clients
+            .AsNoTracking()
+            .Include(x => x.Aliases)
+            .OrderBy(x => x.ClientNumber)
+            .ToListAsync();
+        foreach (var client in clients)
+        {
+            documents.Add(new ConflictSearchDocument
+            {
+                SourceType = ConflictSearchDocumentSourceTypes.Client,
+                SourceId = client.Id,
+                ClientId = client.Id,
+                MatchedName = client.Name,
+                MatchedOn = "Client name",
+                MatchType = "Name match",
+                PartyRole = "Client",
+                SearchableText = JoinSearchableText(client.Name, client.PrimaryContact, client.Email, client.Notes, client.Status, string.Join(' ', client.Aliases.Select(x => x.Alias))),
+                NormalizedSearchableText = NormalizeName(JoinSearchableText(client.Name, client.PrimaryContact, client.Notes, string.Join(' ', client.Aliases.Select(x => x.Alias)))),
+                SortNumber = client.ClientNumber,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+
+            foreach (var alias in client.Aliases)
+            {
+                documents.Add(new ConflictSearchDocument
+                {
+                    SourceType = ConflictSearchDocumentSourceTypes.ClientAlias,
+                    SourceId = alias.Id,
+                    ClientId = client.Id,
+                    MatchedName = alias.Alias,
+                    MatchedOn = "Client alias",
+                    MatchType = "Alias match",
+                    PartyRole = "Client",
+                    SearchableText = JoinSearchableText(alias.Alias, alias.NormalizedAlias, alias.Notes, client.Name),
+                    NormalizedSearchableText = NormalizeName(JoinSearchableText(alias.Alias, alias.NormalizedAlias, alias.Notes, client.Name)),
+                    SortNumber = client.ClientNumber,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+            }
+        }
+
+        var matters = await db.Matters
+            .AsNoTracking()
+            .Include(x => x.Client)
+            .OrderBy(x => x.MatterNumber)
+            .ToListAsync();
+        documents.AddRange(matters.Select(matter => new ConflictSearchDocument
+        {
+            SourceType = ConflictSearchDocumentSourceTypes.Matter,
+            SourceId = matter.Id,
+            MatterId = matter.Id,
+            ClientId = matter.ClientId,
+            MatchedName = matter.Name,
+            MatchedOn = "Matter name",
+            MatchType = "Name match",
+            PartyRole = "Matter",
+            SearchableText = JoinSearchableText(matter.Name, matter.PracticeArea, matter.Status, matter.Notes, matter.Client?.Name),
+            NormalizedSearchableText = NormalizeName(JoinSearchableText(matter.Name, matter.PracticeArea, matter.Notes, matter.Client?.Name)),
+            SortNumber = matter.MatterNumber,
+            CreatedAt = now,
+            UpdatedAt = now
+        }));
+
+        if (includeHistory)
+        {
+            await AddHistoricalConflictSearchDocumentsAsync(documents, now);
+        }
+
+        db.ConflictSearchDocuments.AddRange(documents);
+        await db.SaveChangesAsync();
+    }
+
+    private async Task AddHistoricalConflictSearchDocumentsAsync(List<ConflictSearchDocument> documents, DateTimeOffset now)
+    {
+        var priorSearchRows = await db.ConflictSearches
+            .AsNoTracking()
+            .Select(x => new
+            {
+                x.Id,
+                x.SearchNumber,
+                x.SearchName,
+                x.SearchTerms,
+                x.ReviewNotes,
+                x.AiSummary,
+                x.Status,
+                x.ReviewerDecision,
+                x.MatterId,
+                MatterName = x.Matter == null ? null : x.Matter.Name,
+                ClientId = x.Matter == null ? null : (Guid?)x.Matter.ClientId,
+                ClientName = x.Matter == null || x.Matter.Client == null ? null : x.Matter.Client.Name
+            })
+            .ToListAsync();
+
+        documents.AddRange(priorSearchRows.Select(row =>
+        {
+            var searchableText = JoinSearchableText(
+                row.SearchName,
+                row.SearchTerms,
+                row.ReviewNotes,
+                row.AiSummary,
+                row.Status,
+                row.ReviewerDecision,
+                row.MatterName,
+                row.ClientName);
+
+            return new ConflictSearchDocument
+            {
+                SourceType = ConflictSearchDocumentSourceTypes.PriorSearch,
+                SourceId = row.Id,
+                MatterId = row.MatterId,
+                ClientId = row.ClientId,
+                MatchedName = $"Search {RecordNumbers.ConflictSearch(row.SearchNumber)}: {row.SearchName}",
+                MatchedOn = "Prior conflict search",
+                MatchType = "Prior search text match",
+                PartyRole = "Prior search history",
+                SearchableText = searchableText,
+                NormalizedSearchableText = NormalizeName(searchableText),
+                SortNumber = row.SearchNumber,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+        }));
+
+        var priorResultRows = await db.ConflictSearchResults
+            .AsNoTracking()
+            .Where(x => x.ClearanceNotes != string.Empty)
+            .Select(x => new
+            {
+                x.Id,
+                SearchNumber = x.ConflictSearch == null ? 0 : x.ConflictSearch.SearchNumber,
+                x.SearchTerm,
+                x.MatchedName,
+                x.PartyRole,
+                x.ClearanceStatus,
+                x.ClearanceNotes,
+                x.MatterId,
+                x.ClientId,
+                PartyName = x.Party == null ? null : x.Party.Name,
+                MatterName = x.Matter == null ? null : x.Matter.Name,
+                ClientName = x.Client == null ? null : x.Client.Name
+            })
+            .ToListAsync();
+
+        documents.AddRange(priorResultRows.Select(row =>
+        {
+            var searchableText = JoinSearchableText(
+                row.ClearanceNotes,
+                row.ClearanceStatus,
+                row.SearchTerm,
+                row.MatchedName,
+                row.PartyRole,
+                row.PartyName,
+                row.MatterName,
+                row.ClientName);
+
+            return new ConflictSearchDocument
+            {
+                SourceType = ConflictSearchDocumentSourceTypes.PriorResult,
+                SourceId = row.Id,
+                MatterId = row.MatterId,
+                ClientId = row.ClientId,
+                MatchedName = $"Search {RecordNumbers.ConflictSearch(row.SearchNumber)} result: {row.MatchedName}",
+                MatchedOn = "Prior result clearance notes",
+                MatchType = "Prior result notes match",
+                PartyRole = "Prior result history",
+                SearchableText = searchableText,
+                NormalizedSearchableText = NormalizeName(searchableText),
+                SortNumber = row.SearchNumber,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+        }));
+
+        var archivedResultRows = await db.ConflictSearchHitArchives
+            .AsNoTracking()
+            .Where(x => x.ClearanceNotes != string.Empty)
+            .Select(x => new
+            {
+                x.Id,
+                x.SearchNumber,
+                x.SearchTerm,
+                x.MatchedName,
+                x.PartyRole,
+                x.ClearanceStatus,
+                x.ClearanceNotes,
+                x.MatterId,
+                x.ClientId,
+                x.PartyName,
+                x.MatterName,
+                x.ClientName
+            })
+            .ToListAsync();
+
+        documents.AddRange(archivedResultRows.Select(row =>
+        {
+            var searchableText = JoinSearchableText(
+                row.ClearanceNotes,
+                row.ClearanceStatus,
+                row.SearchTerm,
+                row.MatchedName,
+                row.PartyRole,
+                row.PartyName,
+                row.MatterName,
+                row.ClientName);
+
+            return new ConflictSearchDocument
+            {
+                SourceType = ConflictSearchDocumentSourceTypes.ArchivedResult,
+                SourceId = row.Id,
+                MatterId = row.MatterId,
+                ClientId = row.ClientId,
+                MatchedName = $"Archived search {RecordNumbers.ConflictSearch(row.SearchNumber)} result: {row.MatchedName}",
+                MatchedOn = "Archived result clearance notes",
+                MatchType = "Archived result notes match",
+                PartyRole = "Prior result history",
+                SearchableText = searchableText,
+                NormalizedSearchableText = NormalizeName(searchableText),
+                SortNumber = row.SearchNumber,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+        }));
+    }
+
+    private static string BuildFullTextQuery(List<string> terms)
+    {
+        var clauses = terms
+            .Select(term => SplitNormalizedTokens(NormalizeName(term))
+                .Where(token => token.Length >= 2)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(6)
+                .ToList())
+            .Where(tokens => tokens.Count > 0)
+            .Take(12)
+            .Select(tokens =>
+            {
+                var prefixClause = string.Join(" AND ", tokens.Select(token => $"\"{EscapeFullTextToken(token)}*\""));
+                if (tokens.Count == 1)
+                {
+                    return prefixClause;
+                }
+
+                var phraseClause = $"\"{string.Join(' ', tokens.Select(EscapeFullTextToken))}\"";
+                return $"({phraseClause} OR ({prefixClause}))";
+            })
+            .ToList();
+
+        return string.Join(" OR ", clauses);
+    }
+
+    private static string EscapeFullTextToken(string token)
+    {
+        return token.Replace("\"", "\"\"", StringComparison.Ordinal);
     }
 
     private static ConflictCandidate BestPartyMatch(string term, string normalizedTerm, Party party)

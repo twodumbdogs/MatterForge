@@ -45,6 +45,7 @@
         || path.StartsWithSegments("/Security")
         || path.StartsWithSegments("/System");
     var tenantDisplayName = await TenantBranding.GetDisplayNameAsync();
+    var currentPlan = ProductPlans.CurrentPlan;
 }
 <html lang="en" style="--mf-root-font-size: @(rootFontSizePx)px;">
 <head>
@@ -216,13 +217,6 @@
                             <a class="nav-link @(path.StartsWithSegments("/Help") ? "active" : null)" asp-area="" asp-page="/Help/Index">Help</a>
                         </li>
                     </ul>
-                    <label class="mf-theme-switch me-2" title="Toggle dark mode">
-                        <span data-theme-toggle-label>Dark</span>
-                        <input class="mf-theme-switch-input" type="checkbox" role="switch" data-theme-toggle aria-label="Dark mode" />
-                        <span class="mf-theme-switch-track" aria-hidden="true">
-                            <span class="mf-theme-switch-thumb"></span>
-                        </span>
-                    </label>
                     @if (layoutCurrentUser is not null)
                     {
                         <div class="mf-nav-user">
@@ -287,7 +281,7 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2026 - @CMIForge.Services.ProductInfo.DisplayVersion
+            &copy; 2026 - @CMIForge.Services.ProductInfo.DisplayVersion · @currentPlan.Name plan
         </div>
     </footer>
 

@@ -96,7 +96,7 @@ This closeout captures the final polish and operator notes from the latest build
   - `cmiforge-linkedin-logo-2400.png`
   - `cmiforge-logo-source.png`
 - Recent UI-only releases were built and deployed to both `https://demo.cmiforge.com` and `https://app.cmiforge.com` with database migrations skipped where no schema changed.
-- Workflow definitions now support an explicit saved-draft vs published-live state. Drafts can be saved before they are publish-ready, while only active published workflows appear in form workflow pickers or start new submissions.
+- Workflow definitions now support an explicit saved-draft vs published-live state. Drafts can be saved before they are publish-ready, and a failed publish attempt keeps the latest edits as an unpublished draft instead of discarding them. Only active published workflows appear in form workflow pickers or start new submissions.
 - Forms can now be copied from their latest published version into a new active form, and workflows can be copied into unpublished drafts for safe revision before going live. Workflow steps can be moved up/down in the designer before saving or publishing.
 - Submission activity rails now keep Open Actions at the top, show workflow task/history detail newest-first, and use a tighter compact layout.
 - Entity change approvals now show before/after values for each changed field, including resolved matter references where possible, so reviewers can see the actual data they are approving.
@@ -127,8 +127,14 @@ This closeout captures the final polish and operator notes from the latest build
 ## 2026-06-22 User Profiles
 
 - Signed-in users now have a `My Profile` page reachable from the top navigation user control.
-- The first personal preference is app-wide font size, stored on the user's `Users.FontScalePercent` value.
+- The first personal preference is app-wide font size, stored on the user's `Users.FontScalePercent` value; the profile page also hosts the browser-local dark mode switch.
 - Available sizes are Small, Standard, Large, and Extra Large, and the selected size is applied by the shared layout before the page styles render.
+
+## 2026-06-22 Regional Hosting Positioning
+
+- The public marketing site now includes a concise data-residency section: `Choose where your data lives`.
+- The in-app terms now include a guarded `Data Hosting Location` clause covering supported geographic regions, commercially reasonable regional storage/processing efforts, and operational exceptions for support, backup, security, disaster recovery, and service management.
+- The legal agreement acceptance version is now `2026-06-22`.
 
 ## 2026-06-20 Private Networking Hardening
 
@@ -324,9 +330,9 @@ Submission attachments in the dev App Service use private Azure Blob Storage thr
 6. Reporting, permissions, integrations
 7. Fancy admin designer UX
 
-## Current Hardcoded Plan
+## Current Configured Plan
 
-The app currently runs as `Professional`:
+The app defaults to `Professional` unless the tenant sets `CMIForge:Plan` / `CMIForge__Plan` to another tier:
 
 - Includes 10 users
 - 500 matters
@@ -335,17 +341,18 @@ The app currently runs as `Professional`:
 - Email support
 - Price: `$149/month`
 
-Community and Enterprise tiers are visible in the app on `/Billing`, but payment handling is intentionally deferred. Enterprise is modeled at `$599/month` for 1,000 users, unlimited clients, unlimited matters, and customer SQL data access.
+Community and Enterprise tiers are visible in the app on `/Billing`, but payment handling is intentionally deferred. The active plan is shown in the app footer next to the product version. Enterprise is modeled at `$599/month` for 1,000 users, unlimited clients, unlimited matters, and customer SQL data access.
 
 ## Customer 0 Volume Test Data
 
 Customer 0 has been loaded with realistic generated volume-test data for early performance and search testing:
 
-- 400 generated clients with mixed company and individual names
-- 400 generated matters with realistic matter names and practice areas
-- 400 generated parties with organization, individual, and government names
-- 10 active users total, including generated fake users for volume submissions
+- 700 generated active users with realistic names and no Entra IDs
+- 10,000 generated clients with mixed company and individual names
+- 10,000 generated parties with organization, individual, and government names
+- 20,000 generated matters with realistic matter names and practice areas
+- 19,600 generated matter-party links for relationship and search-load testing
 - 1,000 volume-test submissions marked in submission JSON with `"volumeTest": true`
 - 300 open volume workflow tasks for queue testing
 
-The generated records use marker notes and the `volumeTest` submission flag so they can be filtered, measured, renamed, or removed later without confusing them with real customer data. Use `tools/rename-customer0-volume-data.ps1 -VerifyOnly` to confirm the current generated dataset.
+The generated records use marker notes and the `volumeTest` submission flag so they can be filtered, measured, renamed, or removed later without confusing them with real customer data. Use `tools/seed-customer0-big-volume-data.ps1 -AllowTemporarySqlPublicAccess` to verify the current large dataset without adding more rows, or add `-Apply` to top it up to the target counts.

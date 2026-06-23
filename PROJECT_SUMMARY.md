@@ -60,7 +60,8 @@ Latest product/docs state:
 - Conflict clearance, escalation, and escalation approval now preserve impersonation attribution by storing the real actor and the effective impersonated user separately. Conflict result history can display `actual user impersonating effective user` instead of incorrectly saying `System`.
 - Dashboard access can now be assigned by user, team, or role from `Security -> Dashboard access`. Seeded defaults restrict Firm Admin to Administrators and Matter Partner to Partners, while My Work remains broadly visible.
 - Imports is now Imports/Exports. Customers can download core operational data to CSV in fixed 1,000-row batches, with the batch size shown as a read-only setting and Enterprise-only SQL data access surfaced as CMIForge-controlled read-only settings.
-- User profiles now have a first personal setting surface. The top navigation links to `My Profile`, where each signed-in user can choose Small, Standard, Large, or Extra Large app text; the setting is stored on `Users.FontScalePercent` and applied app-wide.
+- User profiles now have a first personal setting surface. The top navigation links to `My Profile`, where each signed-in user can choose Small, Standard, Large, or Extra Large app text and toggle the browser-local dark mode preference; font size is stored on `Users.FontScalePercent` and applied app-wide.
+- Public-site positioning now includes supported regional hosting/data residency language, and the in-app terms include a `Data Hosting Location` clause with commercially reasonable regional hosting language plus support, backup, security, disaster-recovery, and service-management exceptions. Current legal agreement version: `2026-06-22`.
 - Entity discussion notes now preserve impersonation attribution by storing the real author and the impersonated user separately. The notes thread shows newest-first, hides older notes behind an expander, scrolls instead of taking over the page, and allows the author to delete their own note.
 - Client/party alias add/edit controls now live together in the main Aliases panel. Alias adds use action-specific validation so valid new aliases save from detail pages, while duplicate normalized aliases show a clear validation error instead of silently no-oping.
 - Matter partner time approval is reachable from the dashboard/time list, and the Time detail permission path now allows lead partners with approval rights to open submitted entries waiting on them.
@@ -357,9 +358,9 @@ The current Azure SQL databases have the full entity, workflow, conflicts, impor
 
 ## Plan Limiter
 
-CMIForge now has a hardcoded plan limiter. This is not a payment system yet; it is a product-gating layer that gives the app realistic tier behavior while billing is deferred.
+CMIForge now has a configured plan limiter. This is not a payment system yet; it is a product-gating layer that gives the app realistic tier behavior while billing is deferred.
 
-Current hardcoded plan: `Professional`, so development can continue with the paid-plan limits and all features enabled.
+The default plan is `Professional`, and tenants can override it with `CMIForge:Plan` / `CMIForge__Plan`. The active plan is shown in the shared footer next to the product version.
 
 Current plan tiers:
 
@@ -699,6 +700,7 @@ Current conflicts capabilities:
 - Matter detail pages can start a conflict search from matter context.
 - Submission forms can show a floating live conflict preview while client or matter names are being typed.
 - Live conflict preview can be enabled/disabled through `Conflicts.LivePreviewEnabled` in System Settings.
+- Live conflict preview uses the same matcher but skips prior-history scanning so high-volume tenants get fast on-the-fly feedback while typing.
 - Results can be filtered by clearance status, role/match context, and risk level.
 - Results can be selected in bulk for row-level clearance updates.
 - Results can be escalated individually or in bulk to another active firm user for approval, with escalation notes, assigned reviewer approval notes, and audit log entries on the conflict search.
@@ -714,6 +716,7 @@ Current conflicts data model:
 - `PartyRelationships`
 - `Conflicts`
 - `ConflictsResults`
+- `ConflictSearchDocuments`
 - `ConflictsSearchArchives`
 - `ConflictsHitArchives`
 
@@ -728,6 +731,8 @@ Current search behavior:
 - Includes matter/client context when a party is linked to matters.
 - Searches prior conflict search names, terms, review notes, and AI summaries.
 - Searches prior conflict result clearance notes.
+- Uses a denormalized `ConflictSearchDocuments` table with Azure SQL full-text search as a candidate finder when SQL Server full-text is available, then applies the existing CMIForge scorer to the narrowed candidates.
+- Falls back to the original in-memory scan/scoring path when full-text search is unavailable, such as local in-memory test runs.
 - Labels string similarity as match strength, separate from legal/contextual risk.
 - Scores exact normalized matches at the top of the scale.
 - Scores contains/full-phrase matches based on token coverage.
@@ -865,13 +870,14 @@ Seed data only fills gaps. It does not overwrite existing Azure SQL records.
 
 Customer 0 additionally has a realistic generated volume-test dataset for performance and search testing:
 
-- 400 generated client records with mixed company and individual names.
-- 400 generated matter records with realistic matter names and practice areas.
-- 400 generated party records with organization, individual, and government names.
-- 10 active users total, including generated fake users for volume submissions.
+- 700 generated active users with realistic names and no Entra IDs.
+- 10,000 generated client records with mixed company and individual names.
+- 10,000 generated party records with organization, individual, and government names.
+- 20,000 generated matter records with realistic matter names and practice areas.
+- 19,600 generated matter-party links for relationship and search-load testing.
 - 1,000 volume-test submissions with `"volumeTest": true` in the submission JSON.
 - 300 open volume workflow tasks.
-- `tools/rename-customer0-volume-data.ps1 -VerifyOnly` verifies the generated dataset and confirms old `Volume Test ...` labels are gone.
+- `tools/seed-customer0-big-volume-data.ps1 -AllowTemporarySqlPublicAccess` verifies the large generated dataset without adding rows; adding `-Apply` tops up Customer 0 to the target counts.
 
 ## Current Verification
 
@@ -940,7 +946,7 @@ CMIForge now has the first native workflow, notification, and approval queue sli
 Current workflow capabilities:
 
 - Workflow definitions can be created and edited in the app.
-- Workflow definitions can be saved as unpublished drafts before they are ready to go live.
+- Workflow definitions can be saved as unpublished drafts before they are ready to go live, and publish attempts that are not ready preserve the latest edits as an unpublished draft.
 - Workflow definitions can be copied into unpublished drafts and then renamed, adjusted, reordered, and published when ready.
 - Only active published workflow definitions are available for new form attachments and automatic submission starts.
 - Workflow definitions can be used as a global fallback or scoped to a form definition.

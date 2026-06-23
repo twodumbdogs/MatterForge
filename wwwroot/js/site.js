@@ -23,7 +23,7 @@
         if (toggle) {
             const isDark = normalized === 'dark';
             if (label) {
-                label.textContent = 'Dark';
+                label.textContent = 'Dark mode';
             }
             if (toggle.matches('input[type="checkbox"]')) {
                 toggle.checked = isDark;

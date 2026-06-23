@@ -34,6 +34,6 @@ public class LegalAgreementAcceptance
 public static class LegalAgreementVersions
 {
     public const string CurrentKey = "cmiforge-saas-license-terms";
-    public const string CurrentVersion = "2026-06-19";
+    public const string CurrentVersion = "2026-06-22";
     public const string CurrentTitle = "CMIForge SaaS Terms, Legal Use, and License Agreement";
 }

@@ -14,7 +14,7 @@ else
     <div class="mf-page-heading">
         <div>
             <p class="mf-eyebrow">Conflict Search <span>@CMIForge.Services.RecordNumbers.ConflictSearch(Model.Search.SearchNumber)</span> · @Model.Search.Status</p>
-            <h1>@Model.Search.SearchName</h1>
+            <h1>@Model.DisplaySearchName</h1>
             <p class="text-muted">Requested by @(Model.Search.RequestedByUser?.DisplayName ?? "System") on @UserDates.Format(Model.Search.CreatedAt, "f")</p>
         </div>
         <div class="mf-hero-actions">

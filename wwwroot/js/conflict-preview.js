@@ -100,9 +100,26 @@
 
         const margin = 16;
         const rect = activeSource.getBoundingClientRect();
-        const width = Math.min(Math.max(rect.width, 340), 430, window.innerWidth - margin * 2);
-        const left = Math.min(Math.max(rect.left, margin), window.innerWidth - width - margin);
-        const top = Math.max(rect.bottom + 10, margin);
+        const hasNativePicker = activeSource.hasAttribute('list');
+        const availableRight = window.innerWidth - rect.right - margin;
+        const availableLeft = rect.left - margin;
+        let width = Math.min(Math.max(rect.width, 340), 430, window.innerWidth - margin * 2);
+        let left = Math.min(Math.max(rect.left, margin), window.innerWidth - width - margin);
+        let top = Math.max(rect.bottom + 10, margin);
+
+        if (hasNativePicker && availableRight >= 360) {
+            width = Math.min(430, availableRight - margin);
+            left = rect.right + margin;
+            top = Math.max(rect.top, margin);
+        } else if (hasNativePicker && availableLeft >= 360) {
+            width = Math.min(430, availableLeft - margin);
+            left = rect.left - width - margin;
+            top = Math.max(rect.top, margin);
+        } else if (hasNativePicker) {
+            top = Math.max(rect.bottom + 230, margin);
+        }
+
+        top = Math.min(top, Math.max(margin, window.innerHeight - 180 - margin));
         const maxHeight = Math.max(180, Math.min(460, window.innerHeight - top - margin));
 
         preview.style.left = `${Math.round(left)}px`;

@@ -76,13 +76,19 @@ public partial class CreateModel(
 
         await LoadOptionsAsync();
         var publishRequested = IsPublishRequested();
-        await ValidateInputAsync(null, publishRequested);
+        await ValidateInputAsync(null, false);
 
         if (!ModelState.IsValid)
         {
             return Page();
         }
 
+        if (publishRequested)
+        {
+            await ValidateInputAsync(null, true);
+        }
+
+        var canPublish = publishRequested && ModelState.IsValid;
         var workflow = new WorkflowDefinition
         {
             Name = Input.Name.Trim(),
@@ -90,8 +96,8 @@ public partial class CreateModel(
             Description = Input.Description?.Trim() ?? string.Empty,
             FormDefinitionId = Input.FormDefinitionId,
             IsActive = Input.IsActive,
-            IsPublished = publishRequested,
-            PublishedAt = publishRequested ? DateTimeOffset.UtcNow : null
+            IsPublished = canPublish,
+            PublishedAt = canPublish ? DateTimeOffset.UtcNow : null
         };
 
         foreach (var step in UsedSteps())
@@ -128,12 +134,27 @@ public partial class CreateModel(
 
         db.WorkflowDefinitions.Add(workflow);
         await db.SaveChangesAsync();
+
+        if (publishRequested && !canPublish)
+        {
+            await auditLogService.LogAsync(
+                "Workflow.Created",
+                "WorkflowDefinition",
+                workflow.Id,
+                workflow.Key,
+                $"Saved draft workflow {workflow.Name}; publishing needs additional fixes.",
+                new { StepCount = workflow.Steps.Count, workflow.IsActive, workflow.IsPublished });
+
+            TempData["StatusMessage"] = "Workflow saved as an unpublished draft. Review the publish-readiness items, then publish again.";
+            return RedirectToPage("./Edit", new { id = workflow.Id });
+        }
+
         await auditLogService.LogAsync(
             "Workflow.Created",
             "WorkflowDefinition",
             workflow.Id,
             workflow.Key,
-            publishRequested ? $"Created and published workflow {workflow.Name}." : $"Saved draft workflow {workflow.Name}.",
+            canPublish ? $"Created and published workflow {workflow.Name}." : $"Saved draft workflow {workflow.Name}.",
             new { StepCount = workflow.Steps.Count, workflow.IsActive, workflow.IsPublished });
 
         return RedirectToPage("./Index");

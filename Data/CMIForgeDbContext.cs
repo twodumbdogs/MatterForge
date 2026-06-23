@@ -69,6 +69,8 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
 
     public DbSet<ConflictSearchHitArchive> ConflictSearchHitArchives => Set<ConflictSearchHitArchive>();
 
+    public DbSet<ConflictSearchDocument> ConflictSearchDocuments => Set<ConflictSearchDocument>();
+
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
 
     public DbSet<ImportBatchRow> ImportBatchRows => Set<ImportBatchRow>();
@@ -1017,6 +1019,22 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .WithMany()
                 .HasForeignKey(x => x.ClearedAsUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<ConflictSearchDocument>(entity =>
+        {
+            entity.Property(x => x.SourceType).HasMaxLength(60);
+            entity.Property(x => x.MatchedName).HasMaxLength(240);
+            entity.Property(x => x.MatchedOn).HasMaxLength(240);
+            entity.Property(x => x.MatchType).HasMaxLength(80);
+            entity.Property(x => x.PartyRole).HasMaxLength(80);
+            entity.Property(x => x.SearchableText).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.NormalizedSearchableText).HasColumnType("nvarchar(max)");
+            entity.HasIndex(x => new { x.SourceType, x.SourceId }).IsUnique();
+            entity.HasIndex(x => x.PartyId);
+            entity.HasIndex(x => x.MatterId);
+            entity.HasIndex(x => x.ClientId);
+            entity.HasIndex(x => x.SortNumber);
         });
 
         modelBuilder.Entity<CMIForgeUser>(entity =>

@@ -474,12 +474,13 @@ Steps:
 4. Use the step move buttons to move a workflow step up/down and confirm the order numbers update before save.
 5. Click `Copy` on a workflow and confirm the copy opens as `Saved draft / unpublished` with the copied steps.
 6. Create or edit a workflow and confirm it can be saved as `Saved draft / unpublished`.
-7. Publish a valid workflow and confirm it shows as `Published / live`.
-8. Confirm approval steps can contain outcomes.
-9. Confirm notification steps expose recipients, subject, and body fields.
-10. Review the outcome format and any routing conditions.
-11. Open `/Workflow/Queue`.
-12. Review:
+7. Try to publish an edit that is not publish-ready and confirm the latest edits remain saved as `Saved draft / unpublished`.
+8. Publish a valid workflow and confirm it shows as `Published / live`.
+9. Confirm approval steps can contain outcomes.
+10. Confirm notification steps expose recipients, subject, and body fields.
+11. Review the outcome format and any routing conditions.
+12. Open `/Workflow/Queue`.
+13. Review:
    - `My Queue`
    - `Team Queue`
    - `All Open` if visible
@@ -563,6 +564,7 @@ Expected results:
 - The create and re-run flows give immediate visual feedback while the search is running.
 - You should see multiple interesting hits from the seeded data.
 - Results should include score, risk, explanation, and AI-style assessment.
+- On Azure SQL, the first search after a large data load may warm/rebuild `ConflictSearchDocuments`; subsequent searches should use the full-text candidate index and feel materially faster than a full-table scan.
 
 ### 9A.1 Search Term Handling Examples
 
@@ -641,8 +643,9 @@ Expected results:
 
 - A floating conflict preview appears near the field being typed into.
 - The preview updates as the typed terms become more specific.
-- Similar parties, prior searches, and relationship/context hints can appear before the form is submitted.
+- Similar parties and relationship/context hints can appear before the form is submitted. Prior-history scanning is reserved for formal conflict searches so live typing stays responsive on large tenants.
 - The preview does not block normal form entry.
+- The native existing-client picker should not cover the conflict preview; when the browser shows client suggestions, the preview should sit lower on the page.
 - When disabled in settings, the conflict preview panel and script do not appear on intake forms.
 
 ### 9E. Run Conflicts from Context
@@ -657,6 +660,7 @@ Expected results:
 
 - Context-linked searches appear associated to the submission or matter.
 - Submission and matter pages show the linked conflict searches.
+- Submission-only conflict searches show as `S-######## Search`, while matter-linked searches keep the matter-oriented search name.
 
 ### 9F. History Behavior
 
@@ -727,7 +731,7 @@ Expected results:
 
 ## 13. Plan and Product Gating
 
-Purpose: understand how the current hardcoded product tiers are represented.
+Purpose: understand how the configured product tiers are represented.
 
 Steps:
 
@@ -739,11 +743,13 @@ Steps:
 3. Confirm the current development plan is shown as `Professional`.
 4. Confirm Professional is shown at `$149/month` and does not mention per-user add-on pricing.
 5. Confirm Enterprise is shown at `$599/month`, 1,000 users, unlimited clients, unlimited matters, and customer SQL data access.
+6. Confirm the app footer shows the active plan next to the CMIForge version.
 
 Expected results:
 
 - Billing is presented as product gating, not real payment plumbing.
 - The current build is feature-unlocked for development, while still showing Professional user and matter limits.
+- Tenant app settings can override the active plan, and the footer reflects that active plan.
 - SQL data access is Enterprise-only.
 
 ## 13A. Reports
@@ -1116,16 +1122,17 @@ Purpose: confirm the load-test dataset is present and still distinguishable from
 
 Expected Customer 0 volume counts:
 
-- 400 generated clients with realistic company and individual names
-- 400 generated matters with realistic matter names and practice areas
-- 400 generated parties with organization, individual, and government names
-- 10 active users total, including generated fake users for volume submissions
+- 700 generated active users with realistic names and no Entra IDs
+- 10,000 generated clients with realistic company and individual names
+- 10,000 generated parties with organization, individual, and government names
+- 20,000 generated matters with realistic matter names and practice areas
+- 19,600 generated matter-party links for relationship and search-load testing
 - 1,000 submissions with `"volumeTest": true` in the submission JSON
 - 300 open volume workflow tasks
 
 Suggested checks:
 
-- Run `tools/rename-customer0-volume-data.ps1 -VerifyOnly` and confirm old `Volume Test ...` entity/user counts are zero.
+- Run `tools/seed-customer0-big-volume-data.ps1 -AllowTemporarySqlPublicAccess` without `-Apply` and confirm all large generated counts are at target with zero planned additions.
 - Open `/Entities/Clients`, `/Entities/Matters`, and `/Entities/Parties` and search for sample generated names such as `Brightline`, `Granite`, `Lucas`, or `City of Austin`.
 - Open `/Submissions` and confirm the larger list still loads and pages/filtering remain responsive.
 - Open `/Workflow/Queue` and confirm the seeded open workflow tasks do not make the queue unusably slow.

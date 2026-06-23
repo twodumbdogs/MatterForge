@@ -11,4 +11,14 @@ public static class RecordNumbers
     public static string Client(int number) => number.ToString("D8");
 
     public static string Matter(int number) => number.ToString("D8");
+
+    public static string ConflictSearchDisplayName(string searchName, int? submissionNumber, int? matterNumber)
+    {
+        if (submissionNumber.HasValue && !matterNumber.HasValue)
+        {
+            return $"{Submission(submissionNumber.Value)} Search";
+        }
+
+        return searchName;
+    }
 }

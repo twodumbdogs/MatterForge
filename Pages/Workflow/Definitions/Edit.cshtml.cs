@@ -139,7 +139,7 @@ public partial class EditModel(
         }
 
         var publishRequested = IsPublishRequested();
-        await ValidateInputAsync(Id, publishRequested);
+        await ValidateInputAsync(Id, false);
         if (!ModelState.IsValid)
         {
             IsPublished = workflow.IsPublished;
@@ -147,13 +147,53 @@ public partial class EditModel(
             return Page();
         }
 
+        if (publishRequested)
+        {
+            await ValidateInputAsync(Id, true);
+        }
+
+        var canPublish = publishRequested && ModelState.IsValid;
+        await SaveWorkflowAsync(workflow, canPublish);
+
+        if (publishRequested && !canPublish)
+        {
+            ModelState.AddModelError(string.Empty, "Your workflow changes were saved as an unpublished draft. Fix the items below, then publish again.");
+            IsPublished = false;
+            PublishedAt = null;
+
+            await auditLogService.LogAsync(
+                "Workflow.Updated",
+                "WorkflowDefinition",
+                workflow.Id,
+                workflow.Key,
+                $"Saved draft workflow {workflow.Name}; publishing needs additional fixes.",
+                new { StepCount = workflow.Steps.Count, workflow.IsActive, workflow.IsPublished });
+
+            return Page();
+        }
+
+        await auditLogService.LogAsync(
+            "Workflow.Updated",
+            "WorkflowDefinition",
+            workflow.Id,
+            workflow.Key,
+            canPublish ? $"Published workflow {workflow.Name}." : $"Saved draft workflow {workflow.Name}.",
+            new { StepCount = workflow.Steps.Count, workflow.IsActive, workflow.IsPublished });
+
+        return RedirectToPage("./Index");
+    }
+
+    private async Task SaveWorkflowAsync(WorkflowDefinition workflow, bool publish)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
         workflow.Name = Input.Name.Trim();
         workflow.Key = Input.Key.Trim();
         workflow.Description = Input.Description?.Trim() ?? string.Empty;
         workflow.FormDefinitionId = Input.FormDefinitionId;
         workflow.IsActive = Input.IsActive;
-        workflow.IsPublished = publishRequested;
-        workflow.PublishedAt = publishRequested ? DateTimeOffset.UtcNow : null;
+        workflow.IsPublished = publish;
+        workflow.PublishedAt = publish ? DateTimeOffset.UtcNow : null;
         workflow.UpdatedAt = DateTimeOffset.UtcNow;
 
         var usedSteps = UsedSteps().ToList();
@@ -214,15 +254,7 @@ public partial class EditModel(
         }
 
         await db.SaveChangesAsync();
-        await auditLogService.LogAsync(
-            "Workflow.Updated",
-            "WorkflowDefinition",
-            workflow.Id,
-            workflow.Key,
-            publishRequested ? $"Published workflow {workflow.Name}." : $"Saved draft workflow {workflow.Name}.",
-            new { StepCount = workflow.Steps.Count, workflow.IsActive, workflow.IsPublished });
-
-        return RedirectToPage("./Index");
+        await transaction.CommitAsync();
     }
 
     private async Task ValidateInputAsync(Guid existingWorkflowId, bool requirePublishReady)

@@ -59,7 +59,7 @@
                             <td><a asp-page="./Details" asp-route-id="@search.Id"><code>@CMIForge.Services.RecordNumbers.ConflictSearch(search.SearchNumber)</code></a></td>
                             <td class="mf-truncate-cell">
                                 <a class="mf-record-link" asp-page="./Details" asp-route-id="@search.Id">
-                                    <strong>@search.SearchName</strong>
+                                    <strong>@search.DisplaySearchName</strong>
                                     @if (search.IsArchived)
                                     {
                                         <span class="badge text-bg-light ms-1">Archived</span>

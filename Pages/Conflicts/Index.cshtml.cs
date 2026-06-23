@@ -80,6 +80,8 @@ public sealed class ConflictSearchListItem
 
     public string SearchName { get; init; } = string.Empty;
 
+    public string DisplaySearchName => RecordNumbers.ConflictSearchDisplayName(SearchName, SubmissionNumber, MatterNumber);
+
     public string Status { get; init; } = string.Empty;
 
     public string ReviewerDecision { get; init; } = string.Empty;

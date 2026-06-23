@@ -73,7 +73,7 @@ public sealed record ProductLimitStatus(
     bool CanCreate,
     string Message);
 
-public class ProductPlanService(CMIForgeDbContext db)
+public class ProductPlanService(CMIForgeDbContext db, IConfiguration configuration)
 {
     private static readonly HashSet<string> AllFeatureKeys = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -126,7 +126,7 @@ public class ProductPlanService(CMIForgeDbContext db)
 
     public IReadOnlyList<ProductPlan> Plans { get; } = [Community, Professional, Enterprise];
 
-    public ProductPlan CurrentPlan => Professional;
+    public ProductPlan CurrentPlan => ResolveCurrentPlan();
 
     public bool AllowsFeature(string featureKey)
     {
@@ -172,5 +172,19 @@ public class ProductPlanService(CMIForgeDbContext db)
             : $"The current plan is limited to {limit.Value:N0} {resourceName}. Upgrade to add more.";
 
         return new ProductLimitStatus(resourceName, currentCount, limit, canCreate, message);
+    }
+
+    private ProductPlan ResolveCurrentPlan()
+    {
+        var configuredPlan = configuration["CMIForge:Plan"];
+        if (string.IsNullOrWhiteSpace(configuredPlan))
+        {
+            return Professional;
+        }
+
+        return Plans.FirstOrDefault(
+                x => x.Key.Equals(configuredPlan.Trim(), StringComparison.OrdinalIgnoreCase)
+                    || x.Name.Equals(configuredPlan.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? Professional;
     }
 }

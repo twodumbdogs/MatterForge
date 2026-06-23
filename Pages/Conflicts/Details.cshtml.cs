@@ -20,6 +20,13 @@ public class DetailsModel(
 
     public ConflictSearchArchive? Archive { get; private set; }
 
+    public string DisplaySearchName => Search is null
+        ? string.Empty
+        : RecordNumbers.ConflictSearchDisplayName(
+            Search.SearchName,
+            Search.FormSubmission?.SubmissionNumber,
+            Search.Matter?.MatterNumber);
+
     public List<ConflictResultDisplayItem> Results { get; private set; } = [];
 
     public bool IsArchived => Archive is not null;

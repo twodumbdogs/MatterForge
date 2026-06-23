@@ -55,14 +55,15 @@ The Customer 0 deployment wrapper now keeps the app VNet-integrated through `cmi
 
 Customer 0 currently includes a realistic generated dataset for early volume, dashboard, workflow, and search testing:
 
-- 400 generated clients with mixed company and individual names
-- 400 generated matters with realistic matter names and practice areas
-- 400 generated parties with organization, individual, and government names
-- 10 active users total, including generated fake users for volume submissions
+- 700 generated active users with realistic names and no Entra IDs
+- 10,000 generated clients with mixed company and individual names
+- 10,000 generated parties with organization, individual, and government names
+- 20,000 generated matters with realistic matter names and practice areas
+- 19,600 generated matter-party links for relationship and search-load testing
 - 1,000 volume-test submissions with `"volumeTest": true` in `FormSubmissions.DataJson`
 - 300 open volume workflow tasks
 
-The records use marker notes and the `volumeTest` submission flag so they can be searched, measured, renamed, or removed later without mixing them up with real firm data. Use `tools/rename-customer0-volume-data.ps1 -VerifyOnly` from the project root to inspect the current generated dataset.
+The records use marker notes and the `volumeTest` submission flag so they can be searched, measured, renamed, or removed later without mixing them up with real firm data. Use `tools/seed-customer0-big-volume-data.ps1 -AllowTemporarySqlPublicAccess` from the project root to inspect the large generated dataset without adding rows, or add `-Apply` to top it up to the target counts.
 
 ## Signup And Legal Acceptance
 
