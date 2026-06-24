@@ -14,6 +14,7 @@ namespace CMIForge.Pages.Submissions;
 public class ConvertModel(
     CMIForgeDbContext db,
     PermissionService permissionService,
+    CurrentUserService currentUserService,
     ConflictSearchService conflictSearchService,
     ProductPlanService productPlanService,
     AuditLogService auditLogService) : PageModel
@@ -251,7 +252,9 @@ public class ConvertModel(
         var schema = FormJson.DeserializeSchema(Submission.FormVersion.SchemaJson);
         var values = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(Submission.DataJson, FormJson.Options) ?? [];
 
-        SourceAnswers = schema.Fields
+        var visibleSections = await GetVisibleSectionsAsync(schema);
+        var visibleFields = FormSectionSecurity.VisibleFields(schema, visibleSections);
+        SourceAnswers = visibleFields
             .Select(field => new SubmissionAnswer(
                 field.Label,
                 values.TryGetValue(field.Key, out var value) ? SubmissionAnswerReader.FormatValue(value) : string.Empty))
@@ -260,7 +263,7 @@ public class ConvertModel(
 
     private async Task<ConvertSubmissionInput> BuildPrefillAsync(FormSubmission submission)
     {
-        var answers = SubmissionAnswerReader.Read(submission.DataJson);
+        var answers = await ReadVisibleSubmissionAnswersAsync(submission);
         var assignedUser = SubmissionAnswerReader.FirstValue(answers, "assignedUser", "responsibleUser", "user", "attorney");
         var responsibleUserId = string.IsNullOrWhiteSpace(assignedUser)
             ? null
@@ -287,6 +290,32 @@ public class ConvertModel(
             LeadPartnerId = submission.LeadPartnerId,
             MatterNotes = summary
         };
+    }
+
+    private async Task<Dictionary<string, string>> ReadVisibleSubmissionAnswersAsync(FormSubmission submission)
+    {
+        if (submission.FormVersion is null)
+        {
+            return [];
+        }
+
+        var schema = FormJson.DeserializeSchema(submission.FormVersion.SchemaJson);
+        var visibleFields = FormSectionSecurity.VisibleFields(schema, await GetVisibleSectionsAsync(schema));
+        var visibleKeys = visibleFields
+            .Select(x => SubmissionAnswerReader.NormalizeKey(x.Key))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return SubmissionAnswerReader.Read(submission.DataJson)
+            .Where(x => visibleKeys.Contains(x.Key))
+            .ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task<IReadOnlyList<FormSection>> GetVisibleSectionsAsync(FormSchema schema)
+    {
+        return FormSectionSecurity.VisibleSections(
+            schema,
+            await currentUserService.GetCurrentUserTeamKeysAsync(),
+            await permissionService.HasAsync(PermissionKeys.SecurityManage));
     }
 
     private Task<bool> IsPartnerAsync(Guid userId)

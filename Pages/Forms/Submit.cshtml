@@ -44,13 +44,13 @@ else
 
         <div class="mf-form-tab-shell" data-form-tabs data-form-conditions>
             <div class="mf-form-tab-list" role="tablist" aria-label="Form sections">
-                @foreach (var formSection in Model.Schema.ResolvedSections)
+                @foreach (var formSection in Model.VisibleSections)
                 {
                     <button class="mf-form-tab" type="button" role="tab" data-section-tab="@formSection.Key">@formSection.Label</button>
                 }
             </div>
 
-            @foreach (var formSection in Model.Schema.ResolvedSections)
+            @foreach (var formSection in Model.VisibleSections)
             {
                 <section class="mf-form-tab-panel" data-section-panel="@formSection.Key" role="tabpanel">
                     <div class="mf-form-section-heading">

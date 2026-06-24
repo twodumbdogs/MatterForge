@@ -1,0 +1,168 @@
+@page
+@model CMIForge.Pages.System.StatsModel
+@{
+    ViewData["Title"] = "System Stats";
+}
+
+<div class="mf-page-heading">
+    <div>
+        <p class="mf-eyebrow">System</p>
+        <h1>Stats</h1>
+        <p class="text-muted">Operational performance and volume signals for this CMIForge environment.</p>
+    </div>
+    <a class="btn btn-outline-secondary" asp-page="/System/Settings">Settings</a>
+</div>
+
+<section class="row g-3 mb-4">
+    @foreach (var card in Model.MetricCards)
+    {
+        <div class="col-sm-6 col-xl-4">
+            <article class="mf-card h-100">
+                <p class="text-muted small text-uppercase mb-1">@card.Label</p>
+                <div class="h3 mb-1">@card.Value</div>
+                <p class="text-muted mb-0">@card.Detail</p>
+            </article>
+        </div>
+    }
+</section>
+
+<section class="row g-4">
+    <div class="col-xl-7">
+        <section class="mf-panel h-100">
+            <div class="d-flex flex-column flex-md-row justify-content-between gap-2 mb-3">
+                <div>
+                    <h2 class="mb-1">Page Load Stats</h2>
+                    <p class="text-muted mb-0">Routes with the most total response time since the app process started.</p>
+                </div>
+                <span class="badge text-bg-secondary align-self-start">@Model.Telemetry.TotalRequests.ToString("N0") requests</span>
+            </div>
+
+            @if (Model.Telemetry.TopRoutes.Count == 0)
+            {
+                <p class="text-muted mb-0">No page requests have been recorded yet.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Route</th>
+                                <th class="text-end">Requests</th>
+                                <th class="text-end">Avg</th>
+                                <th class="text-end">Slowest</th>
+                                <th class="text-end">Last status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var route in Model.Telemetry.TopRoutes)
+                            {
+                                <tr>
+                                    <td><code>@route.Route</code></td>
+                                    <td class="text-end">@route.Count.ToString("N0")</td>
+                                    <td class="text-end">@route.AverageMilliseconds.ToString("N0") ms</td>
+                                    <td class="text-end">@route.SlowestMilliseconds.ToString("N0") ms</td>
+                                    <td class="text-end">@route.LastStatusCode</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+
+    <div class="col-xl-5">
+        <section class="mf-panel h-100">
+            <h2 class="mb-1">Operational Signals</h2>
+            <p class="text-muted">Current queues and recent activity.</p>
+            <div class="list-group list-group-flush">
+                @foreach (var item in Model.OperationalMetrics)
+                {
+                    <div class="list-group-item px-0 bg-transparent text-light border-secondary">
+                        <div class="d-flex justify-content-between gap-3">
+                            <div>
+                                <strong>@item.Label</strong>
+                                <p class="text-muted small mb-0">@item.Description</p>
+                            </div>
+                            <span class="h5 mb-0">@item.Count.ToString("N0")</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    <div class="col-xl-7">
+        <section class="mf-panel h-100">
+            <h2 class="mb-1">Record Volume</h2>
+            <p class="text-muted">Current tenant data counts. Archived records are excluded where the entity supports archive.</p>
+            <div class="row g-3">
+                @foreach (var count in Model.RecordCounts)
+                {
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="border rounded p-3 h-100">
+                            <p class="text-muted small mb-1">@count.Label</p>
+                            <strong class="h4">@count.Count.ToString("N0")</strong>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    </div>
+
+    <div class="col-xl-5">
+        <section class="mf-panel h-100">
+            <h2 class="mb-1">Request Health</h2>
+            <p class="text-muted">Status code mix and recent slow requests.</p>
+
+            <h3 class="h6 mt-3">Status Codes</h3>
+            @if (Model.Telemetry.StatusCodes.Count == 0)
+            {
+                <p class="text-muted mb-0">No status codes recorded yet.</p>
+            }
+            else
+            {
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var status in Model.Telemetry.StatusCodes)
+                    {
+                        <span class="badge text-bg-secondary">@status.StatusCode: @status.Count.ToString("N0")</span>
+                    }
+                </div>
+            }
+
+            <h3 class="h6 mt-4">Recent Slow Requests</h3>
+            @if (Model.Telemetry.RecentSlowRequests.Count == 0)
+            {
+                <p class="text-muted mb-0">No requests over 750 ms recorded yet.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Route</th>
+                                <th class="text-end">Time</th>
+                                <th class="text-end">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var request in Model.Telemetry.RecentSlowRequests)
+                            {
+                                <tr>
+                                    <td>
+                                        <code>@request.Route</code>
+                                        <small class="d-block text-muted">@UserDates.Format(request.CapturedAt)</small>
+                                    </td>
+                                    <td class="text-end">@request.ElapsedMilliseconds.ToString("N0") ms</td>
+                                    <td class="text-end">@request.StatusCode</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+</section>

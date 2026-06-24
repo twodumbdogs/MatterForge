@@ -27,6 +27,8 @@ public class DetailsModel(
 
     public FormSchema? Schema { get; private set; }
 
+    public IReadOnlyList<FormSection> VisibleSections { get; private set; } = [];
+
     public Dictionary<string, string> EditValues { get; private set; } = [];
 
     public List<SubmissionAttachment> Attachments { get; private set; } = [];
@@ -239,19 +241,22 @@ public class DetailsModel(
         }
 
         var schema = FormJson.DeserializeSchema(submission.FormVersion.SchemaJson);
-        Fields = ReadPostedValues(schema, Request.Form);
+        var visibleSections = await GetVisibleSectionsAsync(schema);
+        var visibleFields = FormSectionSecurity.VisibleFields(schema, visibleSections);
+        Fields = ReadPostedValues(visibleFields, Request.Form);
         ModelState.Clear();
 
         var editableStepNames = await GetEditableStepNamesAsync(submission.Id);
         var existingValues = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(submission.DataJson, FormJson.Options)?
             .ToDictionary(x => x.Key, x => SubmissionAnswerReader.FormatValue(x.Value)) ?? [];
 
-        foreach (var field in schema.Fields.Where(x => !FormFieldRules.IsEditableForWorkflowStep(x, editableStepNames)))
+        var visibleFieldKeys = visibleFields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var field in schema.Fields.Where(x => !visibleFieldKeys.Contains(x.Key) || !FormFieldRules.IsEditableForWorkflowStep(x, editableStepNames)))
         {
             Fields[field.Key] = existingValues.GetValueOrDefault(field.Key, string.Empty);
         }
 
-        foreach (var required in schema.Fields.Where(x => x.Required && FormFieldRules.IsVisible(x, Fields)))
+        foreach (var required in visibleFields.Where(x => x.Required && FormFieldRules.IsVisible(x, Fields)))
         {
             if (!Fields.TryGetValue(required.Key, out var value) || string.IsNullOrWhiteSpace(value))
             {
@@ -598,14 +603,16 @@ public class DetailsModel(
 
         Schema = FormJson.DeserializeSchema(Submission.FormVersion.SchemaJson);
         ApplyLegacyDisplaySections(Schema);
+        VisibleSections = await GetVisibleSectionsAsync(Schema);
         var values = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(Submission.DataJson, FormJson.Options) ?? [];
         EditValues = values.ToDictionary(x => x.Key, x => SubmissionAnswerReader.FormatValue(x.Value));
         var normalizedAnswers = SubmissionAnswerReader.Read(Submission.DataJson);
         SubmittedClientName = SubmissionAnswerReader.FirstValue(normalizedAnswers, "clientName", "client", "companyName");
         SubmittedMatterName = SubmissionAnswerReader.FirstValue(normalizedAnswers, "matterName", "matter");
 
-        var sectionsByKey = Schema.ResolvedSections.ToDictionary(x => x.Key, x => x.Label, StringComparer.OrdinalIgnoreCase);
-        Answers = Schema.Fields
+        var sectionsByKey = VisibleSections.ToDictionary(x => x.Key, x => x.Label, StringComparer.OrdinalIgnoreCase);
+        var visibleFields = FormSectionSecurity.VisibleFields(Schema, VisibleSections);
+        Answers = visibleFields
             .Select(field => new SubmissionAnswer(
                 field.Label,
                 values.TryGetValue(field.Key, out var value) ? SubmissionAnswerReader.FormatValue(value) : string.Empty,
@@ -709,9 +716,17 @@ public class DetailsModel(
         return currentUser is not null && submission.SubmitterUserId == currentUser.Id;
     }
 
-    private static Dictionary<string, string> ReadPostedValues(FormSchema schema, IFormCollection form)
+    private async Task<IReadOnlyList<FormSection>> GetVisibleSectionsAsync(FormSchema schema)
     {
-        return schema.Fields.ToDictionary(
+        return FormSectionSecurity.VisibleSections(
+            schema,
+            await currentUserService.GetCurrentUserTeamKeysAsync(),
+            await permissionService.HasAsync(PermissionKeys.SecurityManage));
+    }
+
+    private static Dictionary<string, string> ReadPostedValues(IEnumerable<FormField> fields, IFormCollection form)
+    {
+        return fields.ToDictionary(
             field => field.Key,
             field => field.Type == FieldType.Address
                 ? FormAddressValue.Compose(FormAddressValue.FromForm(form, field.Key))

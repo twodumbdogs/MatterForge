@@ -15,6 +15,8 @@ public class IndexModel(
 {
     public List<WorkflowDefinition> Workflows { get; private set; } = [];
 
+    public bool CanManageFormWorkflowDefinitions { get; private set; }
+
     public async Task<IActionResult> OnGetAsync()
     {
         if (!productPlanService.AllowsFeature(ProductFeatureKeys.Workflow))
@@ -27,9 +29,11 @@ public class IndexModel(
             return Forbid();
         }
 
+        CanManageFormWorkflowDefinitions = await permissionService.HasAsync(PermissionKeys.FormsWorkflowsAdmin);
         Workflows = await db.WorkflowDefinitions
             .Include(x => x.FormDefinition)
             .Include(x => x.Steps)
+            .Where(x => x.IsActive)
             .OrderBy(x => x.Name)
             .ToListAsync();
 
@@ -106,6 +110,49 @@ public class IndexModel(
             new { SourceWorkflowDefinitionId = source.Id, StepCount = copy.Steps.Count });
 
         return RedirectToPage("./Edit", new { id = copy.Id });
+    }
+
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id)
+    {
+        if (!productPlanService.AllowsFeature(ProductFeatureKeys.Workflow))
+        {
+            return RedirectToPage("/Billing/Index", new { locked = ProductFeatureKeys.Workflow });
+        }
+
+        if (!await permissionService.HasAsync(PermissionKeys.FormsWorkflowsAdmin))
+        {
+            return Forbid();
+        }
+
+        var workflow = await db.WorkflowDefinitions
+            .FirstOrDefaultAsync(x => x.Id == id && x.IsActive);
+        if (workflow is null)
+        {
+            return NotFound();
+        }
+
+        var activeInstanceCount = await db.SubmissionWorkflowInstances
+            .CountAsync(x => x.WorkflowDefinitionId == id &&
+                (x.Status == WorkflowStatuses.Active || x.Status == WorkflowStatuses.Returned));
+        if (activeInstanceCount > 0)
+        {
+            ModelState.AddModelError(string.Empty, $"Workflow cannot be deleted while {activeInstanceCount:N0} active or returned workflow instance(s) still reference it.");
+            await OnGetAsync();
+            return Page();
+        }
+
+        workflow.IsActive = false;
+        workflow.IsPublished = false;
+        workflow.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "Workflow.Retired",
+            "WorkflowDefinition",
+            workflow.Id,
+            workflow.Key,
+            $"Retired workflow {workflow.Name}.");
+
+        return RedirectToPage("./Index");
     }
 
     private static string CopyName(string sourceName)

@@ -82,13 +82,28 @@ else
 
     <div class="mf-panel mb-3">
         <h2>Search Terms</h2>
-        <pre class="mf-pre mt-3">@Model.Search.SearchTerms</pre>
         @if (Model.CanRun)
         {
             <form method="post" class="mt-3" data-conflict-search-form data-conflict-search-progress-title="Re-running conflict search">
-                <label asp-for="AdditionalSearchTerms" class="form-label">Additional terms before re-run</label>
+                <div data-conflict-search-terms>
+                    @foreach (var term in Model.SearchTermItems)
+                    {
+                        <div class="input-group mb-2" data-conflict-search-term-row>
+                            <input class="form-control" name="SearchTerms" value="@term" aria-label="Conflict search term" />
+                            <button class="btn btn-outline-danger" type="button" data-conflict-search-remove-term>Delete</button>
+                        </div>
+                    }
+                </div>
+                <template data-conflict-search-term-template>
+                    <div class="input-group mb-2" data-conflict-search-term-row>
+                        <input class="form-control" name="SearchTerms" value="" aria-label="Conflict search term" />
+                        <button class="btn btn-outline-danger" type="button" data-conflict-search-remove-term>Delete</button>
+                    </div>
+                </template>
+                <button class="btn btn-outline-secondary btn-sm mt-1" type="button" data-conflict-search-add-term>Add term</button>
+                <label asp-for="AdditionalSearchTerms" class="form-label mt-3">Additional terms before re-run</label>
                 <textarea asp-for="AdditionalSearchTerms" class="form-control" rows="3" placeholder="Parent company, DBA, insurer, alternate spelling, opposing counsel"></textarea>
-                <div class="form-text">These terms will be added to the existing search terms before CMIForge runs the search again.</div>
+                <div class="form-text">Edit, delete, or add terms before CMIForge runs the search again.</div>
                 <div class="mf-conflict-search-progress mt-3" data-conflict-search-progress hidden aria-live="polite" aria-atomic="true">
                     <div class="d-flex justify-content-between gap-3">
                         <div>
@@ -103,6 +118,10 @@ else
                 </div>
                 <button class="btn btn-outline-primary mt-3" asp-page-handler="Rerun" data-conflict-search-submit>Re-run search</button>
             </form>
+        }
+        else
+        {
+            <pre class="mf-pre mt-3">@Model.Search.SearchTerms</pre>
         }
     </div>
 
@@ -393,6 +412,31 @@ else
 @section Scripts {
     <script src="~/js/conflict-search-progress.js" asp-append-version="true"></script>
     <script>
+        (() => {
+            const termList = document.querySelector('[data-conflict-search-terms]');
+            const template = document.querySelector('[data-conflict-search-term-template]');
+            const addButton = document.querySelector('[data-conflict-search-add-term]');
+
+            if (!termList || !template || !addButton) {
+                return;
+            }
+
+            const wireRemove = (row) => {
+                row.querySelector('[data-conflict-search-remove-term]')?.addEventListener('click', () => {
+                    row.remove();
+                });
+            };
+
+            termList.querySelectorAll('[data-conflict-search-term-row]').forEach(wireRemove);
+            addButton.addEventListener('click', () => {
+                const fragment = template.content.cloneNode(true);
+                const row = fragment.querySelector('[data-conflict-search-term-row]');
+                wireRemove(row);
+                termList.appendChild(fragment);
+                row.querySelector('input')?.focus();
+            });
+        })();
+
         (() => {
             const selectAll = document.getElementById('select-all-conflict-results');
             const rows = Array.from(document.querySelectorAll('[data-conflict-result-row]'));

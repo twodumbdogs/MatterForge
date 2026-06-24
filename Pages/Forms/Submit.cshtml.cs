@@ -12,6 +12,7 @@ namespace CMIForge.Pages.Forms;
 public class SubmitModel(
     CMIForgeDbContext db,
     PermissionService permissionService,
+    CurrentUserService currentUserService,
     ConflictSearchService conflictSearchService,
     WorkflowService workflowService,
     ProductPlanService productPlanService,
@@ -38,6 +39,8 @@ public class SubmitModel(
     public FormDefinition? Form { get; private set; }
 
     public FormSchema? Schema { get; private set; }
+
+    public IReadOnlyList<FormSection> VisibleSections { get; private set; } = [];
 
     public List<ClientSuggestion> ClientSuggestions { get; private set; } = [];
 
@@ -230,9 +233,10 @@ public class SubmitModel(
             ModelState.AddModelError("LeadPartnerId", "Choose a user with the Partner role.");
         }
 
-        PostedValues = ReadPostedValues(Schema, Request.Form);
+        var visibleFields = VisibleFields();
+        PostedValues = ReadPostedValues(visibleFields, Request.Form);
 
-        foreach (var required in Schema.Fields.Where(x => x.Required && FormFieldRules.IsVisible(x, PostedValues)))
+        foreach (var required in visibleFields.Where(x => x.Required && FormFieldRules.IsVisible(x, PostedValues)))
         {
             if (!PostedValues.TryGetValue(required.Key, out var value) || string.IsNullOrWhiteSpace(value))
             {
@@ -245,9 +249,10 @@ public class SubmitModel(
             return Page();
         }
 
+        var visibleFieldKeys = visibleFields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var answers = Schema.Fields.ToDictionary<FormField, string, object?>(
             field => field.Key,
-            field => !FormFieldRules.IsVisible(field, PostedValues)
+            field => !visibleFieldKeys.Contains(field.Key) || !FormFieldRules.IsVisible(field, PostedValues)
                 ? null
                 : field.Type == FieldType.Checkbox
                 ? PostedValues.ContainsKey(field.Key)
@@ -328,6 +333,10 @@ public class SubmitModel(
 
         VersionNumber = latestVersion.VersionNumber;
         Schema = FormJson.DeserializeSchema(latestVersion.SchemaJson);
+        VisibleSections = FormSectionSecurity.VisibleSections(
+            Schema,
+            await currentUserService.GetCurrentUserTeamKeysAsync(),
+            await permissionService.HasAsync(PermissionKeys.SecurityManage));
     }
 
     private Task<bool> IsPartnerAsync(Guid userId)
@@ -373,9 +382,16 @@ public class SubmitModel(
         return string.IsNullOrWhiteSpace(value) || bool.TryParse(value, out var enabled) && enabled;
     }
 
-    private static Dictionary<string, string> ReadPostedValues(FormSchema schema, IFormCollection form)
+    private IReadOnlyList<FormField> VisibleFields()
     {
-        return schema.Fields.ToDictionary(
+        return Schema is null
+            ? []
+            : FormSectionSecurity.VisibleFields(Schema, VisibleSections);
+    }
+
+    private static Dictionary<string, string> ReadPostedValues(IEnumerable<FormField> fields, IFormCollection form)
+    {
+        return fields.ToDictionary(
             field => field.Key,
             field => field.Type == FieldType.Address
                 ? FormAddressValue.Compose(FormAddressValue.FromForm(form, field.Key))

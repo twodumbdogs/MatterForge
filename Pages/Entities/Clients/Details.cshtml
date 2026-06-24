@@ -44,6 +44,8 @@ else
         </div>
     }
 
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
     <div class="row g-4">
         <div class="col-lg-5">
             <div class="mf-panel">
@@ -278,6 +280,16 @@ else
                     </div>
                 }
             </div>
+
+            <partial name="/Pages/Entities/_EntityRelationships.cshtml"
+                     model="@(new CMIForge.Services.EntityRelationshipsPanelModel(
+                         "Relationships",
+                         Model.Client.Id,
+                         Model.CanEditEntities,
+                         Model.RelationshipInput,
+                         Model.RelationshipTargetTypeOptions,
+                         Model.RelationshipTypeOptions,
+                         Model.Relationships))" />
         </div>
     </div>
 

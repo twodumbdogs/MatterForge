@@ -1,0 +1,90 @@
+@using CMIForge.Services
+@model EntityRelationshipsPanelModel
+
+<div class="mf-panel mt-3">
+    <h2>@Model.Title</h2>
+    @if (Model.CanManage)
+    {
+        <form method="post" asp-page-handler="Relationship" asp-route-id="@Model.CurrentEntityId" class="row g-2 mt-2 mb-3">
+            <div class="col-md-3">
+                <select class="form-select" name="RelationshipInput.TargetEntityType">
+                    @foreach (var option in Model.TargetEntityTypeOptions)
+                    {
+                        <option value="@option.Value" selected="@(option.Value == Model.Input.TargetEntityType)">@option.Text</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <input class="form-control" name="RelationshipInput.TargetRecord" value="@Model.Input.TargetRecord" placeholder="Number or GUID" />
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" name="RelationshipInput.RelationshipTypeId">
+                    <option value="">Relationship</option>
+                    @foreach (var option in Model.RelationshipTypeOptions)
+                    {
+                        <option value="@option.Value" selected="@(option.Value == Model.Input.RelationshipTypeId.ToString())">@option.Text</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <input class="form-control" name="RelationshipInput.Notes" value="@Model.Input.Notes" placeholder="Notes" />
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-primary w-100" type="submit">Add</button>
+            </div>
+        </form>
+    }
+    else
+    {
+        <p class="text-muted mt-2 mb-0">Relationship maintenance requires administrative access.</p>
+    }
+
+    @if (Model.Rows.Count == 0)
+    {
+        <p class="text-muted mt-3 mb-0">No relationships yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive mt-3">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Direction</th>
+                        <th>Record</th>
+                        <th>Relationship</th>
+                        <th>Notes</th>
+                        @if (Model.CanManage)
+                        {
+                            <th></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var relationship in Model.Rows)
+                    {
+                        <tr>
+                            <td><span class="badge text-bg-secondary">@relationship.Direction</span></td>
+                            <td>
+                                <span class="text-muted me-1">@relationship.OtherEntityType</span>
+                                <a href="@relationship.OtherUrl">@relationship.OtherLabel</a>
+                            </td>
+                            <td>@relationship.RelationshipType</td>
+                            <td>@relationship.Notes</td>
+                            @if (Model.CanManage)
+                            {
+                                <td class="text-end">
+                                    <form method="post"
+                                          asp-page-handler="DeleteRelationship"
+                                          asp-route-id="@Model.CurrentEntityId"
+                                          asp-route-relationshipId="@relationship.Id">
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                    </form>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

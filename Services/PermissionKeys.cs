@@ -8,6 +8,7 @@ public static class PermissionKeys
     public const string FormsView = "Forms.View";
     public const string FormsSubmit = "Forms.Submit";
     public const string FormsDesign = "Forms.Design";
+    public const string FormsWorkflowsAdmin = "Forms.WorkflowsAdmin";
 
     public const string SubmissionsViewOwn = "Submissions.ViewOwn";
     public const string SubmissionsViewAll = "Submissions.ViewAll";

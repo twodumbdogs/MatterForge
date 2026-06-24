@@ -55,7 +55,12 @@ public class FormSchema
             .Select(x => new FormSection
             {
                 Key = string.IsNullOrWhiteSpace(x.Key) ? FormSection.KeyFromLabel(x.Label) : x.Key.Trim(),
-                Label = x.Label.Trim()
+                Label = x.Label.Trim(),
+                VisibleToTeamKeys = x.VisibleToTeamKeys
+                    .Where(teamKey => !string.IsNullOrWhiteSpace(teamKey))
+                    .Select(teamKey => teamKey.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList()
             })
             .DistinctBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -96,6 +101,8 @@ public class FormSection
     public string Key { get; set; } = FormSchema.DefaultSectionKey;
 
     public string Label { get; set; } = "General";
+
+    public List<string> VisibleToTeamKeys { get; set; } = [];
 
     public static string KeyFromLabel(string? label)
     {

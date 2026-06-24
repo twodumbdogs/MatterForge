@@ -45,6 +45,7 @@ builder.Services.AddScoped<ContentModerationService>();
 builder.Services.AddScoped<DemoModePageFilter>();
 builder.Services.AddScoped<DemoResetService>();
 builder.Services.AddHostedService<DemoResetHostedService>();
+builder.Services.AddSingleton<SystemTelemetryService>();
 builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<DashboardVisibilityService>();
 builder.Services.AddScoped<WorkflowNotificationService>();
@@ -60,6 +61,7 @@ builder.Services.AddHostedService<InboundEmailHostedService>();
 builder.Services.AddScoped<ConflictSearchArchiveService>();
 builder.Services.AddScoped<ConflictSearchService>();
 builder.Services.AddScoped<EntityNoteService>();
+builder.Services.AddScoped<EntityRelationshipService>();
 builder.Services.AddScoped<CsvImportService>();
 builder.Services.AddScoped<CsvExportService>();
 builder.Services.AddScoped<AuditLogService>();
@@ -154,6 +156,11 @@ if (entraOptions.Enabled)
     app.UseAuthentication();
 }
 app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    var telemetry = context.RequestServices.GetRequiredService<SystemTelemetryService>();
+    await SystemTelemetryService.TrackRequestAsync(context, next, telemetry);
+});
 
 if (entraOptions.Enabled)
 {

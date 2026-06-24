@@ -15,6 +15,7 @@ public partial class EditModel(
     CMIForgeDbContext db,
     PermissionService permissionService,
     ProductPlanService productPlanService,
+    CurrentUserService currentUserService,
     AuditLogService auditLogService) : PageModel
 {
     [BindProperty(SupportsGet = true)]
@@ -61,10 +62,12 @@ public partial class EditModel(
 
         var schema = FormJson.DeserializeSchema(latestVersion.SchemaJson);
         var sectionsByKey = schema.ResolvedSections.ToDictionary(x => x.Key, x => x.Label, StringComparer.OrdinalIgnoreCase);
+        var sectionTeamsByKey = schema.ResolvedSections.ToDictionary(x => x.Key, x => string.Join(", ", x.VisibleToTeamKeys), StringComparer.OrdinalIgnoreCase);
         var existingFields = schema.Fields
             .Select(x => new EditFieldInput
             {
                 Section = sectionsByKey.GetValueOrDefault(x.SectionKey, "General"),
+                SectionVisibleTeams = sectionTeamsByKey.GetValueOrDefault(x.SectionKey, string.Empty),
                 Label = x.Label,
                 Key = x.Key,
                 Type = x.Type,
@@ -184,7 +187,7 @@ public partial class EditModel(
         var schema = new FormSchema
         {
             Title = Input.Name.Trim(),
-            Sections = BuildSections(fields),
+            Sections = BuildSections(fields, await currentUserService.GetActiveTeamNameToKeyMapAsync()),
             Fields = fields.Select(x => BuildFormField(x)).ToList()
         };
         schema.Normalize();
@@ -216,16 +219,25 @@ public partial class EditModel(
         return RedirectToPage("./Index");
     }
 
-    private static List<FormSection> BuildSections(IEnumerable<EditFieldInput> fields)
+    private static List<FormSection> BuildSections(IEnumerable<EditFieldInput> fields, IReadOnlyDictionary<string, string> teamNameToKey)
     {
         return fields
-            .Select(x => string.IsNullOrWhiteSpace(x.Section) ? "General" : x.Section.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(x => new FormSection
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.Section) ? "General" : x.Section.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new FormSection
             {
-                Key = FormSection.KeyFromLabel(x),
-                Label = x
+                Key = FormSection.KeyFromLabel(group.Key),
+                Label = group.Key,
+                VisibleToTeamKeys = NormalizeTeamKeys(group.SelectMany(x => FormSectionSecurity.ParseTeamKeys(x.SectionVisibleTeams)), teamNameToKey)
             })
+            .ToList();
+    }
+
+    private static List<string> NormalizeTeamKeys(IEnumerable<string> teamKeys, IReadOnlyDictionary<string, string> teamNameToKey)
+    {
+        return teamKeys
+            .Select(x => teamNameToKey.TryGetValue(x, out var key) ? key : x)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
@@ -288,6 +300,8 @@ public class EditFormInput
 public class EditFieldInput
 {
     public string? Section { get; set; } = "General";
+
+    public string? SectionVisibleTeams { get; set; }
 
     public string? Label { get; set; }
 

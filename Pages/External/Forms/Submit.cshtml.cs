@@ -26,6 +26,8 @@ public class SubmitModel(
 
     public FormSchema? Schema { get; private set; }
 
+    public IReadOnlyList<FormSection> VisibleSections { get; private set; } = [];
+
     public Dictionary<string, string> PostedValues { get; private set; } = [];
 
     public string? UnavailableMessage { get; private set; }
@@ -44,10 +46,11 @@ public class SubmitModel(
             return Page();
         }
 
-        PostedValues = ReadPostedValues(Schema, Request.Form);
+        var visibleFields = VisibleFields();
+        PostedValues = ReadPostedValues(visibleFields, Request.Form);
         Fields = PostedValues;
 
-        foreach (var required in Schema.Fields.Where(x => x.Required && FormFieldRules.IsVisible(x, PostedValues)))
+        foreach (var required in visibleFields.Where(x => x.Required && FormFieldRules.IsVisible(x, PostedValues)))
         {
             if (!PostedValues.TryGetValue(required.Key, out var value) || string.IsNullOrWhiteSpace(value))
             {
@@ -60,9 +63,10 @@ public class SubmitModel(
             return Page();
         }
 
+        var visibleFieldKeys = visibleFields.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var answers = Schema.Fields.ToDictionary<FormField, string, object?>(
             field => field.Key,
-            field => !FormFieldRules.IsVisible(field, PostedValues)
+            field => !visibleFieldKeys.Contains(field.Key) || !FormFieldRules.IsVisible(field, PostedValues)
                 ? null
                 : field.Type == FieldType.Checkbox
                 ? PostedValues.TryGetValue(field.Key, out var checkboxValue) && checkboxValue.Equals("true", StringComparison.OrdinalIgnoreCase)
@@ -174,11 +178,19 @@ public class SubmitModel(
 
         Form = Invite.FormDefinition;
         Schema = FormJson.DeserializeSchema(Invite.FormVersion.SchemaJson);
+        VisibleSections = FormSectionSecurity.PublicSections(Schema);
     }
 
-    private static Dictionary<string, string> ReadPostedValues(FormSchema schema, IFormCollection form)
+    private IReadOnlyList<FormField> VisibleFields()
     {
-        return schema.Fields.ToDictionary(
+        return Schema is null
+            ? []
+            : FormSectionSecurity.VisibleFields(Schema, VisibleSections);
+    }
+
+    private static Dictionary<string, string> ReadPostedValues(IEnumerable<FormField> fields, IFormCollection form)
+    {
+        return fields.ToDictionary(
             field => field.Key,
             field => field.Type == FieldType.Address
                 ? FormAddressValue.Compose(FormAddressValue.FromForm(form, field.Key))

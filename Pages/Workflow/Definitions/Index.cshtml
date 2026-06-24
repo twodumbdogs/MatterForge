@@ -16,6 +16,7 @@
 </div>
 
 <div class="mf-panel">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
     @if (Model.Workflows.Count == 0)
     {
         <p class="text-muted mb-0">No workflows have been created yet.</p>
@@ -57,10 +58,28 @@
                                 }
                             </td>
                             <td class="text-end">
-                                <a class="btn btn-sm btn-outline-primary" asp-page="./Edit" asp-route-id="@workflow.Id">Edit</a>
-                                <form method="post" asp-page-handler="Copy" asp-route-id="@workflow.Id" class="d-inline">
-                                    <button class="btn btn-sm btn-outline-secondary" type="submit">Copy</button>
-                                </form>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Options
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" asp-page="./Edit" asp-route-id="@workflow.Id">Edit</a></li>
+                                        <li>
+                                            <form method="post" asp-page-handler="Copy" asp-route-id="@workflow.Id">
+                                                <button class="dropdown-item" type="submit">Copy</button>
+                                            </form>
+                                        </li>
+                                        @if (Model.CanManageFormWorkflowDefinitions)
+                                        {
+                                            <li><hr class="dropdown-divider" /></li>
+                                            <li>
+                                                <form method="post" asp-page-handler="Delete" asp-route-id="@workflow.Id" onsubmit="return confirm('Retire this workflow? Historical workflow records stay available, but it will no longer be used for new submissions.');">
+                                                    <button class="dropdown-item text-danger" type="submit">Delete</button>
+                                                </form>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
                             </td>
                         </tr>
                     }

@@ -103,7 +103,7 @@ public class CreateModel(
 
             if (SourceSubmission?.FormVersion is not null)
             {
-                var answers = SubmissionAnswerReader.Read(SourceSubmission.DataJson);
+                var answers = await ReadVisibleSubmissionAnswersAsync(SourceSubmission);
                 var terms = new[]
                     {
                         SubmissionAnswerReader.FirstValue(answers, "clientName", "client", "companyName"),
@@ -136,6 +136,27 @@ public class CreateModel(
         {
             Input.SearchName = "Conflict search";
         }
+    }
+
+    private async Task<Dictionary<string, string>> ReadVisibleSubmissionAnswersAsync(FormSubmission submission)
+    {
+        if (submission.FormVersion is null)
+        {
+            return [];
+        }
+
+        var schema = FormJson.DeserializeSchema(submission.FormVersion.SchemaJson);
+        var visibleSections = FormSectionSecurity.VisibleSections(
+            schema,
+            await currentUserService.GetCurrentUserTeamKeysAsync(),
+            await permissionService.HasAsync(PermissionKeys.SecurityManage));
+        var visibleKeys = FormSectionSecurity.VisibleFields(schema, visibleSections)
+            .Select(x => SubmissionAnswerReader.NormalizeKey(x.Key))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return SubmissionAnswerReader.Read(submission.DataJson)
+            .Where(x => visibleKeys.Contains(x.Key))
+            .ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
     }
 }
 

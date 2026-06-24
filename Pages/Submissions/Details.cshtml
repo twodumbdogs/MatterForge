@@ -61,7 +61,7 @@ else
     <div class="mf-panel mb-3 mf-submission-summary">
         <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
             <div>
-                <strong>Workflow status</strong>
+                <strong>Submission status</strong>
                 <span class="badge @StatusClass(Model.Submission.Status) ms-2">@Model.Submission.Status</span>
                 <code class="ms-2">@CMIForge.Services.RecordNumbers.Submission(Model.Submission.SubmissionNumber)</code>
             </div>
@@ -160,7 +160,7 @@ else
                 <div class="mf-form-tab-list" role="tablist" aria-label="Submission workspace tabs">
                     @if (!Model.CanEditReturned && Model.Answers.Count > 0)
                     {
-                        @foreach (var formSection in Model.Schema.ResolvedSections)
+                        @foreach (var formSection in Model.VisibleSections)
                         {
                             <button class="mf-form-tab" type="button" role="tab" data-section-tab="submitted-@formSection.Key">@formSection.Label</button>
                         }
@@ -170,7 +170,7 @@ else
                 </div>
                 @if (!Model.CanEditReturned && Model.Answers.Count > 0)
                 {
-                    @foreach (var formSection in Model.Schema.ResolvedSections)
+                    @foreach (var formSection in Model.VisibleSections)
                     {
                         var answers = Model.Answers.Where(x => x.SectionKey.Equals(formSection.Key, StringComparison.OrdinalIgnoreCase)).ToList();
                         <section class="mf-form-tab-panel" data-section-panel="submitted-@formSection.Key" role="tabpanel">
@@ -521,12 +521,12 @@ else
             </div>
             <div class="mf-form-tab-shell" data-form-tabs data-form-conditions>
                 <div class="mf-form-tab-list" role="tablist" aria-label="Returned edit sections">
-                    @foreach (var formSection in Model.Schema.ResolvedSections)
+                    @foreach (var formSection in Model.VisibleSections)
                     {
                         <button class="mf-form-tab" type="button" role="tab" data-section-tab="edit-@formSection.Key">@formSection.Label</button>
                     }
                 </div>
-                @foreach (var formSection in Model.Schema.ResolvedSections)
+                @foreach (var formSection in Model.VisibleSections)
                 {
                     <section class="mf-form-tab-panel" data-section-panel="edit-@formSection.Key" role="tabpanel">
                         @foreach (var field in Model.Schema.FieldsForSection(formSection.Key))

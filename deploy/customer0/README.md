@@ -187,6 +187,8 @@ The script will:
 
 For schema-changing app releases, do not pass `-SkipDatabaseUpdate` unless the database migration has already been applied another way. If the migrator SQL user needs a one-time grant from a local operator machine, use `-AllowTemporarySqlPublicAccess`; normal EF schema updates should run through the migrator WebJob and keep the live web app's `CMIForge__RunMigrationsOnStartup=false`.
 
+The migrator wrapper waits up to 15 minutes for the triggered WebJob because Customer 0's larger tenant dataset can make core seed/data checks slower than the public demo.
+
 ## SQL Managed Identity Grant
 
 If the script says `Invoke-Sqlcmd` is not installed, run this against the `cmiforge-customer0` database from a SQL tool logged in with an Entra admin-capable account:

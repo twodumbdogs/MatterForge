@@ -51,6 +51,7 @@ public static class SeedData
 
         await EnsureStarterSecurityAsync(db);
         await EnsureStarterSystemSettingsAsync(db);
+        await EnsureStarterRelationshipTypesAsync(db);
         await EnsureStarterNotificationTemplatesAsync(db);
         await EnsureStarterTimeCodeSetsAsync(db);
         await EnsureStarterFormAsync(db, seedSampleData);
@@ -96,6 +97,44 @@ public static class SeedData
 
             setting.Value = item.Value.Trim();
             setting.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureStarterRelationshipTypesAsync(CMIForgeDbContext db)
+    {
+        var seeds = new (string Scope, string Key, string Name, string Description)[]
+        {
+            (RelationshipScopes.EntityEntity, "related", "Related", "General relationship between two operational entities."),
+            (RelationshipScopes.EntityEntity, "affiliate", "Affiliate", "Entities are affiliated, commonly owned, or otherwise linked."),
+            (RelationshipScopes.EntityEntity, "parent", "Parent", "One entity is the parent of another."),
+            (RelationshipScopes.EntityEntity, "subsidiary", "Subsidiary", "One entity is a subsidiary of another."),
+            (RelationshipScopes.EntityEntity, "acquired-by", "Acquired By", "One entity was acquired by another."),
+            (RelationshipScopes.EntityUser, "matter-partner", "Matter Partner", "User is the partner associated with an entity relationship."),
+            (RelationshipScopes.EntityUser, "collections-officer", "Collections Officer", "User handles collections or financial follow-up."),
+            (RelationshipScopes.EntityUser, "relationship-manager", "Relationship Manager", "User manages the relationship with the entity."),
+            (RelationshipScopes.UserUser, "manager", "Manager", "User reports to or is managed by another user."),
+            (RelationshipScopes.UserUser, "secretary", "Secretary", "User has secretary or assistant relationship to another user.")
+        };
+
+        foreach (var seed in seeds)
+        {
+            var type = await db.RelationshipTypes.FirstOrDefaultAsync(x => x.Scope == seed.Scope && x.Key == seed.Key);
+            if (type is null)
+            {
+                type = new RelationshipType
+                {
+                    Scope = seed.Scope,
+                    Key = seed.Key
+                };
+                db.RelationshipTypes.Add(type);
+            }
+
+            type.Name = seed.Name;
+            type.Description = seed.Description;
+            type.IsActive = true;
+            type.UpdatedAt = DateTimeOffset.UtcNow;
         }
 
         await db.SaveChangesAsync();
@@ -188,6 +227,7 @@ public static class SeedData
             (PermissionKeys.FormsView, "View forms", "Forms", "View available form definitions."),
             (PermissionKeys.FormsSubmit, "Submit forms", "Forms", "Submit available intake forms."),
             (PermissionKeys.FormsDesign, "Design forms", "Forms", "Create and publish form versions."),
+            (PermissionKeys.FormsWorkflowsAdmin, "Form and workflow admin", "Forms", "Retire obsolete form and workflow definitions while preserving historical submissions and workflow audit trails."),
             (PermissionKeys.SubmissionsViewOwn, "View own submissions", "Submissions", "View submissions submitted by the user."),
             (PermissionKeys.SubmissionsViewAll, "View all submissions", "Submissions", "View all submitted intake records."),
             (PermissionKeys.SubmissionsApprove, "Approve submissions", "Submissions", "Approve or return workflow tasks."),
@@ -230,6 +270,7 @@ public static class SeedData
         await db.SaveChangesAsync();
 
         var administrator = await EnsureRoleAsync(db, "Administrator", "administrator", "Full CMIForge administration.", true);
+        var formsWorkflowAdmin = await EnsureRoleAsync(db, "Form and Workflow Admin", "form-workflow-admin", "Can design, publish, copy, and retire forms and workflows.", false);
         var workflowDesigner = await EnsureRoleAsync(db, "Workflow Designer", "workflow-designer", "Can design forms and workflows.", false);
         var intakeReviewer = await EnsureRoleAsync(db, "Intake Reviewer", "intake-reviewer", "Can review and approve assigned intake workflow tasks.", false);
         var entityManager = await EnsureRoleAsync(db, "Entity Manager", "entity-manager", "Can view, create, and edit operational entities.", false);
@@ -237,6 +278,15 @@ public static class SeedData
         var submitter = await EnsureRoleAsync(db, "Submitter", "submitter", "Can submit forms and view their own submissions.", false);
 
         await EnsureRolePermissionsAsync(db, administrator, permissions.Select(x => x.Key).ToArray());
+        await EnsureRolePermissionsAsync(db, formsWorkflowAdmin,
+            PermissionKeys.FormsView,
+            PermissionKeys.FormsSubmit,
+            PermissionKeys.FormsDesign,
+            PermissionKeys.FormsWorkflowsAdmin,
+            PermissionKeys.WorkflowsViewQueue,
+            PermissionKeys.WorkflowsViewAllQueues,
+            PermissionKeys.WorkflowsDesign,
+            PermissionKeys.ReportingView);
         await EnsureRolePermissionsAsync(db, workflowDesigner,
             PermissionKeys.FormsView,
             PermissionKeys.FormsSubmit,

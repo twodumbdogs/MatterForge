@@ -15,6 +15,7 @@ public partial class CreateModel(
     CMIForgeDbContext db,
     PermissionService permissionService,
     ProductPlanService productPlanService,
+    CurrentUserService currentUserService,
     AuditLogService auditLogService) : PageModel
 {
     [BindProperty]
@@ -112,7 +113,7 @@ public partial class CreateModel(
         var schema = new FormSchema
         {
             Title = Input.Name.Trim(),
-            Sections = BuildSections(fields),
+            Sections = BuildSections(fields, await currentUserService.GetActiveTeamNameToKeyMapAsync()),
             Fields = fields.Select(x => BuildFormField(x)).ToList()
         };
         schema.Normalize();
@@ -148,16 +149,25 @@ public partial class CreateModel(
         return RedirectToPage("./Submit", new { id = form.Id });
     }
 
-    private static List<FormSection> BuildSections(IEnumerable<CreateFieldInput> fields)
+    private static List<FormSection> BuildSections(IEnumerable<CreateFieldInput> fields, IReadOnlyDictionary<string, string> teamNameToKey)
     {
         return fields
-            .Select(x => string.IsNullOrWhiteSpace(x.Section) ? "General" : x.Section.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(x => new FormSection
+            .GroupBy(x => string.IsNullOrWhiteSpace(x.Section) ? "General" : x.Section.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new FormSection
             {
-                Key = FormSection.KeyFromLabel(x),
-                Label = x
+                Key = FormSection.KeyFromLabel(group.Key),
+                Label = group.Key,
+                VisibleToTeamKeys = NormalizeTeamKeys(group.SelectMany(x => FormSectionSecurity.ParseTeamKeys(x.SectionVisibleTeams)), teamNameToKey)
             })
+            .ToList();
+    }
+
+    private static List<string> NormalizeTeamKeys(IEnumerable<string> teamKeys, IReadOnlyDictionary<string, string> teamNameToKey)
+    {
+        return teamKeys
+            .Select(x => teamNameToKey.TryGetValue(x, out var key) ? key : x)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
@@ -238,6 +248,8 @@ public class CreateFormInput
 public class CreateFieldInput
 {
     public string? Section { get; set; } = "Client";
+
+    public string? SectionVisibleTeams { get; set; }
 
     public string? Label { get; set; }
 

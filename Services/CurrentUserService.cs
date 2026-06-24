@@ -131,6 +131,40 @@ public class CurrentUserService(
             .ToListAsync();
     }
 
+    public async Task<HashSet<string>> GetCurrentUserTeamKeysAsync()
+    {
+        var currentUser = await GetCurrentUserAsync();
+        if (currentUser is null)
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var keys = await db.TeamMembers
+            .Where(x => x.UserId == currentUser.Id && x.Team != null && x.Team.IsActive)
+            .Select(x => x.Team!.Key)
+            .ToListAsync();
+
+        return keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public async Task<Dictionary<string, string>> GetActiveTeamNameToKeyMapAsync()
+    {
+        var teams = await db.Teams
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .Select(x => new { x.Name, x.Key })
+            .ToListAsync();
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var team in teams)
+        {
+            map.TryAdd(team.Key, team.Key);
+            map.TryAdd(team.Name, team.Key);
+        }
+
+        return map;
+    }
+
     public bool IsEntraLoginEnabled()
     {
         return entraOptions.Value.Enabled && productPlanService.AllowsFeature(ProductFeatureKeys.EntraSso);

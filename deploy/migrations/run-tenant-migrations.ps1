@@ -178,7 +178,7 @@ function Wait-ForWebJobCompletion {
         [string]$DatabaseName
     )
 
-    $deadline = (Get-Date).AddMinutes(5)
+    $deadline = (Get-Date).AddMinutes(15)
     do {
         Start-Sleep -Seconds 8
         $jobs = Invoke-AzJson webapp webjob triggered list `

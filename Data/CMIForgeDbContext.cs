@@ -61,6 +61,10 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
 
     public DbSet<PartyRelationship> PartyRelationships => Set<PartyRelationship>();
 
+    public DbSet<RelationshipType> RelationshipTypes => Set<RelationshipType>();
+
+    public DbSet<EntityRelationship> EntityRelationships => Set<EntityRelationship>();
+
     public DbSet<ConflictSearch> ConflictSearches => Set<ConflictSearch>();
 
     public DbSet<ConflictSearchResult> ConflictSearchResults => Set<ConflictSearchResult>();
@@ -782,6 +786,31 @@ public class CMIForgeDbContext(DbContextOptions<CMIForgeDbContext> options) : Db
                 .HasOne(x => x.ToParty)
                 .WithMany(x => x.InboundRelationships)
                 .HasForeignKey(x => x.ToPartyId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<RelationshipType>(entity =>
+        {
+            entity.Property(x => x.Scope).HasMaxLength(40);
+            entity.Property(x => x.Key).HasMaxLength(80);
+            entity.Property(x => x.Name).HasMaxLength(120);
+            entity.Property(x => x.Description).HasMaxLength(500);
+            entity.HasIndex(x => new { x.Scope, x.Key }).IsUnique();
+            entity.HasIndex(x => new { x.IsActive, x.Scope, x.Name });
+        });
+
+        modelBuilder.Entity<EntityRelationship>(entity =>
+        {
+            entity.Property(x => x.FromEntityType).HasMaxLength(40);
+            entity.Property(x => x.ToEntityType).HasMaxLength(40);
+            entity.Property(x => x.Notes).HasMaxLength(1000);
+            entity.HasIndex(x => new { x.FromEntityType, x.FromEntityId });
+            entity.HasIndex(x => new { x.ToEntityType, x.ToEntityId });
+            entity.HasIndex(x => new { x.FromEntityType, x.FromEntityId, x.ToEntityType, x.ToEntityId, x.RelationshipTypeId }).IsUnique();
+            entity
+                .HasOne(x => x.RelationshipType)
+                .WithMany(x => x.Relationships)
+                .HasForeignKey(x => x.RelationshipTypeId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 

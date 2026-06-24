@@ -31,6 +31,8 @@ public class DetailsModel(
 
     public List<ConflictResultDisplayItem> Results { get; private set; } = [];
 
+    public List<string> SearchTermItems { get; private set; } = [];
+
     public RecordPage ResultPagination { get; private set; } = RecordPage.Empty;
 
     public Dictionary<string, string> ResultRouteValues { get; private set; } = [];
@@ -57,6 +59,9 @@ public class DetailsModel(
 
     [BindProperty]
     public string AdditionalSearchTerms { get; set; } = string.Empty;
+
+    [BindProperty]
+    public List<string> SearchTerms { get; set; } = [];
 
     [BindProperty]
     public Guid EscalatedToUserId { get; set; }
@@ -235,7 +240,20 @@ public class DetailsModel(
 
         try
         {
-            await conflictSearchService.RerunSearchAsync(id, AdditionalSearchTerms);
+            var revisedTerms = SearchTerms
+                .SelectMany(ConflictSearchService.SplitSearchTerms)
+                .Concat(ConflictSearchService.SplitSearchTerms(AdditionalSearchTerms))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (revisedTerms.Count == 0)
+            {
+                ModelState.AddModelError(string.Empty, "Add at least one conflict search term before re-running the search.");
+                await LoadSearchAsync(id);
+                return Page();
+            }
+
+            await conflictSearchService.RerunSearchAsync(id, null, revisedTerms);
         }
         catch (Exception ex)
         {
@@ -267,6 +285,8 @@ public class DetailsModel(
 
         if (Search is not null)
         {
+            SearchTermItems = ConflictSearchService.SplitSearchTerms(Search.SearchTerms);
+
             UserOptions = await db.Users
                 .AsNoTracking()
                 .Where(x => x.IsActive && !x.IsArchived)

@@ -71,6 +71,7 @@
                 <colgroup>
                     <col class="mf-field-col-order" />
                     <col class="mf-field-col-section" />
+                    <col class="mf-field-col-section" />
                     <col class="mf-field-col-label" />
                     <col class="mf-field-col-key" />
                     <col class="mf-field-col-type" />
@@ -83,6 +84,7 @@
                     <tr>
                         <th>Order</th>
                         <th>Section</th>
+                        <th>Visible teams</th>
                         <th>Label</th>
                         <th>Key</th>
                         <th>Type</th>
@@ -104,6 +106,9 @@
                             </td>
                             <td>
                                 <input class="form-control" asp-for="Input.Fields[i].Section" placeholder="Client" data-field-section />
+                            </td>
+                            <td>
+                                <input class="form-control" asp-for="Input.Fields[i].SectionVisibleTeams" placeholder="Blank = everyone" />
                             </td>
                             <td>
                                 <input class="form-control" asp-for="Input.Fields[i].Label" data-field-label />
@@ -145,6 +150,7 @@
                     <button class="btn btn-outline-danger btn-sm" type="button" data-remove-field>Remove</button>
                 </td>
                 <td><input class="form-control" name="Input.Fields[__index__].Section" placeholder="General" data-field-section /></td>
+                <td><input class="form-control" name="Input.Fields[__index__].SectionVisibleTeams" placeholder="Blank = everyone" /></td>
                 <td><input class="form-control" name="Input.Fields[__index__].Label" data-field-label /></td>
                 <td><input class="form-control" name="Input.Fields[__index__].Key" data-field-key /></td>
                 <td>

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -8,10 +9,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CMIForge.Services;
 
-public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveService archiveService, IConfiguration? configuration = null)
+public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveService archiveService, IConfiguration? configuration = null, SystemTelemetryService? telemetry = null)
 {
     public ConflictSearchService(CMIForgeDbContext db)
-        : this(db, new ConflictSearchArchiveService(db), null)
+        : this(db, new ConflictSearchArchiveService(db), null, null)
     {
     }
 
@@ -99,12 +100,15 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
 
     public async Task RunSearchAsync(ConflictSearch search, bool includeHistory = true)
     {
+        var stopwatch = Stopwatch.StartNew();
+        var termCount = 0;
         if (search.ArchivedAt.HasValue)
         {
             await archiveService.RemoveArchiveAsync(search.Id);
         }
 
         var terms = SplitSearchTerms(search.SearchTerms);
+        termCount = terms.Count;
         search.NormalizedTerms = string.Join(Environment.NewLine, terms.Select(NormalizeName));
         search.Status = ConflictSearchStatuses.PendingReview;
         search.ReviewerDecision = ConflictSearchDecisions.Pending;
@@ -142,6 +146,8 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         }
 
         search.AiSummary = BuildAiSummary(search, terms);
+        stopwatch.Stop();
+        telemetry?.RecordConflictSearch(termCount, search.Results.Count, stopwatch.ElapsedMilliseconds);
     }
 
     private async Task AddFullScanResultsAsync(
@@ -942,7 +948,7 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
         return result;
     }
 
-    public async Task RerunSearchAsync(Guid searchId, string? additionalTerms)
+    public async Task RerunSearchAsync(Guid searchId, string? additionalTerms, IEnumerable<string>? revisedTerms = null)
     {
         var existingSearch = await db.ConflictSearches
             .AsNoTracking()
@@ -952,7 +958,9 @@ public class ConflictSearchService(CMIForgeDbContext db, ConflictSearchArchiveSe
             return;
         }
 
-        var existingTerms = SplitSearchTerms(existingSearch.SearchTerms);
+        var existingTerms = revisedTerms is null
+            ? SplitSearchTerms(existingSearch.SearchTerms)
+            : revisedTerms.SelectMany(SplitSearchTerms).ToList();
         var newTerms = SplitSearchTerms(additionalTerms ?? string.Empty);
         var combinedTerms = existingTerms
             .Concat(newTerms)

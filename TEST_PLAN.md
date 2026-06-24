@@ -138,18 +138,21 @@ Steps:
    - email
 3. Open Gabe's user detail record.
 4. Confirm the page shows direct roles, team membership, and lead-partner matters if any are assigned.
-5. Open `/Security`.
-6. Open `/Security/Teams`.
-7. Open `/Security/Dashboards`.
-8. Confirm Firm Admin has an Administrator role grant and Matter Partner has a Partner role grant.
-9. Add a dashboard visibility grant to a test user, team, or role, then remove it.
-10. Open `/Security/Impersonation`.
-11. If the current user has `System.ImpersonateUsers`, choose a different active user and start impersonation.
-12. Confirm the impersonation banner appears, then stop impersonation from the banner or page.
-13. Open `My Profile` from the top navigation user control.
-14. Select `Large`, save, and confirm the app reloads with larger text.
-15. Return to `My Profile`, select `Standard`, save, and confirm text returns to the default size.
-16. Review seeded teams such as:
+5. Add a user-to-user relationship, such as Manager or Secretary, using the target user's system ID.
+6. Add a user-to-entity relationship, such as Matter Partner or Relationship Manager, using an entity record number.
+7. Confirm both relationship rows appear and can be deleted by a security admin.
+8. Open `/Security`.
+9. Open `/Security/Teams`.
+10. Open `/Security/Dashboards`.
+11. Confirm Firm Admin has an Administrator role grant and Matter Partner has a Partner role grant.
+12. Add a dashboard visibility grant to a test user, team, or role, then remove it.
+13. Open `/Security/Impersonation`.
+14. If the current user has `System.ImpersonateUsers`, choose a different active user and start impersonation.
+15. Confirm the impersonation banner appears, then stop impersonation from the banner or page.
+16. Open `My Profile` from the top navigation user control.
+17. Select `Large`, save, and confirm the app reloads with larger text.
+18. Return to `My Profile`, select `Standard`, save, and confirm text returns to the default size.
+19. Review seeded teams such as:
    - `Admins`
    - `Intake Team`
    - `CDD Team`
@@ -162,6 +165,7 @@ Expected results:
 - Dashboard access can be assigned by user, team, or role without code changes.
 - Gabe appears wired into the seeded admin/intake setup.
 - Users with the Partner role can appear in lead-partner pickers.
+- User relationships can represent user-to-user links such as Manager/Secretary and user-to-entity links such as Matter Partner/Relationship Manager.
 - Archived users are hidden from normal pickers and can be restored from System -> Archive.
 - User impersonation is available only to authorized admins, changes the effective current user for permissions/routing, and shows a visible banner while active.
 - Starting and stopping impersonation writes audit-log entries that keep the actual signed-in user as the actor.
@@ -188,6 +192,9 @@ Steps:
 11. Submit a client change request moving status from `Compliance Review` to `Active`; first try without request notes, then add notes and submit.
 12. Approve the change request from `/Entities/Approvals`.
 13. Return to `/Entities/Clients` and search by alias text.
+14. From the client detail page, add a relationship to another client, matter, party, contact, or user by entering its record number or GUID, choose a matching relationship type, and save.
+15. Confirm the relationship appears in the Relationships panel and links to the related record.
+16. Delete the test relationship.
 
 Expected results:
 
@@ -198,6 +205,7 @@ Expected results:
 - The client detail page has one Aliases panel containing both the add-alias controls and existing aliases.
 - Client aliases can be added, edited, and deleted by users with entity edit rights.
 - Adding a duplicate normalized client alias shows a validation error instead of silently doing nothing.
+- Client relationships can be added and deleted without affecting the older party relationship records used for conflict expansion.
 - The detail page shows related matters, linked contacts, and related parties derived from the client's matters.
 - Direct-created clients default to `Compliance Review` and show a compliance-review warning.
 - Moving a client from `Compliance Review` to `Active` requires request notes and creates an `EntityComplianceReviewed` audit entry when approved.

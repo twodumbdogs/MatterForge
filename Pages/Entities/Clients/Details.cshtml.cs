@@ -4,6 +4,7 @@ using CMIForge.Services;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace CMIForge.Pages.Entities.Clients;
@@ -14,6 +15,7 @@ public class DetailsModel(
     EntityNoteService entityNoteService,
     CurrentUserService currentUserService,
     AuditLogService auditLogService,
+    EntityRelationshipService relationshipService,
     ExternalFormInviteTrackingService inviteTrackingService) : PageModel
 {
     public Client? Client { get; private set; }
@@ -28,6 +30,12 @@ public class DetailsModel(
 
     public List<ExternalFormInviteTrackingRow> RecentInviteSends { get; private set; } = [];
 
+    public List<EntityRelationshipDisplayRow> Relationships { get; private set; } = [];
+
+    public List<SelectListItem> RelationshipTypeOptions { get; private set; } = [];
+
+    public List<SelectListItem> RelationshipTargetTypeOptions { get; private set; } = [];
+
     public bool CanEditEntities { get; private set; }
 
     [BindProperty]
@@ -38,6 +46,9 @@ public class DetailsModel(
 
     [BindProperty]
     public ClientAliasEditInput AliasEditInput { get; set; } = new();
+
+    [BindProperty]
+    public EntityRelationshipInput RelationshipInput { get; set; } = new();
 
     public async Task OnGetAsync(Guid id)
     {
@@ -171,6 +182,68 @@ public class DetailsModel(
         return RedirectToPage(new { id });
     }
 
+    public async Task<IActionResult> OnPostRelationshipAsync(Guid id)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.EntitiesEdit))
+        {
+            return Forbid();
+        }
+
+        await LoadPageAsync(id);
+        if (Client is null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            await relationshipService.AddRelationshipAsync(EntityRelationshipEntityTypes.Client, id, RelationshipInput);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ModelState.AddModelError(string.Empty, ex.Message);
+            return Page();
+        }
+
+        await auditLogService.LogAsync(
+            "Client.RelationshipAdded",
+            "Client",
+            id,
+            Client.ClientNumber.ToString("D8"),
+            $"Added relationship for {Client.Name}.");
+
+        return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostDeleteRelationshipAsync(Guid id, Guid relationshipId)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.EntitiesEdit))
+        {
+            return Forbid();
+        }
+
+        var client = await db.Clients.FirstOrDefaultAsync(x => x.Id == id);
+        if (client is null)
+        {
+            return NotFound();
+        }
+
+        var deleted = await relationshipService.DeleteRelationshipAsync(EntityRelationshipEntityTypes.Client, id, relationshipId);
+        if (!deleted)
+        {
+            return NotFound();
+        }
+
+        await auditLogService.LogAsync(
+            "Client.RelationshipDeleted",
+            "Client",
+            id,
+            client.ClientNumber.ToString("D8"),
+            $"Deleted relationship for {client.Name}.");
+
+        return RedirectToPage(new { id });
+    }
+
     public async Task<IActionResult> OnPostNoteAsync(Guid id)
     {
         var clientExists = await db.Clients.AnyAsync(x => x.Id == id);
@@ -235,6 +308,10 @@ public class DetailsModel(
     private async Task LoadPageAsync(Guid id)
     {
         CanEditEntities = await permissionService.HasAsync(PermissionKeys.EntitiesEdit);
+        RelationshipTargetTypeOptions = relationshipService.GetTargetEntityTypeOptions(EntityRelationshipEntityTypes.Client);
+        RelationshipTypeOptions = await relationshipService.GetRelationshipTypeOptionsAsync(
+            RelationshipScopes.EntityEntity,
+            RelationshipScopes.EntityUser);
         Client = await db.Clients
             .Include(x => x.Aliases)
             .Include(x => x.Matters)
@@ -279,6 +356,10 @@ public class DetailsModel(
         RecentInviteSends = Client is null
             ? []
             : await inviteTrackingService.ListForClientAsync(id);
+
+        Relationships = Client is null
+            ? []
+            : await relationshipService.ListForEntityAsync(EntityRelationshipEntityTypes.Client, id);
     }
 
     private bool ValidateAliasInput(ClientAliasInput input, string modelPrefix)

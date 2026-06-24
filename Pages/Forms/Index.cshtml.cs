@@ -20,9 +20,12 @@ public class IndexModel(
 
     public bool CanSubmitForms { get; private set; }
 
+    public bool CanManageFormWorkflowDefinitions { get; private set; }
+
     public async Task OnGetAsync()
     {
         CanSubmitForms = await permissionService.HasAsync(PermissionKeys.FormsSubmit);
+        CanManageFormWorkflowDefinitions = await permissionService.HasAsync(PermissionKeys.FormsWorkflowsAdmin);
 
         Forms = await db.FormDefinitions
             .Include(x => x.Versions)
@@ -46,6 +49,46 @@ public class IndexModel(
                 Completed = x.Count(invite => invite.Status == ExternalFormInviteStatuses.Completed)
             })
             .ToDictionaryAsync(x => x.FormDefinitionId, x => new InviteCountSummary(x.Open, x.Completed));
+    }
+
+    public async Task<IActionResult> OnPostDeleteAsync(Guid id)
+    {
+        if (!await permissionService.HasAsync(PermissionKeys.FormsWorkflowsAdmin))
+        {
+            return Forbid();
+        }
+
+        var form = await db.FormDefinitions
+            .FirstOrDefaultAsync(x => x.Id == id && x.IsActive);
+        if (form is null)
+        {
+            return NotFound();
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var openInvites = await db.ExternalFormInvites
+            .Where(x => x.FormDefinitionId == id &&
+                x.Status == ExternalFormInviteStatuses.Open &&
+                x.ExpiresAt > now)
+            .ToListAsync();
+        foreach (var invite in openInvites)
+        {
+            invite.Status = ExternalFormInviteStatuses.Revoked;
+            invite.UpdatedAt = now;
+        }
+
+        form.IsActive = false;
+        form.UpdatedAt = now;
+        await db.SaveChangesAsync();
+        await auditLogService.LogAsync(
+            "Form.Retired",
+            "FormDefinition",
+            form.Id,
+            form.Key,
+            $"Retired form {form.Name}.",
+            new { RevokedOpenInviteCount = openInvites.Count });
+
+        return RedirectToPage("./Index");
     }
 
     public async Task<IActionResult> OnPostCopyAsync(Guid id)

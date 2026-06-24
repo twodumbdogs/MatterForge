@@ -32,7 +32,7 @@ The repo also now includes a Customer 0 deployment slice for a real, non-demo te
 - Submission queue and detail view
 - Role-oriented dashboard views for firm admins, individual users, and matter partners
 - Dashboard visibility grants by user, team, or role from Security
-- Clients, matters, contacts, users, parties, aliases, and relationships
+- Clients, matters, contacts, users, parties, aliases, and configurable relationship records
 - Native conflicts search with deterministic AI-style explanations
 - Azure SQL full-text candidate indexing for larger conflict-search datasets, backed by `ConflictSearchDocuments`
 - Azure AI Search Basic proof-of-tech indexes for demo and Customer 0 conflict-search documents plus entity-directory search
@@ -76,6 +76,7 @@ This wrap-up records the current live-app working agreement and the latest polis
 - Enhancement requests now behave as a tenant-local firm queue: all signed-in users in the same firm can see the active firm requests and add/remove a support vote, while admins can still triage status and internal notes.
 - Client aliases are now first-class records on client create/detail screens, editable after creation, shown on the client list, and included in conflict matching. Party aliases are also editable/removable from party details.
 - Entity detail screens are better aligned: client, matter, party, and contact pages now surface related children/relationships in consistent side panels, including matter time entries, related parties, related contacts, client/matter links, and matter roles.
+- Generic relationship records now exist beside the older party-to-party conflict-search relationships. Starter `RelationshipTypes` cover `Entity_Entity`, `Entity_User`, and `User_User`; client and user detail pages can add/delete relationships by target record number or GUID.
 - Direct-created clients, matters, and parties now default to `Compliance Review` and show guidance/warnings until reviewed. Moving a client to `Active` or a matter to `Open` requires change-request notes and writes a separate compliance-reviewed audit event when approved.
 - Published forms can now be sent to saved contacts as secure, expiring external intake links. The raw invite token is never stored, the external page uses a minimal client-safe layout, completed links become normal form submissions, and email-enabled tenants can queue the invite through the Email Outbox while non-email tenants get a copyable link. Recent send panels now show queued/sent/opened/completed tracking on the form, contact, client, and matter pages, and resend creates a fresh tracked link while revoking the old uncompleted invite.
 - Inbound email intake now has the first real app lane: tenant settings define the Graph mailbox, tenant inbound address, allowed sender domains, and default form key; unread trusted messages with `Client: Acme Corp` or `Client: Acme Corp; Matter: Lease Review` create normal reviewable submissions and copy supported attachments into the private submission attachment store. Blank or omitted `Matter:` is allowed so the reviewer can create/link only a client.

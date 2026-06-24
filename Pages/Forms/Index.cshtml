@@ -60,15 +60,34 @@
                                 <span class="badge text-bg-success">@(inviteCounts?.Completed ?? 0) done</span>
                             </td>
                             <td class="text-end">
-                                <a class="btn btn-sm btn-outline-secondary" asp-page="./Edit" asp-route-id="@form.Id">Edit</a>
-                                <form method="post" asp-page-handler="Copy" asp-route-id="@form.Id" class="d-inline">
-                                    <button class="btn btn-sm btn-outline-secondary" type="submit">Copy</button>
-                                </form>
-                                @if (Model.CanSubmitForms)
-                                {
-                                    <a class="btn btn-sm btn-outline-primary" asp-page="./Submit" asp-route-id="@form.Id">Fill</a>
-                                    <a class="btn btn-sm btn-primary" asp-page="./Send" asp-route-id="@form.Id">Send</a>
-                                }
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Options
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" asp-page="./Edit" asp-route-id="@form.Id">Edit</a></li>
+                                        <li>
+                                            <form method="post" asp-page-handler="Copy" asp-route-id="@form.Id">
+                                                <button class="dropdown-item" type="submit">Copy</button>
+                                            </form>
+                                        </li>
+                                        @if (Model.CanSubmitForms)
+                                        {
+                                            <li><hr class="dropdown-divider" /></li>
+                                            <li><a class="dropdown-item" asp-page="./Submit" asp-route-id="@form.Id">Fill</a></li>
+                                            <li><a class="dropdown-item" asp-page="./Send" asp-route-id="@form.Id">Send</a></li>
+                                        }
+                                        @if (Model.CanManageFormWorkflowDefinitions)
+                                        {
+                                            <li><hr class="dropdown-divider" /></li>
+                                            <li>
+                                                <form method="post" asp-page-handler="Delete" asp-route-id="@form.Id" onsubmit="return confirm('Retire this form? Existing submissions stay available, but the form will no longer be available for new submissions and open client links will be revoked.');">
+                                                    <button class="dropdown-item text-danger" type="submit">Delete</button>
+                                                </form>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
                             </td>
                         </tr>
                     }
